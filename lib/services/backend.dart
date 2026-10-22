@@ -25,6 +25,7 @@ import 'dashboard_service.dart';
 import 'email_service.dart';
 import 'exercise_service.dart';
 import 'gemini_client.dart';
+import 'google_auth_service.dart';
 import 'library_service.dart';
 import 'media_storage.dart';
 import 'notification_service.dart';
@@ -189,6 +190,7 @@ class Backend {
       geminiApiKey: geminiApiKey,
       hfToken: hfToken,
     );
+    googleAuth = GoogleAuthService();
     email = EmailService(
       this,
       serviceId: emailJsServiceId,
@@ -316,6 +318,7 @@ class Backend {
   late final ProductAiService productAi;
   late final CommunityService community;
   late final SentimentService sentiment;
+  late final GoogleAuthService googleAuth;
   late final EmailService email;
   late final CheckInService checkIn;
   late final MediaStorage media;

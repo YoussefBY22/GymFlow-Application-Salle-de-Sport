@@ -8,9 +8,11 @@ import '../../core/theme.dart';
 import '../../core/validators.dart';
 import '../../models/enums.dart';
 import '../../services/backend.dart';
+import '../../services/google_auth_service.dart';
 import '../../services/seed/seed_service.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/common.dart';
+import '../../widgets/google_sign_in_button.dart';
 
 /// En-tête marine commun aux écrans d'authentification.
 class _AuthHeader extends StatelessWidget {
@@ -94,6 +96,31 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       final user = await Backend.I.auth.login(_email.text, _password.text);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.afterLogin(user),
+        (_) => false,
+      );
+    } catch (e) {
+      if (mounted) setState(() => _banner = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Google a vérifié l'identité : on ouvre le compte correspondant, ou on
+  /// en crée un si c'est une première connexion.
+  Future<void> _googleSignIn(GoogleIdentity identity) async {
+    setState(() {
+      _loading = true;
+      _banner = null;
+    });
+    try {
+      final user = await Backend.I.auth.signInWithGoogle(
+        email: identity.email,
+        displayName: identity.displayName,
+      );
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -210,6 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         loading: _loading,
                         onPressed: _submit,
                       ),
+                      GoogleSignInButton(onSignedIn: _googleSignIn),
                       const SizedBox(height: Gap.m),
                       Wrap(
                         alignment: WrapAlignment.center,

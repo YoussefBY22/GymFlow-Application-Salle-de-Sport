@@ -48,6 +48,18 @@ class AppConfig {
     'EMAILJS_PUBLIC_KEY',
   );
 
+  /// Connexion avec Google : identifiant du client **Web** de la console
+  /// Google Cloud. Il sert aussi sur Android (`serverClientId`) ; le client
+  /// Android, lui, est reconnu par le nom du paquet et l'empreinte de
+  /// signature, sans rien à écrire ici. Ce n'est pas un secret : il est
+  /// visible dans toute page web qui propose la connexion Google.
+  /// Absent : le bouton « Continuer avec Google » n'est pas affiché.
+  static const String googleClientId = String.fromEnvironment(
+    'GOOGLE_CLIENT_ID',
+  );
+
+  static bool get googleSignInEnabled => googleClientId.trim().isNotEmpty;
+
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 
   /// Jeton Hugging Face (analyse de sentiment des avis), passé comme la

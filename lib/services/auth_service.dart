@@ -162,6 +162,13 @@ class AuthService extends ChangeNotifier {
       );
     }
 
+    return _startSession(user, cred);
+  }
+
+  /// Ouvre la session : jeton de session, horodatage de connexion et
+  /// remise à zéro des tentatives. Commun à la connexion par mot de passe
+  /// et à la connexion avec Google.
+  Future<AppUser> _startSession(AppUser user, Credential cred) async {
     final token = newSessionToken();
     await _b.credentials.save(
       cred.copyWith(
@@ -172,13 +179,95 @@ class AuthService extends ChangeNotifier {
     );
     await _b.sessionStorage.write(_tokenKey, token);
     await _b.sessionStorage.write(_userKey, user.id);
-    final updated = await _b.users.save(user.copyWith(lastLoginAt: now));
+    final updated = await _b.users.save(
+      user.copyWith(lastLoginAt: _b.now()),
+    );
     _current = updated;
     pendingMessage = null;
     notifyListeners();
     _b.bus.emit();
     return updated;
   }
+
+  /// Connexion à partir d'une identité **déjà vérifiée par Google**.
+  ///
+  /// L'adresse fait foi : si un compte existe avec cette adresse, on s'y
+  /// connecte (le compte reste le même, qu'on entre par mot de passe ou
+  /// par Google) ; sinon un compte abonné est créé.
+  ///
+  /// Aucun mot de passe n'est choisi par la personne : le compte reçoit un
+  /// mot de passe aléatoire que personne ne connaît, de sorte que la
+  /// connexion par mot de passe reste impossible tant qu'elle n'en a pas
+  /// défini un par « Mot de passe oublié ».
+  Future<AppUser> signInWithGoogle({
+    required String email,
+    required String displayName,
+  }) async {
+    final clean = email.trim().toLowerCase();
+    if (Validators.email(clean) != null) {
+      throw const ValidationException(
+        'Adresse e-mail invalide communiquée par Google.',
+      );
+    }
+    final existing = _findByEmail(clean);
+    if (existing != null) {
+      if (!existing.active) {
+        throw const BusinessRuleException(
+          'Ce compte a été désactivé par la salle. Contactez l\'accueil.',
+        );
+      }
+      var cred = _b.credentials.byId(existing.id);
+      if (cred == null) {
+        await setPassword(existing.id, _randomPassword());
+        cred = _b.credentials.byId(existing.id)!;
+      }
+      // Un verrouillage pour essais ratés ne bloque pas Google : le mot de
+      // passe n'est pas en jeu ici, c'est Google qui a authentifié.
+      return _startSession(existing, cred);
+    }
+
+    final now = _b.now();
+    final name = displayName.trim().isEmpty
+        ? clean.split('@').first
+        : displayName.trim();
+    final user = AppUser(
+      id: IdGen.next('u_'),
+      email: clean,
+      fullName: Validators.name(name) == null ? name : 'Membre GymFlow',
+      role: UserRole.member,
+      gender: Gender.female,
+      goal: Goal.fitness,
+      createdAt: now,
+      subscription: Subscription(
+        type: SubscriptionType.trial,
+        start: now,
+        end: now.add(const Duration(days: 7)),
+      ),
+    );
+    await _b.users.save(user);
+    await setPassword(user.id, _randomPassword());
+    await _b.notifications.notify(
+      user.id,
+      NotificationType.system,
+      'Bienvenue chez GymFlow !',
+      'Votre essai gratuit de 7 jours commence aujourd\'hui. '
+          'Complétez votre profil pour des conseils adaptés.',
+    );
+    return _startSession(user, _b.credentials.byId(user.id)!);
+  }
+
+  /// Mot de passe aléatoire, jamais communiqué : il n'existe que pour
+  /// porter la session d'un compte créé par Google.
+  String _randomPassword() {
+    final r = Random.secure();
+    return List.generate(
+      40,
+      (_) => _passwordAlphabet[r.nextInt(_passwordAlphabet.length)],
+    ).join();
+  }
+
+  static const _passwordAlphabet =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
   Future<AppUser> register({
     required String fullName,
