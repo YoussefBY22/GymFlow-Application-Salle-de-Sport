@@ -1,6 +1,6 @@
 # GymFlow
 
-Application mobile Flutter de la salle de sport **GymFlow** (super admin, coachs, abonnés), style Strava, en français, devise TND.
+Application mobile Flutter de la salle de sport **GymFlow** (super admin, coachs, abonnés), en français, devise TND.
 Données stockées localement (SQLite) : aucune configuration serveur n'est nécessaire, un jeu de démonstration réaliste est chargé au premier lancement.
 
 - `PROGRESS.md` : avancement par module · `DECISIONS.md` : choix et sources · `ASSETS.md` : origine et licence des médias · `SECURITE_CONFIDENTIALITE.md` : partage des données, consentements, conformité (Tunisie, UE) et points à auditer.
