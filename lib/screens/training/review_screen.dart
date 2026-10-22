@@ -42,8 +42,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
   // État pour l'analyse locale
   String? _localScanResult;
 
+  /// Contenu du champ « Motif communiqué à l'auteur ». Un contrôleur est
+  /// nécessaire : `initialValue` n'est lu qu'au premier affichage, donc le
+  /// motif rédigé par l'IA n'apparaissait pas dans le champ.
+  final TextEditingController _reason = TextEditingController();
+
   @override
   void dispose() {
+    _reason.dispose();
     _localAI.dispose();
     super.dispose();
   }
@@ -67,6 +73,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
       if (mounted) {
         setState(() {
           _aiGeneratedReason = reason;
+          _reason.text = reason;
           _isGeneratingReason = false;
         });
       }
@@ -92,6 +99,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     // On réinitialise l'IA avant d'ouvrir le dialogue
     _aiGeneratedReason = null;
     _localScanResult = null;
+    _reason.clear();
 
     final reason = await showDialog<String>(
       context: context,
@@ -160,7 +168,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 const Spacer(),
                                 TextButton(
                                   onPressed: () async {
-                                    await _analyzeTextWithLocalAI(_aiGeneratedReason ?? "");
+                                    await _analyzeTextWithLocalAI(_reason.text);
                                     setStateDialog(() {});
                                   },
                                   child: const Text("Analyser"),
@@ -185,16 +193,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     const Text("Motif communiqué à l'auteur :"),
                     const SizedBox(height: 8),
                     TextFormField(
-                      initialValue: _aiGeneratedReason, // Pré-rempli si l'IA a généré
+                      controller: _reason,
                       maxLines: 3,
                       decoration: const InputDecoration(
                         hintText: 'Ex. ajoutez une étape, précisez le repos…',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (value) {
-                        // On garde une trace de ce que l'utilisateur tape
-                        _aiGeneratedReason = value; 
-                      },
                     ),
                   ],
                 ),
@@ -206,7 +210,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context, _aiGeneratedReason);
+                    Navigator.pop(context, _reason.text);
                   },
                   child: const Text("Envoyer le refus"),
                 ),

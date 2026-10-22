@@ -41,10 +41,18 @@ class GeminiClient {
       'Le service d\'IA est momentanément saturé (trop de demandes chez '
       'Google). Réessayez dans quelques secondes.';
 
-  /// Délai maximum d'un appel, et pause avant la seconde passe. Mis à zéro
-  /// dans les tests pour ne pas les ralentir.
-  Duration timeout = const Duration(seconds: 25);
+  /// Délai maximum d'un appel. Une réponse normale arrive en 1 à 3 s :
+  /// au-delà de 10 s, le service est saturé et un autre modèle a plus de
+  /// chances d'aboutir que l'attente.
+  Duration timeout = const Duration(seconds: 10);
+
+  /// Pause avant la seconde passe (mise à zéro dans les tests).
   Duration retryDelay = const Duration(seconds: 2);
+
+  /// Attente totale acceptable pour l'utilisateur : passé ce délai, on ne
+  /// lance plus de nouvelle tentative et on affiche un message clair
+  /// plutôt que de laisser tourner indéfiniment.
+  Duration budget = const Duration(seconds: 24);
 
   /// Envoie la consigne système et les messages ; `json` demande une
   /// réponse au format JSON, `schema` en fixe la structure (sortie
@@ -75,13 +83,16 @@ class GeminiClient {
     // répond 503 « high demand » sur un modèle puis l'accepte quelques
     // secondes plus tard. Sans cette seconde passe, la fonctionnalité
     // échouait alors que le service était simplement momentanément saturé.
+    final started = DateTime.now();
     var overloaded = false;
+    bool timeLeft() => DateTime.now().difference(started) < budget;
     for (var pass = 0; pass < 2; pass++) {
       if (pass == 1) {
-        if (!overloaded) break;
+        if (!overloaded || !timeLeft()) break;
         await Future<void>.delayed(retryDelay);
       }
       for (final model in AppConfig.geminiModels) {
+        if (!timeLeft()) break;
         try {
           final res = await _http
               .post(
