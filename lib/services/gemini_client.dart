@@ -85,7 +85,8 @@ class GeminiClient {
     // échouait alors que le service était simplement momentanément saturé.
     final started = DateTime.now();
     var overloaded = false;
-    bool timeLeft() => DateTime.now().difference(started) < budget;
+    Duration left() => budget - DateTime.now().difference(started);
+    bool timeLeft() => left() > const Duration(seconds: 1);
     for (var pass = 0; pass < 2; pass++) {
       if (pass == 1) {
         if (!overloaded || !timeLeft()) break;
@@ -105,7 +106,9 @@ class GeminiClient {
                 },
                 body: body,
               )
-              .timeout(timeout);
+              // Jamais au-delà du temps restant : l'attente totale reste
+              // bornée même si le dernier essai part juste avant la limite.
+              .timeout(timeout < left() ? timeout : left());
           if (res.statusCode == 429) {
             return const GeminiReply.error(quotaMessage);
           }
