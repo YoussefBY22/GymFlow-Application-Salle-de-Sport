@@ -1,5 +1,6 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:gymflow/repositories/data_store.dart';
 import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/services/payment/payment_gateway.dart';
@@ -27,12 +28,15 @@ Future<Backend> makeBackend({
     notifier: RecordingNotifier(),
     calendar: NoopCalendar(),
     clock: () => current,
-    httpClient: httpClient,
     passwordIterations: 60,
     payment: SimulatedPaymentGateway(latency: Duration.zero),
     seed: seed,
+    // Jamais de vrai réseau dans les tests : FormSubmit (email par défaut,
+    // sans clé) enverrait sinon de vrais emails à chaque réservation.
+    httpClient: httpClient ?? offlineEmailClient(),
   );
   b.clock = () => current;
+  b.email.retryDelay = Duration.zero;
   _setNow = (d) => current = d;
   return b;
 }
@@ -49,4 +53,11 @@ Future<void> loginAs(Backend b, String email) => b.auth.login(
       : ['amira', 'mehdi', 'sarra'].any(email.startsWith)
       ? 'Coach2026!'
       : 'Membre2026!',
+);
+
+/// Client HTTP des tests par défaut : répond comme FormSubmit (succès)
+/// sans aucun accès réseau.
+http.Client offlineEmailClient() => MockClient(
+  (_) async =>
+      http.Response('{"success":"true","message":"test hors ligne"}', 200),
 );

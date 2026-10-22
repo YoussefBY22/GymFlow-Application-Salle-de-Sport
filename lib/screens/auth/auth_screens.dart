@@ -528,7 +528,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       // s'affiche à l'écran comme avant (démonstration).
       final emailed =
           code == null ||
-          await Backend.I.mailer.sendResetCode(_email.text, code);
+          await Backend.I.email.sendResetCode(_email.text, code);
       if (!mounted) return;
       setState(() => _codeSent = true);
       if (emailed) {
