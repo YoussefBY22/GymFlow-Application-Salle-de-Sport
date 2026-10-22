@@ -41,18 +41,18 @@ class GeminiClient {
       'Le service d\'IA est momentanément saturé (trop de demandes chez '
       'Google). Réessayez dans quelques secondes.';
 
-  /// Délai maximum d'un appel. Une réponse normale arrive en 1 à 3 s :
-  /// au-delà de 10 s, le service est saturé et un autre modèle a plus de
-  /// chances d'aboutir que l'attente.
-  Duration timeout = const Duration(seconds: 10);
+  /// Délai maximum d'un appel. Une réponse normale arrive en 1 à 3 s, mais
+  /// aux heures de forte charge Google met une vingtaine de secondes :
+  /// couper plus tôt empêcherait toute réponse ces jours-là.
+  Duration timeout = const Duration(seconds: 20);
 
   /// Pause avant la seconde passe (mise à zéro dans les tests).
   Duration retryDelay = const Duration(seconds: 2);
 
-  /// Attente totale acceptable pour l'utilisateur : passé ce délai, on ne
-  /// lance plus de nouvelle tentative et on affiche un message clair
-  /// plutôt que de laisser tourner indéfiniment.
-  Duration budget = const Duration(seconds: 24);
+  /// Attente totale acceptable pour l'utilisateur : passé ce délai, plus
+  /// aucune tentative n'est lancée et un message clair s'affiche, au lieu
+  /// de laisser tourner indéfiniment. Laisse la place à deux modèles.
+  Duration budget = const Duration(seconds: 45);
 
   /// Envoie la consigne système et les messages ; `json` demande une
   /// réponse au format JSON, `schema` en fixe la structure (sortie

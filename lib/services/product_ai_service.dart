@@ -56,11 +56,17 @@ class ProductAiService {
       throw const ValidationException('Saisissez d\'abord le nom du produit.');
     }
     // Le modèle léger oublie parfois les accents : une seule nouvelle
-    // demande si la description n'en contient aucun.
+    // demande si la description n'en contient aucun. Cette seconde demande
+    // est abandonnée si la première a déjà été lente (service saturé) :
+    // mieux vaut une description sans accents qu'une minute d'attente.
+    final started = DateTime.now();
     ListingDraft? draft;
     for (var attempt = 0; attempt < 2; attempt++) {
       draft = await _requestListing(name, category, price, brand, nutrition);
       if (_accented.hasMatch(draft.description)) break;
+      if (DateTime.now().difference(started) > const Duration(seconds: 8)) {
+        break;
+      }
     }
     return draft!;
   }
