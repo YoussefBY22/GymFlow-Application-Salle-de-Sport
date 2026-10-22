@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -36,6 +37,14 @@ class GeminiClient {
   static const unreachableMessage =
       'Je n\'arrive pas à joindre l\'assistant (connexion ou service '
       'indisponible). Réessayez dans un instant.';
+  static const busyMessage =
+      'Le service d\'IA est momentanément saturé (trop de demandes chez '
+      'Google). Réessayez dans quelques secondes.';
+
+  /// Délai maximum d'un appel, et pause avant la seconde passe. Mis à zéro
+  /// dans les tests pour ne pas les ralentir.
+  Duration timeout = const Duration(seconds: 25);
+  Duration retryDelay = const Duration(seconds: 2);
 
   /// Envoie la consigne système et les messages ; `json` demande une
   /// réponse au format JSON, `schema` en fixe la structure (sortie
@@ -62,39 +71,61 @@ class GeminiClient {
         if (json && schema != null) 'responseSchema': schema,
       },
     });
-    for (final model in AppConfig.geminiModels) {
-      try {
-        final res = await _http
-            .post(
-              Uri.parse(
-                'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
-              ),
-              headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-              },
-              body: body,
-            )
-            .timeout(const Duration(seconds: 25));
-        if (res.statusCode == 429) return const GeminiReply.error(quotaMessage);
-        if (res.statusCode != 200) continue;
-        final j =
-            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-        final parts =
-            (((j['candidates'] as List?)?.first as Map?)?['content']
-                    as Map?)?['parts']
-                as List?;
-        final text = parts
-            ?.map((p) => (p as Map)['text'] ?? '')
-            .join()
-            .toString()
-            .trim();
-        if (text != null && text.isNotEmpty) return GeminiReply.text(text);
-      } catch (_) {
-        // On essaie le modèle suivant.
+    // Deux passes sur la liste des modèles : aux heures chargées, Google
+    // répond 503 « high demand » sur un modèle puis l'accepte quelques
+    // secondes plus tard. Sans cette seconde passe, la fonctionnalité
+    // échouait alors que le service était simplement momentanément saturé.
+    var overloaded = false;
+    for (var pass = 0; pass < 2; pass++) {
+      if (pass == 1) {
+        if (!overloaded) break;
+        await Future<void>.delayed(retryDelay);
+      }
+      for (final model in AppConfig.geminiModels) {
+        try {
+          final res = await _http
+              .post(
+                Uri.parse(
+                  'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent',
+                ),
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': apiKey,
+                },
+                body: body,
+              )
+              .timeout(timeout);
+          if (res.statusCode == 429) {
+            return const GeminiReply.error(quotaMessage);
+          }
+          if (res.statusCode != 200) {
+            // 503 « high demand » : surcharge passagère chez Google, le
+            // modèle vaut un second essai quelques secondes plus tard.
+            overloaded |= res.statusCode == 503;
+            continue;
+          }
+          final j =
+              jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+          final parts =
+              (((j['candidates'] as List?)?.first as Map?)?['content']
+                      as Map?)?['parts']
+                  as List?;
+          final text = parts
+              ?.map((p) => (p as Map)['text'] ?? '')
+              .join()
+              .toString()
+              .trim();
+          if (text != null && text.isNotEmpty) return GeminiReply.text(text);
+        } on TimeoutException {
+          overloaded = true;
+        } catch (_) {
+          // On essaie le modèle suivant.
+        }
       }
     }
-    return const GeminiReply.error(unreachableMessage);
+    return GeminiReply.error(
+      overloaded ? busyMessage : unreachableMessage,
+    );
   }
 
   /// Schéma d'un objet JSON dont tous les champs sont des textes requis.

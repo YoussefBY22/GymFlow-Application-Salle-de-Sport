@@ -37,6 +37,7 @@ Future<Backend> makeBackend({
   );
   b.clock = () => current;
   b.email.retryDelay = Duration.zero;
+  b.gemini.retryDelay = Duration.zero;
   _setNow = (d) => current = d;
   return b;
 }

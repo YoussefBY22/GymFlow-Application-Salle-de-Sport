@@ -170,34 +170,48 @@ class NetImage extends StatelessWidget {
     child: Icon(fallbackIcon, color: AppColors.navy, size: 36),
   );
 
+  /// Fond clair posé sous chaque image : une photo importée au format PNG
+  /// transparent, ou une image que le moteur de rendu n'a pas fini de
+  /// peindre, laisse voir ce fond crème et non un rectangle sombre.
+  Widget _onCream(Widget child) => Container(
+    width: width,
+    height: height,
+    color: AppColors.cream,
+    child: child,
+  );
+
   @override
   Widget build(BuildContext context) {
     final src = source;
     if (src == null || src.isEmpty) return _fallback();
     if (src.startsWith('http')) {
       if (!networkEnabled) return _fallback();
-      return CachedNetworkImage(
-        imageUrl: src,
-        width: width,
-        height: height,
-        fit: fit,
-        memCacheWidth: cacheWidth,
-        fadeInDuration: const Duration(milliseconds: 250),
-        placeholder: (_, _) =>
-            Skeleton(width: width, height: height, radius: 0),
-        errorWidget: (_, _, _) => _fallback(),
+      return _onCream(
+        CachedNetworkImage(
+          imageUrl: src,
+          width: width,
+          height: height,
+          fit: fit,
+          memCacheWidth: cacheWidth,
+          fadeInDuration: const Duration(milliseconds: 250),
+          placeholder: (_, _) =>
+              Skeleton(width: width, height: height, radius: 0),
+          errorWidget: (_, _, _) => _fallback(),
+        ),
       );
     }
     if (src.startsWith('assets/')) {
       return Image.asset(src, width: width, height: height, fit: fit);
     }
-    return Image.file(
-      File(src),
-      width: width,
-      height: height,
-      fit: fit,
-      cacheWidth: cacheWidth,
-      errorBuilder: (_, _, _) => _fallback(),
+    return _onCream(
+      Image.file(
+        File(src),
+        width: width,
+        height: height,
+        fit: fit,
+        cacheWidth: cacheWidth,
+        errorBuilder: (_, _, _) => _fallback(),
+      ),
     );
   }
 }
