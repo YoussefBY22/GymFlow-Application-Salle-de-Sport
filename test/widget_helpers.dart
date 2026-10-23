@@ -15,12 +15,16 @@ Future<Backend> pumpApp(
   String route = Routes.login,
   String? loginEmail,
   http.Client? httpClient,
+  String? geminiApiKey,
 }) async {
   NetImage.networkEnabled = false;
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  final b = await makeBackend(httpClient: httpClient);
+  final b = await makeBackend(
+    httpClient: httpClient,
+    geminiApiKey: geminiApiKey,
+  );
   if (loginEmail != null) await loginAs(b, loginEmail);
   await tester.pumpWidget(GymFlowApp(initialRoute: route));
   await settle(tester);

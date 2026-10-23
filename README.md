@@ -16,6 +16,15 @@ Le code est sur la branche **`GymFlow-V1`** (la branche `main` est volontairemen
 - **Cours** : *Quand ?* (aujourd'hui, demain, cette semaine…), *Jour de la semaine* en tuiles datées, *Moment de la journée*, discipline, coach, niveau, places disponibles.
 - **Favoris en tête** : un favori remonte en haut de la liste avec une animation (la carte se soulève et glisse à sa nouvelle place), le plus récent en premier.
 
+### Outils avancés d'entraînement
+Depuis l'icône **Outils avancés** de l'onglet Entraînement :
+- **Parcours piétons** : recherchez par coordonnées les parcs et espaces sportifs OpenStreetMap (Overpass), puis calculez distance, durée, instructions et dénivelé avec OpenRouteService. Ajoutez `OPENROUTESERVICE_API_KEY` à `secrets.json` pour activer le calcul d'itinéraire. Les coordonnées du club GymFlow Lac 2 sont préremplies ; la distance cible règle le rayon de recherche et ne garantit pas la distance finale.
+- **Périodisation** : construisez un cycle de 4, 6 ou 8 semaines (adaptation, progression, allègement), adapté à un objectif de force, d'endurance ou de forme générale.
+- **Charge et récupération** : renseignez votre effort ressenti (RPE) et votre fatigue après les séances. La charge session-RPE (durée × effort) compare les sept derniers jours aux trois semaines précédentes. Les plans et ressentis sont enregistrés localement par compte dans les préférences de l'appareil, sans modification de SQLite.
+
+La programmation progressive et le suivi session-RPE sont des outils pédagogiques de planification et de gestion de charge, pas un avis médical. Vérifiez les itinéraires sur place ; OpenStreetMap et OpenRouteService nécessitent une connexion réseau.
+La clé OpenRouteService passée avec `--dart-define-from-file` est intégrée à l'application compilée : limitez ses quotas et permissions, et n'utilisez pas une clé de production sensible dans un binaire distribué publiquement.
+
 ### Nouveautés de la V1 « communauté et confidentialité »
 - **Tout est privé par défaut** : profil, réseaux sociaux et séances restent invisibles tant que le membre ne les partage pas.
 - **Partage avec accord** : à la fin d'une séance, *Partager* ou *Garder privée* (comme une publication). Le partage se retire à tout moment depuis le détail de la séance.

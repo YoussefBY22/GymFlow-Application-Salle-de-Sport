@@ -63,6 +63,11 @@ class AppConfig {
 
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 
+  /// Clé OpenRouteService (API distincte, réservée aux nouveaux parcours).
+  static const String openRouteServiceApiKey = String.fromEnvironment(
+    'OPENROUTESERVICE_API_KEY',
+  );
+
   /// Jeton Hugging Face (analyse de sentiment des avis), passé comme la
   /// clé Stripe via `--dart-define-from-file=secrets.json`. Sans jeton,
   /// les avis sont analysés localement par mots-clés.

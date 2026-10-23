@@ -19,6 +19,7 @@ import '../../widgets/flip.dart';
 import '../../widgets/library_widgets.dart';
 import '../shell/main_shell.dart';
 import 'smartwatch_dialog.dart';
+import 'training_tools_screen.dart';
 import 'workout_generator_dialog.dart';
 
 /// Onglet Entraînement (TabBar : Programmes / Workouts / Exercices).
@@ -76,6 +77,16 @@ class _TrainingScreenState extends State<TrainingScreen>
           const ContentLangButton(),
           const ReviewQueueButton(),
           const SmartwatchAppBarButton(),
+          if (!widget.contentMode)
+            IconButton(
+              tooltip: 'Outils avancés d’entraînement',
+              icon: const Icon(Icons.insights_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const TrainingToolsScreen(),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Générateur intelligent de workout',
             icon: const Icon(Icons.auto_awesome),

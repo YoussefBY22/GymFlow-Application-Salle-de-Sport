@@ -4,16 +4,14 @@ import '../../core/formatters.dart';
 import '../../core/responsive.dart';
 import '../../core/routes.dart';
 import '../../core/theme.dart';
-import '../../core/validators.dart';
 import '../../models/content.dart';
+import '../../models/exercise.dart';
+import '../../models/workout.dart';
 import '../../services/backend.dart';
+import '../../services/ai/local_ai_service.dart';
+import '../../services/gemini_client.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/common.dart';
-import '../../widgets/pickers.dart';
-
-// --- IMPORTS IA ---
-import 'package:gymflow/services/ai/cloud_ai_service.dart';
-import 'package:gymflow/services/ai/local_ai_service.dart';
 
 /// File de validation (coachs et admin) : contenus proposés par les
 /// abonnés, à accepter (publiés pour tous) ou refuser avec un motif.
@@ -31,16 +29,11 @@ class ReviewScreen extends StatefulWidget {
 }
 
 class _ReviewScreenState extends State<ReviewScreen> {
-  // --- VARIABLES IA ---
-  final CloudAIService _cloudAI = CloudAIService();
   final LocalAIService _localAI = LocalAIService();
-  
-  // État pour le dialogue de refus avec IA
-  String? _aiGeneratedReason;
+  String? _cloudResult;
   bool _isGeneratingReason = false;
-
-  // État pour l'analyse locale
-  String? _localScanResult;
+  SubmissionAnalysis? _localAnalysis;
+  String? _reasonError;
 
   /// Contenu du champ « Motif communiqué à l'auteur ». Un contrôleur est
   /// nécessaire : `initialValue` n'est lu qu'au premier affichage, donc le
@@ -54,51 +47,122 @@ class _ReviewScreenState extends State<ReviewScreen> {
     super.dispose();
   }
 
-  // --- MÉTHODE 1 : API Cloud (Générer un motif de refus) ---
-  Future<void> _generateReasonWithAI(String itemName) async {
-    setState(() {
+  Future<void> _generateReasonWithAI(
+    LibraryItem item,
+    BuildContext dialogContext,
+    StateSetter setStateDialog,
+  ) async {
+    final b = Backend.I;
+    if (!b.gemini.enabled) {
+      if (dialogContext.mounted) {
+        setStateDialog(
+          () => _cloudResult =
+              'Gemini n’est pas configuré. Lancez l’application avec '
+              '--dart-define-from-file=secrets.json. L’analyse locale reste '
+              'disponible sans clé ni connexion.',
+        );
+      }
+      return;
+    }
+    if (!dialogContext.mounted) return;
+    setStateDialog(() {
       _isGeneratingReason = true;
-      _aiGeneratedReason = "Rédaction du motif par l'IA...";
+      _cloudResult = null;
     });
-
-    // Prompt envoyé à Gemini
-    final prompt = """
-    Tu es un coach sportif bienveillant. Tu dois refuser la publication de l'élément suivant : "$itemName".
-    Rédige un motif de refus en français (2 phrases maximum). 
-    Sois poli, explique que la sécurité ou la qualité n'est pas suffisante, et donne un conseil pour s'améliorer.
-    """;
-
     try {
-      final reason = await _cloudAI.generateText(prompt);
-      if (mounted) {
-        setState(() {
-          _aiGeneratedReason = reason;
-          _reason.text = reason;
-          _isGeneratingReason = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _aiGeneratedReason = "Erreur IA : impossible de générer le motif.";
-          _isGeneratingReason = false;
-        });
-      }
+      final reply = await b.gemini.generate(
+        system:
+            'Tu aides un coach à relire des propositions d’exercices sportifs. '
+            'Rédige en français un brouillon poli et concis (maximum 3 phrases) '
+            'demandant des corrections concrètes avant publication. Appuie-toi '
+            'uniquement sur le contenu fourni, ne prétends pas qu’un risque '
+            'médical est prouvé, n’invente aucun défaut et ne décide pas à la '
+            'place du coach. Retourne uniquement le texte du brouillon.',
+        contents: GeminiClient.userMessage(
+          'Type : ${item.kind.label}\n'
+          'Nom : ${item.name}\n'
+          'Contenu à relire :\n${_submissionContext(item, b)}',
+        ),
+        temperature: 0.2,
+        maxOutputTokens: 180,
+      );
+      if (!mounted || !dialogContext.mounted) return;
+      setStateDialog(() {
+        _isGeneratingReason = false;
+        if (reply.text != null) {
+          final generated = reply.text!.trim();
+          _cloudResult = generated;
+          _reason.text = generated.length > 300
+              ? generated.substring(0, 300)
+              : generated;
+          _reasonError = null;
+        } else {
+          _cloudResult = reply.error ?? 'Gemini n’a pas généré de réponse.';
+        }
+      });
+    } catch (error) {
+      if (!mounted || !dialogContext.mounted) return;
+      setStateDialog(() {
+        _isGeneratingReason = false;
+        _cloudResult = 'Échec de la génération Gemini : $error';
+      });
     }
   }
 
-  // --- MÉTHODE 2 : Modèle Local (Analyse de texte) ---
-  Future<void> _analyzeTextWithLocalAI(String textToAnalyze) async {
-    final result = await _localAI.analyzeSentiment(textToAnalyze);
-    setState(() {
-      _localScanResult = result;
-    });
+  Future<void> _analyzeSubmission(
+    LibraryItem item,
+    StateSetter setStateDialog,
+  ) async {
+    final b = Backend.I;
+    final result = await _localAI.analyzeSubmission(
+      item,
+      exerciseIds: b.exercises.all.map((exercise) => exercise.id).toSet(),
+      workoutIds: b.workouts.all.map((workout) => workout.id).toSet(),
+    );
+    if (!mounted) return;
+    setStateDialog(() => _localAnalysis = result);
   }
 
+  static String _submissionContext(LibraryItem item, Backend backend) =>
+      switch (item) {
+        final Exercise exercise =>
+          'Description : ${exercise.description}\n'
+              'Muscle : ${exercise.primaryMuscle.label}\n'
+              'Matériel : ${exercise.equipment.label}\n'
+              'Niveau : ${exercise.level.label}\n'
+              'Étapes : ${exercise.steps.join(' | ')}\n'
+              'Respiration : ${exercise.breathing}\n'
+              'Erreurs fréquentes : ${exercise.mistakes.join(' | ')}\n'
+              'Démonstrations jointes : ${exercise.media.length}',
+        final Workout workout =>
+          'Description : ${workout.description}\n'
+              'Objectif : ${workout.goal.label}\n'
+              'Niveau : ${workout.level.label}\n'
+              'Exercices : ${workout.items.map((item) {
+                final exercise = backend.exercises.byId(item.exerciseId);
+                return '${exercise?.name ?? 'Exercice introuvable'} : '
+                    '${item.sets} séries, ${item.target}, '
+                    'repos ${item.restSec}s, ${item.notes}';
+              }).join(' | ')}',
+        final Program program =>
+          'Description : ${program.description}\n'
+              'Objectif : ${program.goal.label}\n'
+              'Niveau : ${program.level.label}\n'
+              'Durée : ${program.weeks} semaines\n'
+              'Matériel : ${program.equipment}\n'
+              'Séances : ${program.days.map((day) {
+                final workout = backend.workouts.byId(day.workoutId);
+                return 'jour ${day.weekday} : '
+                    '${workout?.name ?? 'Workout introuvable'}';
+              }).join(' | ')}',
+        _ => 'Aucun détail supplémentaire.',
+      };
+
   Future<void> _reject(BuildContext context, LibraryItem x) async {
-    // On réinitialise l'IA avant d'ouvrir le dialogue
-    _aiGeneratedReason = null;
-    _localScanResult = null;
+    _cloudResult = null;
+    _localAnalysis = null;
+    _reasonError = null;
+    _isGeneratingReason = false;
     _reason.clear();
 
     final reason = await showDialog<String>(
@@ -113,7 +177,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- CARTE 1 : IA Cloud (Générer motif) ---
                     Card(
                       color: Colors.blue.shade50,
                       child: Padding(
@@ -123,27 +186,47 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.cloud, color: Colors.blue, size: 20),
+                                const Icon(
+                                  Icons.cloud,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
-                                const Text("Coach IA (API Cloud)", style: TextStyle(fontWeight: FontWeight.bold)),
-                                const Spacer(),
+                                const Expanded(
+                                  child: Text(
+                                    'Gemini · brouillon de refus',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                                 TextButton(
-                                  onPressed: _isGeneratingReason 
-                                    ? null 
-                                    : () async {
-                                        await _generateReasonWithAI(x.name);
-                                        setStateDialog(() {});
-                                      },
-                                  child: const Text("Générer"),
+                                  onPressed: _isGeneratingReason
+                                      ? null
+                                      : () async {
+                                          await _generateReasonWithAI(
+                                            x,
+                                            context,
+                                            setStateDialog,
+                                          );
+                                        },
+                                  child: const Text('Générer'),
                                 ),
                               ],
                             ),
-                            if (_aiGeneratedReason != null)
+                            if (_isGeneratingReason)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: LinearProgressIndicator(),
+                              ),
+                            if (_cloudResult != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
-                                  _aiGeneratedReason!,
-                                  style: const TextStyle(fontStyle: FontStyle.italic),
+                                  _cloudResult!,
+                                  style: const TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                  ),
                                 ),
                               ),
                           ],
@@ -152,7 +235,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // --- CARTE 2 : Modèle Local (Analyse de texte) ---
                     Card(
                       color: Colors.green.shade50,
                       child: Padding(
@@ -162,25 +244,59 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.phone_android, color: Colors.green, size: 20),
+                                const Icon(
+                                  Icons.phone_android,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
-                                const Text("Modèle Local (Analyse)", style: TextStyle(fontWeight: FontWeight.bold)),
-                                const Spacer(),
+                                const Expanded(
+                                  child: Text(
+                                    'Analyse locale du contenu',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                                 TextButton(
                                   onPressed: () async {
-                                    await _analyzeTextWithLocalAI(_reason.text);
-                                    setStateDialog(() {});
+                                    await _analyzeSubmission(x, setStateDialog);
                                   },
-                                  child: const Text("Analyser"),
+                                  child: const Text('Analyser'),
                                 ),
                               ],
                             ),
-                            if (_localScanResult != null)
+                            if (_localAnalysis != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  _localScanResult!,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _localAnalysis!.summary,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (_localAnalysis!.hasFindings)
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          key: const Key(
+                                            'use_local_review_reason',
+                                          ),
+                                          onPressed: () => setStateDialog(() {
+                                            _reason.text =
+                                                _localAnalysis!.suggestedReason;
+                                            _reasonError = null;
+                                          }),
+                                          child: const Text(
+                                            'Utiliser comme motif',
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -188,18 +304,33 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // --- CHAMP DE SAISIE DU MOTIF ---
                     const Text("Motif communiqué à l'auteur :"),
                     const SizedBox(height: 8),
                     TextFormField(
+                      key: ValueKey('review_reason_${x.id}'),
                       controller: _reason,
                       maxLines: 3,
+                      maxLength: 300,
                       decoration: const InputDecoration(
                         hintText: 'Ex. ajoutez une étape, précisez le repos…',
                         border: OutlineInputBorder(),
+                        counterText: '',
                       ),
+                      onChanged: (_) =>
+                          setStateDialog(() => _reasonError = null),
                     ),
+                    if (_reasonError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          _reasonError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -210,7 +341,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context, _reason.text);
+                    final value = _reason.text.trim();
+                    if (value.length < 5) {
+                      setStateDialog(
+                        () => _reasonError =
+                            'Le motif doit contenir au moins 5 caractères.',
+                      );
+                      return;
+                    }
+                    Navigator.pop(context, value);
                   },
                   child: const Text("Envoyer le refus"),
                 ),
@@ -221,8 +360,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
       },
     );
 
-    if (reason == null || reason.isEmpty || !context.mounted) return;
-    
+    if (reason == null || !context.mounted) return;
+
     // Appel à votre logique métier existante (INCHANGÉE)
     await runAction(
       context,

@@ -17,6 +17,7 @@ Future<Backend> makeBackend({
   DateTime? now,
   bool seed = true,
   http.Client? httpClient,
+  String? geminiApiKey,
 }) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   SharedPreferences.setMockInitialValues({});
@@ -30,6 +31,7 @@ Future<Backend> makeBackend({
     clock: () => current,
     passwordIterations: 60,
     payment: SimulatedPaymentGateway(latency: Duration.zero),
+    geminiApiKey: geminiApiKey,
     seed: seed,
     // Jamais de vrai réseau dans les tests : FormSubmit (email par défaut,
     // sans clé) enverrait sinon de vrais emails à chaque réservation.
