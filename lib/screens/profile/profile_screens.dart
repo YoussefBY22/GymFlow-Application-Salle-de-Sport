@@ -9,6 +9,7 @@ import '../../models/course.dart';
 import '../../models/enums.dart';
 import '../../models/session_log.dart';
 import '../../models/user.dart';
+import '../../services/avatar_service.dart';
 import '../../services/backend.dart';
 import '../../services/progress_service.dart';
 import '../../widgets/animations.dart';
@@ -685,6 +686,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  /// Galerie d'avatars illustrés : la personne en choisit un d'un geste,
+  /// sans avoir à téléverser quoi que ce soit.
+  Future<void> _chooseGenerated() async {
+    final choix = AvatarService.gallery(_user.email);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.background,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.m, 0, Gap.m, Gap.m),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Choisir un avatar', style: AppText.title(size: 18)),
+              const SizedBox(height: Gap.s),
+              Text(
+                'Touchez celui que vous préférez. Vous pourrez toujours '
+                'mettre votre propre photo à la place.',
+                style: AppText.body(color: AppColors.inkSoft, size: 13),
+              ),
+              const SizedBox(height: Gap.m),
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: Gap.s,
+                        crossAxisSpacing: Gap.s,
+                      ),
+                  itemCount: choix.length,
+                  itemBuilder: (_, i) => InkWell(
+                    key: ValueKey('avatar_choice_$i'),
+                    onTap: () => Navigator.pop(ctx, choix[i]),
+                    customBorder: const CircleBorder(),
+                    child: ClipOval(
+                      child: Container(
+                        color: AppColors.cream,
+                        child: NetImage(choix[i], cacheWidth: 200),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected != null && mounted) setState(() => _avatar = selected);
+  }
+
   Future<void> _pickAvatar() async {
     final path = await pickImageFile(context);
     if (path != null) setState(() => _avatar = path);
@@ -777,6 +832,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Wrap(
                   alignment: WrapAlignment.center,
                   children: [
+                    TextButton.icon(
+                      key: const Key('avatar_gallery'),
+                      onPressed: _chooseGenerated,
+                      icon: const Icon(Icons.face_retouching_natural, size: 18),
+                      label: const Text('Choisir un avatar'),
+                    ),
                     TextButton.icon(
                       key: const Key('gravatar_import'),
                       onPressed: _gravatarBusy ? null : _useGravatar,

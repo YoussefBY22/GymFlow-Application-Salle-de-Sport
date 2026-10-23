@@ -12,6 +12,7 @@ import '../models/enums.dart';
 import '../models/privacy.dart';
 import '../models/user.dart';
 import '../repositories/repository.dart';
+import 'avatar_service.dart';
 import 'backend.dart';
 
 /// API interne d'authentification : inscription, connexion, session,
@@ -235,6 +236,8 @@ class AuthService extends ChangeNotifier {
       email: clean,
       fullName: Validators.name(name) == null ? name : 'Membre GymFlow',
       role: UserRole.member,
+      // Avatar illustré dès le départ : modifiable ensuite dans le profil.
+      avatarPath: AvatarService.forNewAccount(clean),
       gender: Gender.female,
       goal: Goal.fitness,
       createdAt: now,
@@ -304,6 +307,8 @@ class AuthService extends ChangeNotifier {
       email: email.trim().toLowerCase(),
       fullName: fullName.trim(),
       role: UserRole.member,
+      // Avatar illustré dès le départ : modifiable ensuite dans le profil.
+      avatarPath: AvatarService.forNewAccount(email.trim().toLowerCase()),
       gender: gender,
       goal: goal,
       age: age,
