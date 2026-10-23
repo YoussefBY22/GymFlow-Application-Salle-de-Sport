@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../core/legal.dart';
 import '../../core/responsive.dart';
@@ -47,6 +48,24 @@ class _AuthHeader extends StatelessWidget {
               Image.asset('assets/images/logo_mark.png', width: 44),
               const SizedBox(width: Gap.s),
               Text('GymFlow', style: AppText.title(color: AppColors.white)),
+              const Spacer(),
+              // Version visible sans se connecter : permet de vérifier d'un
+              // coup d'œil quelle version est installée sur un appareil.
+              Container(
+                key: const Key('app_version'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.s,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'v${AppConfig.appVersion}',
+                  style: AppText.label(size: 11, color: AppColors.cream),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: Gap.l),

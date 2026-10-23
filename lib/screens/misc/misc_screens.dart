@@ -272,6 +272,14 @@ class AboutScreen extends StatelessWidget {
                         'Lun–Ven 6 h–22 h · Sam–Dim 8 h–20 h',
                         style: AppText.label(color: AppColors.cream),
                       ),
+                      const SizedBox(height: Gap.s),
+                      // Version de l'application : utile pour vérifier que
+                      // tout le monde utilise bien la même.
+                      Text(
+                        'Application version ${AppConfig.appVersionFull}',
+                        key: const Key('about_version'),
+                        style: AppText.label(size: 11, color: AppColors.gold),
+                      ),
                     ],
                   ),
                 ),
