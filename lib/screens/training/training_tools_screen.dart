@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme.dart';
 import '../../models/session_log.dart';
 import '../../services/backend.dart';
 import '../../services/outdoor_route_service.dart';
@@ -300,10 +301,10 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
                 label: '$fatigue',
                 onChanged: (value) => update(() => fatigue = value.round()),
               ),
-              const Text(
+              Text(
                 '1 = très facile / aucune fatigue · 10 = effort maximal / '
                 'fatigue élevée',
-                style: TextStyle(fontSize: 12),
+                style: AppText.body(size: 12, color: AppColors.inkSoft),
               ),
             ],
           ),
@@ -385,13 +386,13 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
   }
 
   Widget _buildRoutes() => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(Gap.m),
     children: [
       const Text(
         'Trouvez un parc ou un espace sportif près de votre départ, puis '
         'calculez un itinéraire piéton avec son dénivelé.',
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: Gap.m),
       TextField(
         controller: _latitude,
         keyboardType: const TextInputType.numberWithOptions(
@@ -403,6 +404,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
           helperText: 'Par défaut : club GymFlow Lac 2',
         ),
       ),
+      const SizedBox(height: Gap.m),
       TextField(
         controller: _longitude,
         keyboardType: const TextInputType.numberWithOptions(
@@ -411,6 +413,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         ),
         decoration: const InputDecoration(labelText: 'Longitude de départ'),
       ),
+      const SizedBox(height: Gap.m),
       TextField(
         controller: _distance,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -418,9 +421,11 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
           labelText: 'Distance cible approximative (km)',
           helperText:
               'Détermine le rayon de recherche, pas la distance finale.',
+          // Sans cela, l'explication était coupée en plein milieu.
+          helperMaxLines: 3,
         ),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: Gap.l),
       FilledButton.icon(
         onPressed: _findingPlaces ? null : _findPlaces,
         icon: _findingPlaces
@@ -432,11 +437,9 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         label: const Text('Rechercher les espaces'),
       ),
       if (_places.isNotEmpty) ...[
-        const SizedBox(height: 18),
-        Text(
-          'Espaces trouvés (${_places.length})',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        const SizedBox(height: Gap.l),
+        Text('Espaces trouvés (${_places.length})', style: AppText.title(size: 17)),
+        const SizedBox(height: Gap.s),
         for (final place in _places)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -457,7 +460,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         const Divider(height: 28),
         Text(
           'Parcours vers ${_selectedPlace?.name}',
-          style: Theme.of(context).textTheme.titleMedium,
+          style: AppText.title(size: 17),
         ),
         ListTile(
           leading: const Icon(Icons.straighten),
@@ -501,40 +504,40 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
           label: const Text('Ouvrir le trajet dans Maps'),
         ),
       ],
-      const SizedBox(height: 12),
-      const Text(
+      const SizedBox(height: Gap.m),
+      Text(
         'Les lieux viennent d’OpenStreetMap. Le calcul piéton et le dénivelé '
         'utilisent OpenRouteService. Vérifiez le parcours et les conditions '
         'sur place avant de partir.',
-        style: TextStyle(fontSize: 12),
+        style: AppText.body(size: 12, color: AppColors.inkSoft),
       ),
     ],
   );
 
   Widget _buildPlan() => ListView(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(Gap.m),
     children: [
       const Text(
         'Programmation par cycles : alternance entre adaptation, progression '
         'et allègement afin de structurer vos semaines.',
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: Gap.m),
       FilledButton.icon(
         onPressed: _showPlanDialog,
         icon: const Icon(Icons.add_task),
         label: Text(_plan == null ? 'Créer un cycle' : 'Modifier le cycle'),
       ),
       if (_plan case final plan?) ...[
-        const SizedBox(height: 12),
+        const SizedBox(height: Gap.m),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(Gap.m),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${plan.goal} · ${plan.weeks} semaines',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: AppText.title(size: 17),
                 ),
                 Text('${plan.sessionsPerWeek} séances par semaine'),
                 Text('Début : ${_formatDate(plan.startDate)}'),
@@ -544,17 +547,19 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         ),
         for (var week = 1; week <= plan.weeks; week++)
           Card(
+            margin: const EdgeInsets.only(bottom: Gap.s),
             child: ListTile(
               leading: CircleAvatar(child: Text('$week')),
               title: Text('Semaine $week · ${plan.phaseForWeek(week)}'),
               subtitle: Text(plan.guidanceForWeek(week)),
             ),
           ),
-        const Text(
+        const SizedBox(height: Gap.s),
+        Text(
           'Ce planning est un guide indicatif : adaptez-le à votre expérience, '
           'à votre matériel et à vos sensations. Il ne modifie aucun workout '
           'existant.',
-          style: TextStyle(fontSize: 12),
+          style: AppText.body(size: 12, color: AppColors.inkSoft),
         ),
       ],
     ],
@@ -580,27 +585,27 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         )
         .fold<int>(0, (max, entry) => max > entry.load ? max : entry.load);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Gap.m),
       children: [
         const Text(
           'Après une séance, indiquez l’effort et la fatigue ressentis. '
           'L’indicateur session-RPE suit la charge déclarée, sans diagnostic.',
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Gap.m),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(Gap.m),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   assessment.label,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: AppText.title(size: 17),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: Gap.xs),
                 Text(assessment.advice),
                 if (assessment.ratio != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Gap.s),
                   Text(
                     'Charge 7 jours : ${assessment.recentLoad} UA · '
                     'ratio indicatif : ${assessment.ratio!.toStringAsFixed(2)}',
@@ -612,7 +617,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
                     '${assessment.fatigueAverage!.toStringAsFixed(1)}/10',
                   ),
                 if (maximumDailyLoad > 0) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: Gap.m),
                   for (var offset = 6; offset >= 0; offset--)
                     _dailyLoadBar(offset, maximumDailyLoad),
                 ],
@@ -620,11 +625,9 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          'Séances à évaluer',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        const SizedBox(height: Gap.m),
+        Text('Séances à évaluer', style: AppText.title(size: 17)),
+        const SizedBox(height: Gap.s),
         if (pending.isEmpty)
           const ListTile(
             leading: Icon(Icons.check_circle_outline),
@@ -645,13 +648,13 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
               icon: const Icon(Icons.add_comment_outlined),
             ),
           ),
-        const SizedBox(height: 12),
-        const Text(
+        const SizedBox(height: Gap.m),
+        Text(
           'UA = unités arbitraires (durée en minutes × effort perçu /10). '
           'Le ratio compare les 7 derniers jours aux 21 jours précédents. '
           'Ces repères ne remplacent pas l’avis d’un professionnel de santé ; '
           'arrêtez en cas de douleur ou de malaise.',
-          style: TextStyle(fontSize: 12),
+          style: AppText.body(size: 12, color: AppColors.inkSoft),
         ),
       ],
     );
