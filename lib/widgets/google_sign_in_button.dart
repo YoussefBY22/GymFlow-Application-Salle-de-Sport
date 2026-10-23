@@ -7,6 +7,7 @@ import '../services/backend.dart';
 import '../services/google_auth_service.dart';
 import 'google/google_button_io.dart'
     if (dart.library.js_interop) 'google/google_button_web.dart';
+import 'google/google_g_logo.dart';
 
 /// Bouton « Continuer avec Google ».
 ///
@@ -97,7 +98,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
         : OutlinedButton.icon(
             key: const Key('google_sign_in'),
             onPressed: _busy ? null : _press,
-            icon: const Icon(Icons.account_circle_outlined, size: 20),
+            icon: const GoogleGLogo(size: 20),
             label: const Text('Continuer avec Google'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),

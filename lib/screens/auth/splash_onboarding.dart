@@ -71,7 +71,9 @@ class _SplashScreenState extends State<SplashScreen>
           children: [
             ScaleTransition(
               scale: scale,
-              child: Image.asset('assets/images/logo.png', width: 140),
+              // La marque sans fond : sur le bleu marine de l'écran, le
+              // logo complet laisserait voir les bords de son propre fond.
+              child: Image.asset('assets/images/logo_mark.png', width: 150),
             ),
             const SizedBox(height: Gap.l),
             FadeTransition(

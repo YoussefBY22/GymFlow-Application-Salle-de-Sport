@@ -521,8 +521,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-/// Mot de passe oublié : envoi d'un code (e-mail simulé) puis nouveau mot
-/// de passe.
+/// Mot de passe oublié : envoi d'un code par e-mail, puis nouveau mot de
+/// passe. Le code n'est jamais affiché à l'écran : il n'arrive que dans la
+/// boîte de réception de la personne qui le demande.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -552,42 +553,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _loading = true);
     try {
       final code = await Backend.I.auth.requestPasswordReset(_email.text);
-      // Envoi réel par e-mail (API EmailJS) ; en cas d'échec, le code
-      // s'affiche à l'écran comme avant (démonstration).
-      final emailed =
+      // `code == null` : aucun compte pour cette adresse. On n'envoie rien
+      // et on affiche le même message que pour un envoi réussi, afin de ne
+      // pas révéler quelles adresses sont inscrites.
+      final envoye =
           code == null ||
           await Backend.I.email.sendResetCode(_email.text, code);
       if (!mounted) return;
-      setState(() => _codeSent = true);
-      if (emailed) {
-        // Même message qu'un compte existe ou non : on ne révèle rien.
+      if (!envoye) {
         showSnack(
           context,
-          'Si un compte existe pour cette adresse, un code vient d\'y être '
-          'envoyé par e-mail (pensez aux courriers indésirables).',
+          'Impossible d\'envoyer l\'e-mail pour le moment. Réessayez dans '
+          'quelques instants, ou demandez un nouveau mot de passe à '
+          'l\'accueil de la salle.',
+          error: true,
         );
         return;
       }
-      // Envoi d'e-mail simulé : la « boîte de réception » s'affiche ici.
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(
-            Icons.mark_email_read_outlined,
-            color: AppColors.navy,
-            size: 40,
-          ),
-          title: const Text('E-mail simulé'),
-          content: Text(
-            'Objet : votre code GymFlow\n\nVotre code de réinitialisation est :\n\n$code\n\nIl est valable 15 minutes.',
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('J\'ai compris'),
-            ),
-          ],
-        ),
+      setState(() => _codeSent = true);
+      showSnack(
+        context,
+        'Si un compte existe pour cette adresse, un code vient d\'y être '
+        'envoyé par e-mail (pensez aux courriers indésirables).',
       );
     } catch (e) {
       if (mounted) showSnack(context, friendlyError(e), error: true);

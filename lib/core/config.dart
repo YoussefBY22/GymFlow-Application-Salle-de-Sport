@@ -35,7 +35,8 @@ class AppConfig {
   ];
 
   /// E-mails réels (API externe EmailJS) : identifiants passés au
-  /// lancement via secrets.json. Sans eux, l'e-mail reste simulé.
+  /// lancement via secrets.json. Sans eux, aucun e-mail ne part et un
+  /// message invite à passer par l'accueil de la salle.
   /// Servent au code de mot de passe oublié et à la confirmation de
   /// réservation (ticket QR).
   static const String emailJsServiceId = String.fromEnvironment(
