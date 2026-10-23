@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/config.dart';
 import '../core/errors.dart';
 import '../core/security.dart';
 import '../models/course.dart';
@@ -179,7 +180,10 @@ class Backend {
     announcements = AnnouncementService(this);
     wger = WgerApi(this);
     privacy = PrivacyService(this);
-    gemini = GeminiClient(httpClient);
+    gemini = GeminiClient(
+      httpClient,
+      apiKey: geminiApiKey ?? AppConfig.geminiApiKey,
+    );
     assistant = AiAssistantService(this);
     openFoodFacts = OpenFoodFactsApi(this);
     productAi = ProductAiService(this);

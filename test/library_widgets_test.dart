@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/app.dart';
 import 'package:gymflow/core/routes.dart';
+import 'package:gymflow/models/content.dart';
 import 'package:gymflow/models/enums.dart';
 import 'package:gymflow/models/prefs.dart';
 import 'package:gymflow/screens/shell/main_shell.dart';
 import 'package:gymflow/services/library_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'helpers.dart';
 import 'widget_helpers.dart';
@@ -139,6 +144,118 @@ void main() {
     await settle(tester);
     expect(b.workouts.byId('w_rami_arms')!.publication.isPublished, isTrue);
     expect(find.text('Rien à valider'), findsOneWidget);
+  });
+
+  testWidgets(
+    'analyse locale remplit un motif et refuse une proposition sur mobile',
+    (tester) async {
+      final b = await pumpApp(
+        tester,
+        route: Routes.review,
+        loginEmail: 'sarra@gymflow.tn',
+      );
+      final source = b.exercises.byId('ex_goblet')!;
+      final proposal = source.copyWith(
+        id: 'ex_review_missing_steps',
+        name: 'Exercice incomplet',
+        steps: const [],
+        breathing: '',
+        media: const [],
+        authorId: 'u_nour',
+        publication: Publication(
+          status: ContentStatus.pending,
+          submittedAt: testNow,
+        ),
+      );
+      await b.exercises.save(proposal);
+      b.bus.emit();
+      await settle(tester);
+
+      final card = find.byKey(const ValueKey('review_ex_review_missing_steps'));
+      await tapVisible(
+        tester,
+        find.descendant(of: card, matching: find.text('Refuser')),
+      );
+      await settle(tester);
+      await tester.tap(find.text('Analyser'));
+      await settle(tester);
+
+      expect(find.textContaining('étapes d’exécution'), findsOneWidget);
+      expect(find.textContaining('respiration'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('use_local_review_reason')));
+      await settle(tester);
+      final reasonField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('review_reason_ex_review_missing_steps')),
+      );
+      expect(
+        reasonField.controller!.text,
+        contains('Merci pour votre proposition'),
+      );
+      await tester.tap(find.text('Envoyer le refus'));
+      await settle(tester);
+
+      expect(
+        b.exercises.byId(proposal.id)!.publication.status,
+        ContentStatus.rejected,
+      );
+      expect(
+        b.exercises.byId(proposal.id)!.publication.note,
+        contains('étapes d’exécution'),
+      );
+    },
+  );
+
+  testWidgets('Gemini génère un motif à partir du contenu proposé', (
+    tester,
+  ) async {
+    http.Request? geminiRequest;
+    final client = MockClient((request) async {
+      geminiRequest = request;
+      return http.Response(
+        jsonEncode({
+          'candidates': [
+            {
+              'content': {
+                'parts': [
+                  {'text': 'Merci de préciser les temps de repos.'},
+                ],
+              },
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    await pumpApp(
+      tester,
+      route: Routes.review,
+      loginEmail: 'sarra@gymflow.tn',
+      httpClient: client,
+      geminiApiKey: 'test-gemini-key',
+    );
+
+    final card = find.byKey(const ValueKey('review_w_rami_arms'));
+    await tapVisible(
+      tester,
+      find.descendant(of: card, matching: find.text('Refuser')),
+    );
+    await settle(tester);
+    await tester.tap(find.text('Générer'));
+    await settle(tester);
+
+    expect(geminiRequest!.headers['x-goog-api-key'], 'test-gemini-key');
+    final payload = jsonDecode(geminiRequest!.body) as Map<String, dynamic>;
+    expect(jsonEncode(payload['contents']), contains("Bras d'acier"));
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('review_reason_w_rami_arms')),
+          )
+          .controller!
+          .text,
+      'Merci de préciser les temps de repos.',
+    );
   });
 
   testWidgets('cours : filtre par jour via des tuiles datées', (tester) async {
