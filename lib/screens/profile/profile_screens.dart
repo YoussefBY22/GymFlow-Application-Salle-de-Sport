@@ -690,6 +690,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (path != null) setState(() => _avatar = path);
   }
 
+  bool _gravatarBusy = false;
+
+  /// Récupère la photo Gravatar associée à l'adresse du compte.
+  ///
+  /// Beaucoup de personnes en ont déjà une sans le savoir : cela évite de
+  /// devoir prendre ou téléverser une photo. L'enregistrement reste manuel,
+  /// comme pour une photo choisie dans la galerie.
+  Future<void> _useGravatar() async {
+    setState(() => _gravatarBusy = true);
+    final url = await Backend.I.gravatar.photoFor(_user.email);
+    if (!mounted) return;
+    setState(() {
+      _gravatarBusy = false;
+      if (url != null) _avatar = url;
+    });
+    showSnack(
+      context,
+      url != null
+          ? 'Photo Gravatar récupérée. Enregistrez pour la conserver.'
+          : 'Aucune photo Gravatar pour ${_user.email}. Vous pouvez en '
+                'créer une sur gravatar.com, ou choisir une photo ici.',
+      error: url == null,
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -748,13 +773,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
               ),
-              if (_avatar != null)
-                Center(
-                  child: TextButton(
-                    onPressed: () => setState(() => _avatar = null),
-                    child: const Text('Retirer la photo'),
-                  ),
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      key: const Key('gravatar_import'),
+                      onPressed: _gravatarBusy ? null : _useGravatar,
+                      icon: _gravatarBusy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.cloud_download_outlined, size: 18),
+                      label: const Text('Utiliser ma photo Gravatar'),
+                    ),
+                    if (_avatar != null)
+                      TextButton(
+                        onPressed: () => setState(() => _avatar = null),
+                        child: const Text('Retirer la photo'),
+                      ),
+                  ],
                 ),
+              ),
               const SizedBox(height: Gap.m),
               TextFormField(
                 controller: _name,
