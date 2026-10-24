@@ -236,8 +236,10 @@ class AuthService extends ChangeNotifier {
       email: clean,
       fullName: Validators.name(name) == null ? name : 'Membre GymFlow',
       role: UserRole.member,
-      // Avatar illustré dès le départ : modifiable ensuite dans le profil.
-      avatarPath: AvatarService.forNewAccount(clean),
+      // Ses initiales dès le départ : modifiable ensuite dans le profil.
+      avatarPath: AvatarService.forNewAccount(
+        Validators.name(name) == null ? name : 'Membre GymFlow',
+      ),
       gender: Gender.female,
       goal: Goal.fitness,
       createdAt: now,
@@ -307,8 +309,8 @@ class AuthService extends ChangeNotifier {
       email: email.trim().toLowerCase(),
       fullName: fullName.trim(),
       role: UserRole.member,
-      // Avatar illustré dès le départ : modifiable ensuite dans le profil.
-      avatarPath: AvatarService.forNewAccount(email.trim().toLowerCase()),
+      // Ses initiales dès le départ : modifiable ensuite dans le profil.
+      avatarPath: AvatarService.forNewAccount(fullName),
       gender: gender,
       goal: goal,
       age: age,

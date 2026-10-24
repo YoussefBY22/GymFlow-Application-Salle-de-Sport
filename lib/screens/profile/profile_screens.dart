@@ -686,52 +686,91 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  /// Galerie d'avatars illustrés : la personne en choisit un d'un geste,
-  /// sans avoir à téléverser quoi que ce soit.
+  /// Galerie d'avatars : les initiales du nom sur la couleur de son choix,
+  /// puis une centaine de dessins classés par style. Défilante, avec
+  /// l'avatar actuel entouré pour se repérer.
   Future<void> _chooseGenerated() async {
-    final choix = AvatarService.gallery(_user.email);
+    final sections = AvatarService.sections(_user.fullName);
+    final courant = _avatar;
     final selected = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: AppColors.background,
-      builder: (ctx) => SafeArea(
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.sizeOf(ctx).height * 0.82,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(Gap.m, 0, Gap.m, Gap.m),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Choisir un avatar', style: AppText.title(size: 18)),
-              const SizedBox(height: Gap.s),
-              Text(
-                'Touchez celui que vous préférez. Vous pourrez toujours '
-                'mettre votre propre photo à la place.',
-                style: AppText.body(color: AppColors.inkSoft, size: 13),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Choisir un avatar', style: AppText.title(size: 18)),
+                    const SizedBox(height: Gap.xs),
+                    Text(
+                      '${AvatarService.galleryCount} propositions, '
+                      'à partir de votre nom. Touchez celle qui vous plaît.',
+                      style: AppText.body(color: AppColors.inkSoft, size: 13),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: Gap.m),
-              Flexible(
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        mainAxisSpacing: Gap.s,
-                        crossAxisSpacing: Gap.s,
-                      ),
-                  itemCount: choix.length,
-                  itemBuilder: (_, i) => InkWell(
-                    key: ValueKey('avatar_choice_$i'),
-                    onTap: () => Navigator.pop(ctx, choix[i]),
-                    customBorder: const CircleBorder(),
-                    child: ClipOval(
-                      child: Container(
-                        color: AppColors.cream,
-                        child: NetImage(choix[i], cacheWidth: 200),
-                      ),
+              for (final section in sections) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: Gap.m, bottom: Gap.s),
+                    child: Text(
+                      section.title,
+                      style: AppText.subtitle(size: 14),
                     ),
                   ),
                 ),
-              ),
+                SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 78,
+                    mainAxisSpacing: Gap.s,
+                    crossAxisSpacing: Gap.s,
+                  ),
+                  itemCount: section.urls.length,
+                  itemBuilder: (_, i) {
+                    final url = section.urls[i];
+                    // Les URL de la galerie sont en 160 px, l'avatar
+                    // enregistré en 256 px : on compare sans la taille.
+                    final actuel =
+                        courant != null &&
+                        courant.split('&size=').first ==
+                            url.split('&size=').first;
+                    return InkWell(
+                      key: ValueKey('avatar_${section.title}_$i'),
+                      onTap: () => Navigator.pop(
+                        ctx,
+                        url.replaceFirst('size=160', 'size=256'),
+                      ),
+                      customBorder: const CircleBorder(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: actuel ? AppColors.red : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: ClipOval(
+                          child: Container(
+                            color: AppColors.cream,
+                            child: NetImage(url, cacheWidth: 200),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: Gap.l)),
             ],
           ),
         ),

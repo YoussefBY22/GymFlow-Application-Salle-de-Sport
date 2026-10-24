@@ -14,6 +14,7 @@ import '../../models/session_log.dart';
 import '../../models/shop.dart';
 import '../../models/user.dart';
 import '../../models/workout.dart';
+import '../avatar_service.dart';
 import '../backend.dart';
 import '../sentiment_service.dart';
 import 'seed_exercises.dart';
@@ -104,12 +105,31 @@ class SeedService {
 
   static const _i18nKey = 'content_i18n';
   static const _i18nVersion = '1';
+  static const _avatarKey = 'avatar_initials';
+  static const _avatarVersion = '1';
   static const _sentimentKey = 'review_sentiment';
   static const _sentimentVersion = '1';
 
   /// Mise à niveau d'une base déjà remplie (application déjà installée) :
   /// noms anglais des contenus de démonstration, exemples de créations
   /// des membres et ton des avis déjà publiés.
+  /// Les premiers avatars automatiques étaient des dessins « pouces » tirés
+  /// de l'adresse e-mail, sans rapport avec la personne. On les remplace par
+  /// les initiales de son nom. Les photos envoyées par la personne et les
+  /// avatars d'un autre style ne sont pas touchés. Limite assumée : une
+  /// personne qui aurait choisi à la main « Pouces » dans l'ancienne
+  /// galerie est migrée aussi. Exécuté une seule fois (clé `avatar_initials`).
+  Future<void> _migrateAvatars() async {
+    for (final u in _b.users.all) {
+      final path = u.avatarPath;
+      if (path != null && path.contains('api.dicebear.com/9.x/thumbs/')) {
+        await _b.users.save(
+          u.copyWith(avatarPath: AvatarService.forNewAccount(u.fullName)),
+        );
+      }
+    }
+  }
+
   Future<void> upgrade() async {
     await _upgradeNutrition();
     if (await _b.store.getMeta(_i18nKey) != _i18nVersion) {
@@ -131,6 +151,10 @@ class SeedService {
     if (await _b.store.getMeta(_codesKey) != _codesVersion) {
       await _assignBookingCodes();
       await _b.store.setMeta(_codesKey, _codesVersion);
+    }
+    if (await _b.store.getMeta(_avatarKey) != _avatarVersion) {
+      await _migrateAvatars();
+      await _b.store.setMeta(_avatarKey, _avatarVersion);
     }
     await refreshDemoCourse();
   }
