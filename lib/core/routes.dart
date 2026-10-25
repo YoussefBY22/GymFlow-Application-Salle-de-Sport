@@ -4,6 +4,7 @@ import '../models/enums.dart';
 import '../models/user.dart';
 import '../screens/admin/admin_screens.dart';
 import '../screens/admin/shop_admin_screens.dart';
+import '../screens/admin/stats_screen.dart';
 import '../screens/auth/auth_screens.dart';
 import '../screens/auth/intro_tour.dart';
 import '../screens/community/community_screens.dart';
@@ -73,6 +74,7 @@ class Routes {
   static const shopAdmin = '/admin/shop';
   static const productForm = '/admin/product/form';
   static const adminOrders = '/admin/orders';
+  static const adminStats = '/admin/stats';
 
   static const announcements = '/announcements';
   static const announcementForm = '/announcement/form';
@@ -173,6 +175,7 @@ class Routes {
       roles: _admin,
     ),
     adminOrders: _RouteDef((_) => const AdminOrdersScreen(), roles: _admin),
+    adminStats: _RouteDef((_) => const StatsScreen(), roles: _admin),
     announcements: _RouteDef((_) => const AnnouncementsScreen()),
     announcementForm: _RouteDef(
       (_) => const AnnouncementFormScreen(),

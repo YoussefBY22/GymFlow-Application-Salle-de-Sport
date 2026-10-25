@@ -92,6 +92,17 @@ Pour utiliser Stripe Checkout en mode test : copier `secrets.example.json` en `s
 flutter run -d <id_appareil> --dart-define-from-file=secrets.json
 ```
 
+### Statistiques et Google Analytics (administrateur, facultatif)
+Le bouton **Statistiques** du tableau de bord admin ouvre deux onglets : **GymFlow** (compteurs anonymes de l'application, toujours disponibles) et **Google Analytics** (rapports lus chez Google, clairement étiquetés). La mesure d'audience est **désactivée par défaut** pour chaque abonné (*Confidentialité → Mesure d'audience anonyme*) ; rien n'est envoyé à Google sans ce consentement ni sans les clés ci-dessous.
+
+| Clé (`secrets.json`) | Rôle |
+|---|---|
+| `GA_MEASUREMENT_ID` | ID de mesure du flux Web GA4 (`G-…`) : envoi des événements |
+| `GA_API_SECRET` | Secret *Measurement Protocol* du flux (envoi uniquement) |
+| `GA_PROPERTY_ID` | ID numérique de la propriété : lecture des rapports (l'admin se connecte avec son compte Google, portée `analytics.readonly`) |
+
+Mise en place pas à pas et choix de confidentialité : `DECISIONS.md` (« Statistiques d'usage et Google Analytics ») et `SECURITE_CONFIDENTIALITE.md` § 4 ter. Comme pour les autres clés, ne pas compiler la version web publique avec `secrets.json`.
+
 ### Analyse de sentiment des avis (IA, facultatif)
 Les avis commentés reçoivent un ton (😊 / 😐 / 😞). Fournisseurs, dans cet ordre, chacun facultatif dans `secrets.json` :
 

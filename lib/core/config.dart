@@ -70,6 +70,27 @@ class AppConfig {
 
   static bool get googleSignInEnabled => googleClientId.trim().isNotEmpty;
 
+  /// Google Analytics 4 : mesure d'audience (envoi des événements) et
+  /// lecture des rapports (tableau de bord admin).
+  ///
+  /// - `GA_MEASUREMENT_ID` (« G-… ») et `GA_API_SECRET` servent à *envoyer*
+  ///   des événements (Measurement Protocol). Le secret ne permet que
+  ///   d'envoyer : même extrait de l'APK, il ne donne accès à aucune donnée.
+  /// - `GA_PROPERTY_ID` (numérique) sert à *lire* les rapports. Aucune clé de
+  ///   lecture n'est embarquée : l'administrateur se connecte avec son
+  ///   compte Google, qui doit avoir accès à la propriété.
+  /// Absents : rien n'est envoyé et l'onglet Google Analytics explique
+  /// comment configurer.
+  static const String gaMeasurementId = String.fromEnvironment(
+    'GA_MEASUREMENT_ID',
+  );
+  static const String gaApiSecret = String.fromEnvironment('GA_API_SECRET');
+  static const String gaPropertyId = String.fromEnvironment('GA_PROPERTY_ID');
+
+  static bool get gaCanSend =>
+      gaMeasurementId.trim().isNotEmpty && gaApiSecret.trim().isNotEmpty;
+  static bool get gaCanRead => gaPropertyId.trim().isNotEmpty;
+
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 
   /// Clé OpenRouteService (API distincte, réservée aux nouveaux parcours).

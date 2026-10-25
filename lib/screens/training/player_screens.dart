@@ -73,6 +73,7 @@ class _SessionPlayerScreenState extends State<SessionPlayerScreen> {
     _workout = b.workoutService.workoutById(widget.workoutId)!;
     _items = b.workoutService.resolve(_workout);
     _startedAt = b.now();
+    b.analytics.workoutStart(_workout.name);
     final me = b.auth.currentUser!;
     final lastLoads = _lastLoads(me.id);
     _entries = [

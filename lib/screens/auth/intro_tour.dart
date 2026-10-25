@@ -445,6 +445,7 @@ class _ChoicesPageState extends State<_ChoicesPage> {
   late bool _social = _user.privacy.showSocialLinks;
   late bool _askShare = _user.privacy.askToShareSessions;
   late bool _clubFeed = _user.privacy.showClubFeed;
+  late bool _analytics = _user.privacy.analytics;
   bool _saving = false;
 
   Future<void> _finish() async {
@@ -468,6 +469,7 @@ class _ChoicesPageState extends State<_ChoicesPage> {
           showSocialLinks: _social,
           askToShareSessions: _askShare,
           showClubFeed: _clubFeed,
+          analytics: _user.isMember && _user.isAdult && _analytics,
         ),
       );
       await b.privacy.completeIntro();
@@ -576,6 +578,15 @@ class _ChoicesPageState extends State<_ChoicesPage> {
                   _clubFeed,
                   (v) => setState(() => _clubFeed = v),
                 ),
+                if (_user.isMember && !minor)
+                  _switch(
+                    "Mesure d'audience anonyme",
+                    "Aide la salle à améliorer l'application (produits et cours "
+                        'consultés, achats). Ni ton nom, ni ton e-mail ne sont '
+                        'transmis. Traité par Google Analytics.',
+                    _analytics,
+                    (v) => setState(() => _analytics = v),
+                  ),
                 const SizedBox(height: Gap.m),
                 LoadingButton(
                   key: const Key('intro_start'),

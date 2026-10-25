@@ -18,6 +18,7 @@ import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filter_bar.dart';
 import '../../widgets/nutrition_card.dart';
+import '../../widgets/search_tracker.dart';
 import '../shell/main_shell.dart';
 
 /// Achat direct depuis la fiche produit (sans passer par le panier).
@@ -39,9 +40,17 @@ class _ShopScreenState extends State<ShopScreen> {
   static const _listKey = 'shop';
   final _query = TextEditingController();
   late FilterValues _filters = Backend.I.library.savedFilters(_listKey);
+  late final SearchTracker _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker = SearchTracker(_query, () => _results(_filters).length);
+  }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -172,6 +181,13 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _qty = 1;
   int _photo = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = Backend.I.productService.byId(widget.productId);
+    if (p != null) Backend.I.analytics.viewItem(p);
+  }
 
   @override
   Widget build(BuildContext context) {

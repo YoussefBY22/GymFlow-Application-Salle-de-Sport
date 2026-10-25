@@ -72,6 +72,24 @@ Ce partage des rôles est la première protection contre une mise en cause : l'�
 - Aucune clé n'est enregistrée avec les données : la réservation garde seulement le statut de l'email, la date, l'adresse réellement utilisée et une raison d'échec lisible. Les clés EmailJS sont retirées des messages d'erreur, et c'est testé. FormSubmit n'utilise aucune clé.
 - Le code de réservation (`GF-XXXX-XXXX`, tiré avec `Random.secure()`, 31⁸ ≈ 8,5 × 10¹¹ possibilités) ne révèle rien de l'abonné. Il devient invalide si la réservation est annulée, et la validation se fait uniquement côté service (coach du cours ou admin, fenêtre horaire, journal d'audit).
 
+## 4 ter. Mesure d'audience (Google Analytics 4)
+
+Les statistiques d'usage aident la salle à décider (quels produits et cours intéressent, ce qui est cherché sans être trouvé). Elles reposent sur **deux mécanismes distincts**, affichés dans deux onglets séparés de l'écran *Statistiques* (administrateur) :
+
+| Mécanisme | Données | Qui le reçoit | Condition |
+|---|---|---|---|
+| **Compteurs anonymes GymFlow** (collection locale `analytics`) | « Tel jour, tel événement, tel produit/cours/terme, tant de fois » (+ montant des achats). **Aucun identifiant de compte, aucun appareil, aucune heure précise.** Impossible d'en reconstituer le parcours d'une personne. Purgeables (`purgeOlderThan`, 180 jours conseillés). | Seulement la salle, dans l'application | Abonnés uniquement (les actions des coachs et de l'administrateur ne sont pas du comportement d'usage). |
+| **Google Analytics 4** (API Measurement Protocol) | Les mêmes événements, avec un **identifiant pseudonyme** : empreinte SHA-256 tronquée du compte (Google ne voit jamais l'identifiant réel et ne peut pas le retrouver), catégorie d'appareil (mobile / ordinateur), produits (identifiant, nom, catégorie, prix) et cours (identifiant, titre, catégorie) consultés, ajoutés, réservés, achetés. | **Google (États-Unis)**, sous-traitant ultérieur à inscrire dans le DPA | **Consentement explicite**, désactivé par défaut (*Confidentialité → Mesure d'audience anonyme* ou dernière page de la présentation), **refusé aux mineurs**, **retirable à tout moment** (l'envoi s'arrête immédiatement). Le choix est tracé dans l'historique des consentements (`mesure_audience`). Sans clés `GA_*`, rien n'est envoyé. |
+
+Ce qui n'est **jamais** transmis, ni à Google ni dans les compteurs : nom, e-mail, identifiant de compte, adresse, contenu des messages à l'assistant (seul le *nombre* de questions est compté), notes de séance, poids/taille/âge, textes libres de recherche au-delà de 30 caractères (les recherches de moins de 2 lettres sont ignorées). Les recherches sans résultat restent **locales** (non envoyées à Google).
+
+Lecture des rapports (écran administrateur) : l'administrateur se connecte avec **son propre compte Google** (portée `analytics.readonly`, lecture seule). Aucune clé de lecture ni compte de service n'est embarqué dans l'application ; le jeton est court et personnel.
+
+Limites à connaître :
+- Le secret *Measurement Protocol* (`GA_API_SECRET`) ne permet **que d'envoyer** des événements, mais il est lisible dans une application compilée avec `secrets.json` : un tiers pourrait polluer les statistiques. Ne pas compiler la version web publique avec ces clés (comme pour les autres) ; en production, envoyer via un serveur.
+- Measurement Protocol seul donne des rapports **partiels** chez Google (pas de pages vues automatiques, d'attribution de source ou de démographie) ; les événements peuvent mettre plusieurs heures à apparaître (l'onglet *En direct* est quasi immédiat).
+- Le transfert de données vers les États-Unis est à déclarer (INPDP en Tunisie ; RGPD pour les salles européennes) avant tout usage commercial. Pour la démo, la mesure reste **désactivée par défaut** et sans clés.
+
 ## 5. Mesures de sécurité en place (côté application)
 
 **Contrôle d'accès dans les services, pas seulement dans l'interface.** Chaque méthode vérifie la session et le rôle (`requireUser`, `requireRole`) :
@@ -134,6 +152,7 @@ Elles sont listées honnêtement pour ne pas promettre plus que ce qui est fait 
 - **Panneau « Comptes de démo »** sur l'écran de connexion : à retirer pour la production (voir `README.md`).
 - **Mot de passe oublié** : l'envoi d'e-mail est simulé et révèle si un compte existe.
 - **Suppression du compte** : en libre-service pour les abonnés seulement. Les coachs passent par l'admin.
+- **Mesure d'audience** : voir § 4 ter (secret d'envoi lisible dans une application compilée, rapports Google partiels, transfert vers les États-Unis à déclarer).
 
 ## 9. À faire lors de l'audit complet (après validation de la base de données)
 

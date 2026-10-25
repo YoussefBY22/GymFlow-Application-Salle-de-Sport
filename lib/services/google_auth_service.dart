@@ -116,6 +116,34 @@ class GoogleAuthService {
     }
   }
 
+  /// Autorisation de **lecture** des rapports Google Analytics, demandée à
+  /// l'administrateur avec son propre compte Google. Aucun mot de passe ni
+  /// clé n'est embarquée dans l'application : le jeton est court, personnel,
+  /// et ne donne accès qu'aux propriétés Analytics que ce compte peut déjà
+  /// consulter.
+  static const analyticsScope =
+      'https://www.googleapis.com/auth/analytics.readonly';
+
+  /// En-têtes d'autorisation, ou `null` si la personne n'a pas encore
+  /// autorisé la lecture et que [prompt] est faux. Avec [prompt], ouvre la
+  /// fenêtre d'autorisation de Google (à appeler depuis un clic).
+  Future<Map<String, String>?> analyticsHeaders({bool prompt = false}) async {
+    if (!enabled) {
+      throw const BusinessRuleException(
+        'La connexion avec Google n\'est pas configurée (GOOGLE_CLIENT_ID).',
+      );
+    }
+    await ensureInitialized();
+    try {
+      return await _client.authorizationClient.authorizationHeaders([
+        analyticsScope,
+      ], promptIfNecessary: prompt);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) return null;
+      throw BusinessRuleException(_message(e));
+    }
+  }
+
   /// Ferme la session Google, sans toucher au compte GymFlow.
   Future<void> signOut() async {
     if (!_ready) return;
@@ -141,7 +169,8 @@ class GoogleAuthService {
       'La connexion avec Google n\'est pas disponible pour le moment.',
     GoogleSignInExceptionCode.uiUnavailable =>
       'Impossible d\'ouvrir la fenêtre Google. Réessayez.',
-    _ => 'La connexion avec Google a échoué. Réessayez, ou connectez-vous '
-        'avec votre e-mail et votre mot de passe.',
+    _ =>
+      'La connexion avec Google a échoué. Réessayez, ou connectez-vous '
+          'avec votre e-mail et votre mot de passe.',
   };
 }

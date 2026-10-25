@@ -12,6 +12,7 @@ class PrivacySettings {
     this.showClubFeed = true,
     this.askToShareSessions = true,
     this.hiddenByAdmin = false,
+    this.analytics = false,
   });
 
   /// Profil visible des autres membres dans « Communauté ».
@@ -30,6 +31,11 @@ class PrivacySettings {
   /// Profil masqué de la communauté par la salle (modération).
   final bool hiddenByAdmin;
 
+  /// Accepte que son usage de l'application soit mesuré par Google
+  /// Analytics (de façon anonyme). **Désactivé par défaut** et jamais
+  /// activé à la place de la personne : c'est un transfert vers un tiers.
+  final bool analytics;
+
   /// Visible pour les autres membres, en tenant compte de la modération.
   bool get isPubliclyVisible => profileVisible && !hiddenByAdmin;
 
@@ -39,12 +45,14 @@ class PrivacySettings {
     bool? showClubFeed,
     bool? askToShareSessions,
     bool? hiddenByAdmin,
+    bool? analytics,
   }) => PrivacySettings(
     profileVisible: profileVisible ?? this.profileVisible,
     showSocialLinks: showSocialLinks ?? this.showSocialLinks,
     showClubFeed: showClubFeed ?? this.showClubFeed,
     askToShareSessions: askToShareSessions ?? this.askToShareSessions,
     hiddenByAdmin: hiddenByAdmin ?? this.hiddenByAdmin,
+    analytics: analytics ?? this.analytics,
   );
 
   Json toJson() => {
@@ -53,6 +61,7 @@ class PrivacySettings {
     'showClubFeed': showClubFeed,
     'askToShareSessions': askToShareSessions,
     'hiddenByAdmin': hiddenByAdmin,
+    'analytics': analytics,
   };
 
   factory PrivacySettings.fromJson(Json? j) {
@@ -63,6 +72,8 @@ class PrivacySettings {
       showClubFeed: j['showClubFeed'] as bool? ?? true,
       askToShareSessions: j['askToShareSessions'] as bool? ?? true,
       hiddenByAdmin: j['hiddenByAdmin'] as bool? ?? false,
+      // Les comptes existants n'ont jamais donné ce consentement : faux.
+      analytics: j['analytics'] as bool? ?? false,
     );
   }
 }
@@ -160,12 +171,14 @@ class ConsentType {
   static const profileVisible = 'profil_visible';
   static const socialLinks = 'reseaux_sociaux';
   static const shareSession = 'partage_seance';
+  static const analytics = 'mesure_audience';
 
   static String label(String type) => switch (type) {
     terms => 'Conditions d\'utilisation et politique de confidentialité',
     profileVisible => 'Profil visible dans la communauté',
     socialLinks => 'Affichage des réseaux sociaux',
     shareSession => 'Partage d\'une séance sur le fil du club',
+    analytics => 'Mesure d\'audience anonyme (Google Analytics)',
     _ => type,
   };
 }

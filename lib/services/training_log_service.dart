@@ -62,6 +62,7 @@ class TrainingLogService {
       smartwatchDevice: smartwatchDevice,
     );
     await _b.sessions.save(log);
+    _b.analytics.workoutComplete(workout.name);
     _b.bus.emit();
     return SessionResult(log, records);
   }
@@ -82,6 +83,7 @@ class TrainingLogService {
       ),
     );
     await _b.privacy.recordConsent(ConsentType.shareSession, shared);
+    if (shared) _b.analytics.shareSession();
     _b.bus.emit();
     return updated;
   }

@@ -176,9 +176,7 @@ class AiAssistantService {
           ),
         )
         .toList();
-    buf.writeln(
-      'COURS : ${courses.length} cours à venir au programme.',
-    );
+    buf.writeln('COURS : ${courses.length} cours à venir au programme.');
     for (final c in (matching.isNotEmpty ? matching : courses).take(10)) {
       final coach = _b.users.byId(c.coachId)?.fullName ?? 'coach';
       final free = c.capacity - _b.courseService.confirmedCount(c.id);
@@ -269,11 +267,7 @@ class AiAssistantService {
     );
     final byMuscle = <String, int>{};
     for (final e in exercises) {
-      byMuscle.update(
-        e.primaryMuscle.label,
-        (n) => n + 1,
-        ifAbsent: () => 1,
-      );
+      byMuscle.update(e.primaryMuscle.label, (n) => n + 1, ifAbsent: () => 1);
     }
     buf.writeln(
       'Exercices par muscle : '
@@ -347,6 +341,8 @@ class AiAssistantService {
         ],
       },
     ];
+    // On compte la question, jamais son contenu.
+    _b.analytics.chatQuestion();
     final reply = await _b.gemini.generate(
       system: system,
       contents: contents,

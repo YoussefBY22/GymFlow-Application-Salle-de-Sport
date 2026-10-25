@@ -17,6 +17,7 @@ import '../../widgets/common.dart';
 import '../../widgets/filter_bar.dart';
 import '../../widgets/flip.dart';
 import '../../widgets/library_widgets.dart';
+import '../../widgets/search_tracker.dart';
 import '../shell/main_shell.dart';
 import 'smartwatch_dialog.dart';
 import 'training_tools_screen.dart';
@@ -310,6 +311,7 @@ class _LibraryTabState extends State<LibraryTab>
   final _flip = FlipController();
   final _scroll = ScrollController();
   late FilterValues _filters;
+  late final SearchTracker _tracker;
 
   String get _listKey => switch (widget.kind) {
     ContentKind.program => LibraryFilters.programsList,
@@ -322,10 +324,12 @@ class _LibraryTabState extends State<LibraryTab>
     super.initState();
     _filters = Backend.I.library.savedFilters(_listKey);
     _flip.scroll = _scroll;
+    _tracker = SearchTracker(_query, () => _items(_filters).length);
   }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _query.dispose();
     _scroll.dispose();
     super.dispose();

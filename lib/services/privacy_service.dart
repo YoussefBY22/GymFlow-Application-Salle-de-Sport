@@ -60,6 +60,11 @@ class PrivacyService {
         'Les comptes de mineurs ne peuvent pas être visibles dans la communauté.',
       );
     }
+    if (next.analytics && !me.isAdult) {
+      throw const BusinessRuleException(
+        'Les comptes de mineurs ne peuvent pas activer la mesure d\'audience.',
+      );
+    }
     final previous = me.privacy;
     final settings = next.copyWith(
       hiddenByAdmin: previous.hiddenByAdmin,
@@ -73,6 +78,9 @@ class PrivacyService {
     }
     if (previous.showSocialLinks != settings.showSocialLinks) {
       await recordConsent(ConsentType.socialLinks, settings.showSocialLinks);
+    }
+    if (previous.analytics != settings.analytics) {
+      await recordConsent(ConsentType.analytics, settings.analytics);
     }
     _b.bus.emit();
     return _b.users.byId(me.id)!;

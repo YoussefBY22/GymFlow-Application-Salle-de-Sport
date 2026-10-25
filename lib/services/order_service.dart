@@ -88,6 +88,7 @@ class OrderService {
       refId: order.id,
     );
     _b.cart.refreshProducts();
+    _b.analytics.purchase(order);
     _b.bus.emit();
     return order;
   }

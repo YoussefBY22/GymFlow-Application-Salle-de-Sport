@@ -46,6 +46,17 @@ class AdminDashboardScreen extends StatelessWidget {
             children: [
               Text('Vue d\'ensemble du club', style: AppText.title(size: 22)),
               Text(Fmt.day(b.now()), style: AppText.label()),
+              const SizedBox(height: Gap.s),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ElevatedButton.icon(
+                  key: const Key('admin_stats_button'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, Routes.adminStats),
+                  icon: const Icon(Icons.insights),
+                  label: const Text('Statistiques'),
+                ),
+              ),
               const SizedBox(height: Gap.m),
               GridView.count(
                 crossAxisCount: isWide(context) ? 4 : 2,

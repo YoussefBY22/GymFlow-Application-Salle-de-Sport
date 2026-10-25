@@ -169,7 +169,12 @@ class AuthService extends ChangeNotifier {
   /// Ouvre la session : jeton de session, horodatage de connexion et
   /// remise à zéro des tentatives. Commun à la connexion par mot de passe
   /// et à la connexion avec Google.
-  Future<AppUser> _startSession(AppUser user, Credential cred) async {
+  Future<AppUser> _startSession(
+    AppUser user,
+    Credential cred, {
+    String method = 'password',
+    bool newAccount = false,
+  }) async {
     final token = newSessionToken();
     await _b.credentials.save(
       cred.copyWith(
@@ -180,13 +185,15 @@ class AuthService extends ChangeNotifier {
     );
     await _b.sessionStorage.write(_tokenKey, token);
     await _b.sessionStorage.write(_userKey, user.id);
-    final updated = await _b.users.save(
-      user.copyWith(lastLoginAt: _b.now()),
-    );
+    final updated = await _b.users.save(user.copyWith(lastLoginAt: _b.now()));
     _current = updated;
     pendingMessage = null;
     notifyListeners();
     _b.bus.emit();
+    // Mesure d'audience : connexion (et inscription si le compte vient
+    // d'être créé par Google). Sans effet pour la salle et les coachs.
+    if (newAccount) _b.analytics.signUp(method);
+    _b.analytics.login(method);
     return updated;
   }
 
@@ -224,7 +231,7 @@ class AuthService extends ChangeNotifier {
       }
       // Un verrouillage pour essais ratés ne bloque pas Google : le mot de
       // passe n'est pas en jeu ici, c'est Google qui a authentifié.
-      return _startSession(existing, cred);
+      return _startSession(existing, cred, method: 'google');
     }
 
     final now = _b.now();
@@ -258,7 +265,12 @@ class AuthService extends ChangeNotifier {
       'Votre essai gratuit de 7 jours commence aujourd\'hui. '
           'Complétez votre profil pour des conseils adaptés.',
     );
-    return _startSession(user, _b.credentials.byId(user.id)!);
+    return _startSession(
+      user,
+      _b.credentials.byId(user.id)!,
+      method: 'google',
+      newAccount: true,
+    );
   }
 
   /// Mot de passe aléatoire, jamais communiqué : il n'existe que pour
@@ -339,7 +351,9 @@ class AuthService extends ChangeNotifier {
       'Bienvenue chez GymFlow !',
       'Votre essai gratuit de 7 jours commence aujourd\'hui. Réservez votre premier cours.',
     );
-    return login(email, password);
+    final session = await login(email, password);
+    _b.analytics.signUp('password');
+    return session;
   }
 
   Future<void> logout() async {

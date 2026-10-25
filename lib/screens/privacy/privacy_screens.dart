@@ -117,6 +117,30 @@ class PrivacySettingsScreen extends StatelessWidget {
                         'Affichage seulement, ne publie rien.',
                       ),
                     ),
+                    if (u.isMember)
+                      SwitchListTile(
+                        key: const Key('privacy_analytics'),
+                        contentPadding: EdgeInsets.zero,
+                        value: p.analytics,
+                        onChanged: u.isAdult
+                            ? (v) => set(
+                                p.copyWith(analytics: v),
+                                v
+                                    ? "Mesure d'audience activée."
+                                    : "Mesure d'audience désactivée.",
+                              )
+                            : null,
+                        title: const Text("Mesure d'audience anonyme"),
+                        subtitle: Text(
+                          u.isAdult
+                              ? "Aide la salle à améliorer l'application : "
+                                    'produits et cours consultés, réservations, '
+                                    'achats. Ni ton nom, ni ton e-mail, ni tes '
+                                    'messages ne sont transmis. Traité par '
+                                    'Google Analytics. Désactivé par défaut.'
+                              : 'Indisponible pour les comptes de mineurs.',
+                        ),
+                      ),
                   ],
                 ),
               ),

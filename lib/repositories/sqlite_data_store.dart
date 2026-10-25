@@ -16,7 +16,11 @@ class SqliteDataStore implements DataStore {
 
   /// Fabrique injectable (sqflite_common_ffi dans les tests sur PC).
   final DatabaseFactory? factory;
-  static const int schemaVersion = 1;
+
+  /// Version du schéma. 2 : ajout de la collection `analytics`. Une base
+  /// déjà installée (un téléphone, par exemple) passe de 1 à 2 sans perdre
+  /// la moindre donnée : voir `onUpgrade`.
+  static const int schemaVersion = 2;
 
   Database? _db;
 
@@ -27,6 +31,10 @@ class SqliteDataStore implements DataStore {
     }
     return db;
   }
+
+  static String _createTable(String name, {bool ifNotExists = false}) =>
+      'CREATE TABLE ${ifNotExists ? 'IF NOT EXISTS ' : ''}$name '
+      '(id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)';
 
   @override
   Future<void> open() async {
@@ -41,14 +49,20 @@ class SqliteDataStore implements DataStore {
         onCreate: (db, version) async {
           final batch = db.batch();
           for (final c in Collections.all) {
-            batch.execute(
-              'CREATE TABLE $c (id TEXT PRIMARY KEY, data TEXT NOT NULL, '
-              'updated_at INTEGER NOT NULL)',
-            );
+            batch.execute(_createTable(c));
           }
           batch.execute(
             'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
           );
+          await batch.commit(noResult: true);
+        },
+        // Montée de version : on ne crée que les tables qui manquent
+        // (`IF NOT EXISTS`), les données existantes ne sont jamais touchées.
+        onUpgrade: (db, oldVersion, newVersion) async {
+          final batch = db.batch();
+          for (final c in Collections.all) {
+            batch.execute(_createTable(c, ifNotExists: true));
+          }
           await batch.commit(noResult: true);
         },
       ),

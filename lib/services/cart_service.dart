@@ -43,6 +43,7 @@ class CartService extends ChangeNotifier {
     } else {
       _lines.add(CartLine(product: fresh, quantity: next));
     }
+    _b.analytics.addToCart(fresh, quantity);
     notifyListeners();
   }
 

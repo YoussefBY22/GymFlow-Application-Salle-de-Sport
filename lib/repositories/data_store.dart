@@ -36,6 +36,7 @@ class Collections {
   static const audit = 'audit';
   static const announcements = 'announcements';
   static const wgerCache = 'wger_cache';
+  static const analytics = 'analytics';
 
   static const all = [
     users,
@@ -53,6 +54,7 @@ class Collections {
     audit,
     announcements,
     wgerCache,
+    analytics,
   ];
 }
 

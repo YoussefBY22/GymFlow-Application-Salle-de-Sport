@@ -99,6 +99,19 @@ class Legal {
           'légal et ne sont jamais visibles dans la communauté.',
     ),
     (
+      'Mesure d\'audience (facultative)',
+      'Désactivée par défaut. Si vous l\'activez dans « Confidentialité », '
+          'l\'application envoie à Google Analytics les actions qui aident la '
+          'salle à s\'améliorer (produits et cours consultés, ajouts au '
+          'panier, réservations, achats, recherches), sous un identifiant '
+          'pseudonyme qui ne permet pas de retrouver votre compte. Ni votre '
+          'nom, ni votre e-mail, ni vos messages à l\'assistant ne sont '
+          'transmis. Google est situé aux États-Unis. Vous pouvez la '
+          'désactiver à tout moment ; elle est indisponible pour les mineurs. '
+          'Indépendamment de ce choix, l\'application tient des compteurs '
+          'anonymes (sans compte) pour les statistiques de la salle.',
+    ),
+    (
       'Permissions du téléphone',
       'Appareil photo et galerie : seulement quand vous ajoutez une photo ou '
           'une vidéo. Notifications : rappels de cours. Agenda : seulement '

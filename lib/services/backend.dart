@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../core/config.dart';
 import '../core/errors.dart';
 import '../core/security.dart';
+import '../models/analytics.dart';
 import '../models/course.dart';
 import '../models/enums.dart';
 import '../models/exercise.dart';
@@ -15,6 +16,8 @@ import '../models/workout.dart';
 import '../repositories/data_store.dart';
 import '../repositories/repository.dart';
 import 'ai_assistant_service.dart';
+import 'analytics_service.dart';
+import 'ga_report_service.dart';
 import 'announcement_service.dart';
 import 'audit_service.dart';
 import 'auth_service.dart';
@@ -163,6 +166,12 @@ class Backend {
       (a) => a.toJson(),
       (a) => a.id,
     );
+    analyticsRepo = _repo(
+      Collections.analytics,
+      AnalyticsCounter.fromJson,
+      (c) => c.toJson(),
+      (c) => c.id,
+    );
 
     auth = AuthService(this);
     userService = UserService(this);
@@ -182,6 +191,7 @@ class Backend {
     announcements = AnnouncementService(this);
     wger = WgerApi(this);
     privacy = PrivacyService(this);
+    analytics = AnalyticsService(this);
     gemini = GeminiClient(
       httpClient,
       apiKey: geminiApiKey ?? AppConfig.geminiApiKey,
@@ -197,6 +207,7 @@ class Backend {
     );
     googleAuth = GoogleAuthService();
     gravatar = GravatarService(this);
+    gaReport = GaReportService(this);
     email = EmailService(
       this,
       serviceId: emailJsServiceId,
@@ -297,6 +308,7 @@ class Backend {
   late final Repository<ShopOrder> orders;
   late final Repository<AuditEntry> auditRepo;
   late final Repository<Announcement> announcementsRepo;
+  late final Repository<AnalyticsCounter> analyticsRepo;
 
   late final AuthService auth;
   late final UserService userService;
@@ -316,6 +328,8 @@ class Backend {
   late final AnnouncementService announcements;
   late final WgerApi wger;
   late final PrivacyService privacy;
+  late final AnalyticsService analytics;
+  late final GaReportService gaReport;
 
   /// Client Gemini commun (remplaçable dans les tests, sans réseau).
   late GeminiClient gemini;

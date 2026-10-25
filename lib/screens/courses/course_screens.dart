@@ -17,6 +17,7 @@ import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filter_bar.dart';
 import '../../widgets/pickers.dart';
+import '../../widgets/search_tracker.dart';
 import '../../widgets/sentiment_widgets.dart';
 import 'ticket_screen.dart';
 import '../shell/main_shell.dart';
@@ -39,6 +40,7 @@ class _CoursesScreenState extends State<CoursesScreen>
   late final TabController _tabs;
   final _query = TextEditingController();
   late FilterValues _filters;
+  late final SearchTracker _tracker;
 
   @override
   void initState() {
@@ -53,10 +55,15 @@ class _CoursesScreenState extends State<CoursesScreen>
         if (!_tabs.indexIsChanging) setState(() {});
       });
     _filters = b.library.savedFilters(_listKey);
+    _tracker = SearchTracker(
+      _query,
+      () => _results(_views[_tabs.index], _filters).length,
+    );
   }
 
   @override
   void dispose() {
+    _tracker.dispose();
     _tabs.dispose();
     _query.dispose();
     super.dispose();
@@ -333,6 +340,13 @@ class CourseDetailScreen extends StatefulWidget {
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = Backend.I.courses.byId(widget.courseId);
+    if (c != null) Backend.I.analytics.viewCourse(c);
+  }
 
   Future<void> _act(Future<void> Function() action, String success) async {
     setState(() => _busy = true);

@@ -108,6 +108,7 @@ class ReservationService {
       // jamais EmailJS et n'échoue jamais à cause de lui.
       _b.email.sendInBackground(r.id);
     }
+    _b.analytics.reserveCourse(c, waitlisted: full);
     _b.bus.emit();
     return r;
   }
@@ -151,6 +152,7 @@ class ReservationService {
     await _b.reservations.save(r.copyWith(status: ReservationStatus.cancelled));
     await _b.notifications.cancelCourseReminders(r.id);
     if (wasConfirmed) await promoteWaitlist(c.id);
+    _b.analytics.cancelReservation(c);
     _b.bus.emit();
   }
 
