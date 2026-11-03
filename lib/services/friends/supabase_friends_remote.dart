@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors.dart';
+import '../../models/chat.dart';
 import '../../models/friends.dart';
 import 'friends_remote.dart';
 
@@ -84,6 +85,26 @@ class SupabaseFriendsRemote implements FriendsRemote {
     }
     if (m.contains('friends_disabled')) {
       return 'La fonction Amis doit être activée des deux côtés.';
+    }
+    if (m.contains('you_blocked')) {
+      return 'Vous avez bloqué cette personne. Débloquez-la dans Mes amis pour '
+          "l'inviter.";
+    }
+    if (m.contains('empty_message')) return 'Écrivez un message.';
+    if (m.contains('too_long')) {
+      return 'Message trop long (1 000 caractères au plus).';
+    }
+    if (m.contains('not_sender')) {
+      return 'Seul l\'auteur peut supprimer un message pour tout le monde.';
+    }
+    if (m.contains('no_messages')) {
+      return 'Sélectionnez au moins un message.';
+    }
+    if (m.contains('invalid_remark')) {
+      return 'Décrivez le problème en 5 caractères au moins.';
+    }
+    if (m.contains('not_admin')) {
+      return 'Ce compte n\'est pas reconnu comme administrateur.';
     }
     if (m.contains('no_account')) {
       return 'Aucun compte avec cette adresse. Votre ami doit avoir activé la '
@@ -217,10 +238,35 @@ class SupabaseFriendsRemote implements FriendsRemote {
   });
 
   @override
-  Future<bool> loadInvisible() => _run(() async {
+  Future<ChatSettings> loadSettings() => _run(() async {
     final c = await _c();
     final rows = (await c.rpc('my_settings') as List).cast<Map>();
-    return rows.isNotEmpty && rows.first['invisible'] == true;
+    if (rows.isEmpty) return const ChatSettings();
+    final r = rows.first;
+    return ChatSettings(
+      invisible: r['invisible'] == true,
+      hideReadReceipts: r['hide_read_receipts'] == true,
+      hideTyping: r['hide_typing'] == true,
+      pushPreview: r['push_preview'] != false,
+      isAdmin: r['is_admin'] == true,
+    );
+  });
+
+  @override
+  Future<void> setChatSettings({
+    required bool hideReadReceipts,
+    required bool hideTyping,
+    required bool pushPreview,
+  }) => _run(() async {
+    final c = await _c();
+    await c.rpc(
+      'set_chat_settings',
+      params: {
+        'p_hide_receipts': hideReadReceipts,
+        'p_hide_typing': hideTyping,
+        'p_push_preview': pushPreview,
+      },
+    );
   });
 
   // --------------------------------------------------------------- Amis
@@ -375,6 +421,262 @@ class SupabaseFriendsRemote implements FriendsRemote {
         .inFilter('id', ids);
   });
 
+  // ------------------------------------------------------------ Messagerie
+
+  static ChatMessage _message(Map r) => ChatMessage(
+    id: r['id'] as String,
+    peerId: r['peer'] as String,
+    mine: r['mine'] == true,
+    kind: MessageKind.fromKey(r['kind'] as String?),
+    text: r['body'] as String?,
+    createdAt: DateTime.tryParse('${r['created_at']}') ?? DateTime.now(),
+    deleted: r['deleted'] == true,
+  );
+
+  @override
+  Future<String> sendMessage(String toId, MessageKind kind, String body) =>
+      _run(() async {
+        final c = await _c();
+        final r = await c.rpc(
+          'send_message',
+          params: {'p_to': toId, 'p_kind': kind.key, 'p_body': body},
+        );
+        return r as String;
+      });
+
+  @override
+  Future<List<ChatMessage>> loadMessages(
+    String friendId, {
+    DateTime? before,
+    int limit = 50,
+  }) => _run(() async {
+    final c = await _c();
+    final rows =
+        (await c.rpc(
+                  'conversation_messages',
+                  params: {
+                    'p_friend': friendId,
+                    'p_before': before?.toUtc().toIso8601String(),
+                    'p_limit': limit,
+                  },
+                )
+                as List)
+            .cast<Map>();
+    return [for (final r in rows) _message(r)];
+  });
+
+  @override
+  Future<ChatMessage?> messageById(String id) => _run(() async {
+    final c = await _c();
+    final rows = (await c.rpc('message_by_id', params: {'p_id': id}) as List)
+        .cast<Map>();
+    return rows.isEmpty ? null : _message(rows.first);
+  });
+
+  @override
+  Future<List<Conversation>> loadConversations({bool archived = false}) =>
+      _run(() async {
+        final c = await _c();
+        final rows =
+            (await c.rpc('my_conversations', params: {'p_archived': archived})
+                    as List)
+                .cast<Map>();
+        return [
+          for (final r in rows)
+            Conversation(
+              friendId: r['friend_id'] as String,
+              friendName: r['friend_name'] as String,
+              avatarUrl: r['avatar_url'] as String?,
+              lastAt: DateTime.tryParse('${r['last_at']}') ?? DateTime.now(),
+              lastMine: r['last_mine'] == true,
+              lastPreview: ChatMessage(
+                id: 'x',
+                peerId: r['friend_id'] as String,
+                mine: r['last_mine'] == true,
+                kind: MessageKind.fromKey(r['last_kind'] as String?),
+                text: r['last_body'] as String?,
+                deleted: r['last_deleted'] == true,
+                createdAt: DateTime.now(),
+              ).preview,
+              unread: (r['unread'] as num?)?.toInt() ?? 0,
+              muted: r['muted'] == true,
+              archived: r['archived'] == true,
+            ),
+        ];
+      });
+
+  @override
+  Future<ChatInfo> conversationInfo(String friendId) => _run(() async {
+    final c = await _c();
+    final rows =
+        (await c.rpc('conversation_info', params: {'p_friend': friendId})
+                as List)
+            .cast<Map>();
+    if (rows.isEmpty) return const ChatInfo();
+    final r = rows.first;
+    return ChatInfo(
+      peerReadAt: DateTime.tryParse('${r['peer_read_at']}'),
+      muted: r['muted'] == true,
+      archived: r['archived'] == true,
+    );
+  });
+
+  @override
+  Future<void> markRead(String friendId) => _run(() async {
+    final c = await _c();
+    await c.rpc('mark_read', params: {'p_friend': friendId});
+  });
+
+  @override
+  Future<void> setTyping(String friendId, bool typing) => _run(() async {
+    final c = await _c();
+    await c.rpc('set_typing', params: {'p_friend': friendId, 'p_on': typing});
+  });
+
+  @override
+  Future<void> deleteMessage(String messageId, {required bool forAll}) =>
+      _run(() async {
+        final c = await _c();
+        await c.rpc(
+          'delete_message',
+          params: {'p_id': messageId, 'p_for_all': forAll},
+        );
+      });
+
+  @override
+  Future<void> clearConversation(String friendId) => _run(() async {
+    final c = await _c();
+    await c.rpc('clear_conversation', params: {'p_friend': friendId});
+  });
+
+  @override
+  Future<void> setArchived(String friendId, bool archived) => _run(() async {
+    final c = await _c();
+    await c.rpc(
+      'set_archived',
+      params: {'p_friend': friendId, 'p_on': archived},
+    );
+  });
+
+  @override
+  Future<void> setMuted(String friendId, bool muted) => _run(() async {
+    final c = await _c();
+    await c.rpc('set_muted', params: {'p_friend': friendId, 'p_on': muted});
+  });
+
+  // ------------------------------------------- Blocage et signalements
+
+  @override
+  Future<void> blockUser(String userId) => _run(() async {
+    final c = await _c();
+    await c.rpc('block_user', params: {'p_user': userId});
+  });
+
+  @override
+  Future<void> unblockUser(String userId) => _run(() async {
+    final c = await _c();
+    await c.rpc('unblock_user', params: {'p_user': userId});
+  });
+
+  @override
+  Future<List<BlockedUser>> loadBlocks() => _run(() async {
+    final c = await _c();
+    final rows = (await c.rpc('my_blocks') as List).cast<Map>();
+    return [
+      for (final r in rows)
+        BlockedUser(
+          id: r['user_id'] as String,
+          name: r['display_name'] as String,
+          avatarUrl: r['avatar_url'] as String?,
+        ),
+    ];
+  });
+
+  @override
+  Future<void> reportConversation(
+    String friendId,
+    List<String> messageIds, {
+    String? remark,
+    bool alsoBlock = false,
+  }) => _run(() async {
+    final c = await _c();
+    await c.rpc(
+      'report_conversation',
+      params: {
+        'p_friend': friendId,
+        'p_message_ids': messageIds,
+        'p_remark': remark,
+        'p_also_block': alsoBlock,
+      },
+    );
+  });
+
+  @override
+  Future<void> reportPerson(String friendId, String remark) => _run(() async {
+    final c = await _c();
+    await c.rpc(
+      'report_person',
+      params: {'p_friend': friendId, 'p_remark': remark},
+    );
+  });
+
+  @override
+  Future<List<ReportEntry>> adminLoadReports({bool? handled}) => _run(() async {
+    final c = await _c();
+    final rows =
+        (await c.rpc(
+                  'admin_list_reports',
+                  params: {
+                    'p_status': handled == null
+                        ? null
+                        : (handled ? 'handled' : 'new'),
+                  },
+                )
+                as List)
+            .cast<Map>();
+    return [
+      for (final r in rows)
+        ReportEntry(
+          id: r['id'] as String,
+          isConversation: r['kind'] == 'discussion',
+          handled: r['status'] == 'handled',
+          createdAt: DateTime.tryParse('${r['created_at']}') ?? DateTime.now(),
+          reporterName: r['reporter_name'] as String,
+          reportedName: r['reported_name'] as String,
+          remark: r['remark'] as String?,
+          handledAt: DateTime.tryParse('${r['handled_at']}'),
+          handledNote: r['handled_note'] as String?,
+          messages: [
+            for (final m in (r['messages'] as List? ?? const []))
+              ReportedMessage(
+                from: '${(m as Map)['from']}',
+                mine: m['mine'] == true,
+                at: DateTime.tryParse('${m['at']}') ?? DateTime.now(),
+                kind: MessageKind.fromKey(m['kind'] as String?),
+                text: m['text'] as String?,
+              ),
+          ],
+        ),
+    ];
+  });
+
+  @override
+  Future<void> adminHandleReport(String reportId, {String? note}) =>
+      _run(() async {
+        final c = await _c();
+        await c.rpc(
+          'admin_handle_report',
+          params: {'p_id': reportId, 'p_note': note},
+        );
+      });
+
+  @override
+  Future<int> adminNewReportsCount() => _run(() async {
+    final c = await _c();
+    final r = await c.rpc('admin_new_reports_count');
+    return (r as num?)?.toInt() ?? 0;
+  });
+
   // ------------------------------------------------------------ Temps réel
 
   @override
@@ -413,6 +715,49 @@ class SupabaseFriendsRemote implements FriendsRemote {
           value: me,
         ),
         callback: (p) => _events.add(PokeReceived(_poke(p.newRecord))),
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'messages',
+        callback: (p) {
+          final r = p.newRecord;
+          if (r.isEmpty) return;
+          final mine = r['sender'] == me;
+          _events.add(
+            MessageEvent(
+              messageId: '${r['id']}',
+              peerId: '${mine ? r['recipient'] : r['sender']}',
+              mine: mine,
+              isNew: p.eventType == PostgresChangeEvent.insert,
+            ),
+          );
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'read_marks',
+        callback: (p) {
+          final r = p.newRecord;
+          if (r.isEmpty || r['peer'] != me) return;
+          final at = DateTime.tryParse('${r['read_at']}');
+          if (at != null) _events.add(ReadMarkChanged('${r['reader']}', at));
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'typing_state',
+        callback: (p) {
+          final r = p.newRecord;
+          if (r.isEmpty || r['peer_id'] != me) return;
+          final until = DateTime.tryParse('${r['until']}');
+          // `until` est une heure du serveur : on la compare à l'heure de
+          // validation de la modification, du même serveur.
+          final active = until != null && until.isAfter(p.commitTimestamp);
+          _events.add(TypingChanged('${r['user_id']}', active));
+        },
       )
       ..subscribe();
     _channel = channel;

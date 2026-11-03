@@ -21,7 +21,9 @@ import 'ai_assistant_service.dart';
 import 'analytics_service.dart';
 import 'friends/friends_remote.dart';
 import 'friends/supabase_friends_remote.dart';
+import 'chat_service.dart';
 import 'friends_service.dart';
+import 'moderation_service.dart';
 import 'ga_report_service.dart';
 import 'announcement_service.dart';
 import 'audit_service.dart';
@@ -198,16 +200,19 @@ class Backend {
     wger = WgerApi(this);
     privacy = PrivacyService(this);
     analytics = AnalyticsService(this);
-    friends = FriendsService(
-      this,
-      friendsRemote ??
-          (AppConfig.supabaseEnabled
-              ? SupabaseFriendsRemote(
-                  url: AppConfig.supabaseUrl.trim(),
-                  anonKey: AppConfig.supabaseAnonKey.trim(),
-                )
-              : null),
-    );
+    // Un seul accès au serveur partagé par les amis, la messagerie et la
+    // modération (une seule session, un seul canal en direct).
+    final remote =
+        friendsRemote ??
+        (AppConfig.supabaseEnabled
+            ? SupabaseFriendsRemote(
+                url: AppConfig.supabaseUrl.trim(),
+                anonKey: AppConfig.supabaseAnonKey.trim(),
+              )
+            : null);
+    friends = FriendsService(this, remote);
+    chat = ChatService(this, remote);
+    moderation = ModerationService(this, remote);
     gemini = GeminiClient(
       httpClient,
       apiKey: geminiApiKey ?? AppConfig.geminiApiKey,
@@ -297,6 +302,7 @@ class Backend {
     await b.auth.restoreSession();
     // Fonction Amis : reprend la connexion au serveur si elle était activée.
     unawaited(b.friends.resume());
+    unawaited(b.moderation.resume());
     return b;
   }
 
@@ -350,6 +356,8 @@ class Backend {
   late final PrivacyService privacy;
   late final AnalyticsService analytics;
   late final FriendsService friends;
+  late final ChatService chat;
+  late final ModerationService moderation;
   late final GaReportService gaReport;
 
   /// Client Gemini commun (remplaçable dans les tests, sans réseau).

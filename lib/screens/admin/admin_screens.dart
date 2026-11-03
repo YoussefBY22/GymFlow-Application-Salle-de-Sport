@@ -57,6 +57,26 @@ class AdminDashboardScreen extends StatelessWidget {
                   label: const Text('Statistiques'),
                 ),
               ),
+              if (b.moderation.available) ...[
+                const SizedBox(height: Gap.s),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ListenableBuilder(
+                    listenable: b.moderation,
+                    builder: (context, _) => OutlinedButton.icon(
+                      key: const Key('admin_reports_button'),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, Routes.adminReports),
+                      icon: const Icon(Icons.flag_outlined),
+                      label: Text(
+                        b.moderation.newCount > 0
+                            ? 'Signalements (${b.moderation.newCount})'
+                            : 'Signalements',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: Gap.m),
               GridView.count(
                 crossAxisCount: isWide(context) ? 4 : 2,

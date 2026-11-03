@@ -113,7 +113,9 @@ Future<String?> askText(
       ],
     ),
   );
-  controller.dispose();
+  // Pas de dispose() ici : la boîte de dialogue se ferme avec une animation
+  // qui reconstruit encore le champ ; le contrôleur n'a aucun écouteur et est
+  // récupéré avec le reste.
   return result;
 }
 

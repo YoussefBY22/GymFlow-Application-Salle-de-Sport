@@ -107,7 +107,7 @@ Mise en place pas à pas et choix de confidentialité : `DECISIONS.md` (« Stati
 Les abonnés majeurs peuvent ajouter des amis par e-mail, voir en direct s'ils sont connectés et leur envoyer un message d'encouragement (menu **Mes amis**). Les données partagées vivent sur **Supabase** ; tout le reste reste en local (SQLite).
 
 1. Créer un projet Supabase gratuit (région Europe), puis **Authentication → Sign In / Providers → Email → désactiver « Confirm email »** (démo seulement).
-2. **SQL Editor** : exécuter `supabase/schema.sql`, puis `supabase/004_presence_invisible_invitations.sql` (et les fichiers suivants dans l'ordre). Si la base existait déjà d'une version précédente, exécuter dans l'ordre les fichiers `002`, `003`, `004`…
+2. **SQL Editor** : exécuter `supabase/schema.sql`, puis `supabase/004_presence_invisible_invitations.sql`, puis `supabase/005_messagerie_complete.sql` (un seul script pour la messagerie, les signalements et les notifications push). Si la base existait déjà d'une version précédente, exécuter dans l'ordre les fichiers `002`, `003`, `004`…
 3. Ajouter dans `secrets.json` : `SUPABASE_URL` et `SUPABASE_ANON_KEY` (clé « publishable » ; **jamais** la clé `service_role` ni la clé « secret »).
 4. Installer l'APK sur deux téléphones, se connecter avec deux comptes différents (par ex. `ahmed@gymflow.tn` et `nour@gymflow.tn`), activer la fonction dans **Mes amis** sur chacun, puis ajouter l'autre par son e-mail.
 

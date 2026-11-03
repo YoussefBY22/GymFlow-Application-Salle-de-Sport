@@ -393,6 +393,18 @@ class AppDrawer extends StatelessWidget {
                   ),
                 if (user.isMember && b.friends.available)
                   ListenableBuilder(
+                    listenable: b.chat,
+                    builder: (context, _) => _item(
+                      Icons.chat_bubble_outline,
+                      'Messages',
+                      () => go(Routes.chats),
+                      trailing: b.chat.unreadTotal > 0
+                          ? Pill('${b.chat.unreadTotal}', color: AppColors.red)
+                          : null,
+                    ),
+                  ),
+                if (user.isMember && b.friends.available)
+                  ListenableBuilder(
                     listenable: b.friends,
                     builder: (context, _) => _item(
                       Icons.people_outline,

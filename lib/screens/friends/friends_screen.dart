@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/errors.dart';
 import '../../core/responsive.dart';
+import '../../core/routes.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../models/friends.dart';
 import '../../services/backend.dart';
 import '../../services/friends_service.dart';
 import '../../widgets/common.dart';
+import '../../widgets/friend_avatar.dart';
+import '../../widgets/pickers.dart';
 
 /// Mes amis : ajout par e-mail, demandes reçues, présence en direct et
 /// petits messages d'encouragement.
@@ -36,6 +40,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     });
     if (_s.status == FriendsStatus.connected) {
       unawaited(_s.refresh().catchError((Object _) {}));
+      unawaited(Backend.I.chat.refreshBlocks().catchError((Object _) {}));
     }
   }
 
@@ -151,7 +156,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mes amis')),
       body: ListenableBuilder(
-        listenable: Listenable.merge([_s, b.auth]),
+        listenable: Listenable.merge([_s, b.auth, b.chat]),
         builder: (context, _) {
           final me = b.auth.currentUser;
           final status = _s.status;
@@ -311,6 +316,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
       const SizedBox(height: Gap.s),
       GfCard(
         padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+        child: ListTile(
+          key: const Key('open_chats'),
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.chat_bubble_outline, color: AppColors.navy),
+          title: Text('Messages', style: AppText.subtitle(size: 15)),
+          subtitle: const Text('Vos discussions avec vos amis'),
+          trailing: Backend.I.chat.unreadTotal > 0
+              ? Pill('${Backend.I.chat.unreadTotal}', color: AppColors.red)
+              : const Icon(Icons.chevron_right),
+          onTap: () => Navigator.pushNamed(context, Routes.chats),
+        ),
+      ),
+      const SizedBox(height: Gap.s),
+      GfCard(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.m),
         child: SwitchListTile(
           key: const Key('friends_invisible'),
           contentPadding: EdgeInsets.zero,
@@ -328,6 +348,39 @@ class _FriendsScreenState extends State<FriendsScreen> {
             'Vos amis ne voient ni « en ligne » ni « vu il y a ». Vous '
             'continuez de recevoir vos messages et de voir les leurs.',
           ),
+        ),
+      ),
+      const SizedBox(height: Gap.s),
+      GfCard(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+        child: Column(
+          children: [
+            SwitchListTile(
+              key: const Key('chat_hide_receipts'),
+              contentPadding: EdgeInsets.zero,
+              value: _s.settings.hideReadReceipts,
+              onChanged: _busy
+                  ? null
+                  : (v) => _run(() => _s.setChatSettings(hideReadReceipts: v)),
+              title: const Text('Masquer les « Vu »'),
+              subtitle: const Text(
+                'Vos amis ne voient pas quand vous avez lu leurs messages, et '
+                'vous ne voyez plus les leurs.',
+              ),
+            ),
+            SwitchListTile(
+              key: const Key('chat_hide_typing'),
+              contentPadding: EdgeInsets.zero,
+              value: _s.settings.hideTyping,
+              onChanged: _busy
+                  ? null
+                  : (v) => _run(() => _s.setChatSettings(hideTyping: v)),
+              title: const Text('Masquer « en train d\'écrire »'),
+              subtitle: const Text(
+                'Même règle : si vous le masquez, vous ne le voyez plus non plus.',
+              ),
+            ),
+          ],
         ),
       ),
       const SectionHeader('Ajouter un ami'),
@@ -371,7 +424,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ListTile(
                   key: Key('request_${r.id}'),
                   contentPadding: EdgeInsets.zero,
-                  leading: _FriendAvatar(name: r.fromName, url: r.avatarUrl),
+                  leading: FriendAvatar(name: r.fromName, url: r.avatarUrl),
                   title: Text(r.fromName, style: AppText.subtitle(size: 15)),
                   subtitle: const Text('veut vous ajouter en ami'),
                   trailing: Wrap(
@@ -416,7 +469,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ListTile(
                   key: Key('sent_${r.id}'),
                   contentPadding: EdgeInsets.zero,
-                  leading: _FriendAvatar(name: r.toName, url: r.avatarUrl),
+                  leading: FriendAvatar(name: r.toName, url: r.avatarUrl),
                   title: Text(r.toName, style: AppText.subtitle(size: 15)),
                   subtitle: const Text('En attente de réponse'),
                   trailing: TextButton(
@@ -428,6 +481,33 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             success: 'Invitation annulée.',
                           ),
                     child: const Text('Annuler'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      if (Backend.I.chat.blocks.isNotEmpty) ...[
+        SectionHeader('Personnes bloquées (${Backend.I.chat.blocks.length})'),
+        GfCard(
+          key: const Key('blocked_list'),
+          child: Column(
+            children: [
+              for (final u in Backend.I.chat.blocks)
+                ListTile(
+                  key: Key('blocked_${u.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: FriendAvatar(name: u.name, url: u.avatarUrl),
+                  title: Text(u.name, style: AppText.subtitle(size: 15)),
+                  trailing: TextButton(
+                    key: Key('unblock_${u.id}'),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => Backend.I.chat.unblock(u.id),
+                            success: '${u.name} est débloqué(e).',
+                          ),
+                    child: const Text('Débloquer'),
                   ),
                 ),
             ],
@@ -466,7 +546,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return ListTile(
       key: Key('friend_${f.id}'),
       contentPadding: EdgeInsets.zero,
-      leading: _FriendAvatar(name: f.name, url: f.avatarUrl, online: online),
+      leading: FriendAvatar(name: f.name, url: f.avatarUrl, online: online),
       title: Text(f.name, style: AppText.subtitle(size: 15)),
       subtitle: Text(
         f.presenceLabel(now),
@@ -479,6 +559,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            key: Key('chat_${f.id}'),
+            tooltip: 'Écrire',
+            color: AppColors.navy,
+            onPressed: () =>
+                Navigator.pushNamed(context, Routes.chat, arguments: f.id),
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
           IconButton(
             key: Key('poke_${f.id}'),
             tooltip: 'Encourager',
@@ -493,18 +581,62 @@ class _FriendsScreenState extends State<FriendsScreen> {
               switch (v) {
                 case 'challenge':
                   _poke(f, PokeKind.challenge);
+                case 'report':
+                  _reportPerson(f);
+                case 'block':
+                  _block(f);
                 case 'remove':
                   _remove(f);
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'challenge', child: Text('Lancer un défi')),
+              PopupMenuItem(
+                value: 'report',
+                child: Text('Signaler la personne'),
+              ),
+              PopupMenuItem(value: 'block', child: Text('Bloquer')),
               PopupMenuItem(value: 'remove', child: Text('Retirer cet ami')),
             ],
           ),
         ],
       ),
     );
+  }
+
+  /// Signaler la **personne** (sa conduite en général) : le motif est
+  /// obligatoire. Pour signaler des messages précis, on signale la discussion.
+  Future<void> _reportPerson(Friend f) async {
+    final reason = await askText(
+      context,
+      title: 'Signaler ${f.name}',
+      label: 'Motif du signalement',
+      hint: 'Ex. photo inappropriée, harcèlement…',
+      validator: Validators.text(field: 'Le motif', min: 5, max: 500),
+    );
+    if (reason == null || !mounted) return;
+    await _run(
+      () => Backend.I.chat.reportPerson(f.id, reason),
+      success: 'Merci. Le signalement a été transmis à la salle.',
+    );
+  }
+
+  Future<void> _block(Friend f) async {
+    final ok = await confirm(
+      context,
+      title: 'Bloquer ${f.name} ?',
+      message:
+          'Vous ne serez plus amis et plus aucun message ne passera. '
+          '${f.name} ne saura pas que vous l\'avez bloqué(e).',
+      confirmLabel: 'Bloquer',
+      destructive: true,
+    );
+    if (ok) {
+      await _run(
+        () => Backend.I.chat.block(f.id),
+        success: '${f.name} est bloqué(e).',
+      );
+    }
   }
 
   Future<void> _poke(Friend f, PokeKind kind) =>
@@ -520,72 +652,5 @@ class _FriendsScreenState extends State<FriendsScreen> {
       destructive: true,
     );
     if (ok) await _run(() => _s.remove(f));
-  }
-}
-
-/// Avatar d'un ami avec pastille de présence (verte = en ligne).
-class _FriendAvatar extends StatelessWidget {
-  const _FriendAvatar({required this.name, this.url, this.online});
-
-  final String name;
-  final String? url;
-
-  /// `null` : pas de pastille (demande reçue).
-  final bool? online;
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .take(2)
-        .map((p) => p[0].toUpperCase())
-        .join();
-    final color =
-        AppColors.accents[name.hashCode.abs() % AppColors.accents.length];
-    final avatar = (url != null && url!.startsWith('https://'))
-        ? ClipOval(
-            child: NetImage(
-              url,
-              width: 44,
-              height: 44,
-              fallbackIcon: Icons.person,
-              cacheWidth: 88,
-            ),
-          )
-        : CircleAvatar(
-            radius: 22,
-            backgroundColor: color,
-            child: Text(
-              initials.isEmpty ? '?' : initials,
-              style: AppText.subtitle(color: onColor(color), size: 15),
-            ),
-          );
-    final state = online;
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(child: Center(child: avatar)),
-          if (state != null)
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: state ? AppColors.success : AppColors.outline,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.white, width: 2),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

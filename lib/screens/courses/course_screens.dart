@@ -1353,6 +1353,8 @@ class _NotificationTile extends StatelessWidget {
             x.refId != null &&
             b.courses.byId(x.refId!) != null) {
           Navigator.pushNamed(context, route, arguments: x.refId);
+        } else if (route == Routes.chat && x.refId != null) {
+          Navigator.pushNamed(context, route, arguments: x.refId);
         } else if (route != Routes.courseDetail) {
           Navigator.pushNamed(context, route);
         }

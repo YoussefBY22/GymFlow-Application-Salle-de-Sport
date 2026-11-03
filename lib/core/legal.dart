@@ -118,10 +118,17 @@ class Legal {
           'hébergé dans la région choisie par la salle) avec votre e-mail et votre mot de passe (stocké '
           'sous forme chiffrée irréversible par le service). Vos amis voient '
           'votre nom, votre photo et si vous êtes en ligne ; vous pouvez leur '
-          'envoyer et recevoir des messages d\'encouragement prédéfinis. Votre '
-          'adresse e-mail n\'est jamais visible : le service ne garde que son '
-          'empreinte pour retrouver un ami. Désactiver la fonction efface vos '
-          'amis, demandes et messages du service.',
+          'envoyer et recevoir des messages d\'encouragement et des messages '
+          'écrits (texte et emojis). Les messages sont stockés chiffrés dans '
+          'la base : seuls les deux amis les lisent dans l\'application (ce '
+          'n\'est pas un chiffrement de bout en bout). Vous pouvez bloquer une '
+          'personne (elle ne sait pas que vous l\'avez bloquée) et signaler '
+          'une personne ou une discussion : seuls les messages que vous '
+          'choisissez sont lus par l\'administrateur de la salle, et la '
+          'personne signalée n\'est pas prévenue. Votre adresse e-mail '
+          'n\'est jamais visible : le service ne garde que son empreinte pour '
+          'retrouver un ami. Désactiver la fonction efface vos amis, demandes '
+          'et messages du service.',
     ),
     (
       'Permissions du téléphone',

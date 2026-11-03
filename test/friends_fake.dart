@@ -1,13 +1,17 @@
-// Faux serveur de la fonction Amis, pour tester toute la logique sans réseau.
+// Faux serveur de la fonction Amis et de la messagerie, pour tester toute la
+// logique sans réseau.
 //
 // Il reproduit les règles de `supabase/` : un compte par e-mail, invitations
 // (« aucun compte » si l'adresse est inconnue), amitié acceptée des deux
-// côtés, présence à l'heure du serveur (en ligne + dernier signal), mode
-// invisible, un message par minute et par ami. Plusieurs « téléphones » (un
-// `FakeFriendsRemote` chacun) se parlent à travers le même serveur.
+// côtés, présence à l'heure du serveur, mode invisible, messages (suppression
+// pour moi / pour tous, archivage, silence, « vu » et « en train d'écrire »
+// avec réciprocité), blocage discret et signalements pour l'administrateur.
+// Plusieurs « téléphones » (un `FakeFriendsRemote` chacun) se parlent à
+// travers le même serveur.
 import 'dart:async';
 
 import 'package:gymflow/core/errors.dart';
+import 'package:gymflow/models/chat.dart';
 import 'package:gymflow/models/friends.dart';
 import 'package:gymflow/services/friends/friends_remote.dart';
 
@@ -21,7 +25,11 @@ class _Account {
   bool enabled = false;
   bool online = false;
   bool invisible = false;
+  bool hideReceipts = false;
+  bool hideTyping = false;
+  bool pushPreview = true;
   DateTime? lastSeen;
+  bool get isAdmin => email == 'admin@gymflow.tn';
 }
 
 class _Friendship {
@@ -43,6 +51,47 @@ class _Poke {
   bool seen = false;
 }
 
+class _Msg {
+  _Msg(this.id, this.sender, this.recipient, this.kind, this.body, this.at);
+  final String id;
+  final String sender;
+  final String recipient;
+  final MessageKind kind;
+  String body;
+  final DateTime at;
+  DateTime? deletedAt;
+  final Set<String> deletedFor = {};
+}
+
+class _Conv {
+  bool archived = false;
+  bool muted = false;
+  DateTime cleared = DateTime.utc(1970);
+  DateTime lastRead = DateTime.utc(1970);
+}
+
+class _Report {
+  _Report({
+    required this.id,
+    required this.reporter,
+    required this.reported,
+    required this.kind,
+    required this.remark,
+    required this.messages,
+    required this.at,
+  });
+  final String id;
+  final String reporter;
+  final String reported;
+  final String kind;
+  final String? remark;
+  final List<ReportedMessage> messages;
+  final DateTime at;
+  bool handled = false;
+  DateTime? handledAt;
+  String? note;
+}
+
 class FakeFriendsServer {
   FakeFriendsServer({DateTime Function()? clock})
     : clock = clock ?? (() => DateTime.utc(2026, 11, 3, 10));
@@ -53,15 +102,31 @@ class FakeFriendsServer {
   final Map<String, _Account> _byEmail = {};
   final List<_Friendship> _friendships = [];
   final List<_Poke> _pokes = [];
+  final List<_Msg> _messages = [];
+  final Map<String, _Conv> _convs = {};
+  final Map<String, DateTime> _reads = {};
+  final Set<String> _blocks = {};
+  final List<_Report> _reports = [];
   final Map<String, FakeFriendsRemote> _remotes = {};
   int _n = 0;
+  int _tick = 0;
 
   /// Panne simulée : toute requête échoue avec ce message.
   String? failWith;
 
+  /// Heure du serveur strictement croissante (un message envoyé après un
+  /// autre a toujours une heure plus récente, même si l'horloge est figée).
+  DateTime stamp() => clock().add(Duration(microseconds: ++_tick));
+
   int get accountCount => _byEmail.length;
   int get friendshipCount => _friendships.length;
   int get pokeCount => _pokes.length;
+  int get messageCount => _messages.length;
+  int get reportCount => _reports.length;
+  int get blockCount => _blocks.length;
+
+  /// Contenu brut des messages enregistrés (pour vérifier ce qui est stocké).
+  List<String> get storedBodies => [for (final m in _messages) m.body];
 
   bool accountExists(String email) =>
       _byEmail.containsKey(email.trim().toLowerCase());
@@ -85,6 +150,10 @@ class FakeFriendsServer {
 
   _Account _acct(String id) => _byEmail.values.firstWhere((a) => a.id == id);
 
+  String _key(String a, String b) => '$a|$b';
+  _Conv _conv(String user, String friend) =>
+      _convs.putIfAbsent(_key(user, friend), _Conv.new);
+
   void _push(String userId, FriendsEvent e) {
     final r = _remotes[userId];
     if (r != null && r._subscribed) r._events.add(e);
@@ -96,6 +165,9 @@ class FakeFriendsServer {
         ((f.requester == a && f.addressee == b) ||
             (f.requester == b && f.addressee == a)),
   );
+
+  bool isBlockedBy(String blocker, String blocked) =>
+      _blocks.contains(_key(blocker, blocked));
 
   Iterable<String> _friendsOf(String id) => _friendships
       .where(
@@ -109,6 +181,22 @@ class FakeFriendsServer {
       _push(f, PresenceChanged(a.id, a.online, a.lastSeen));
     }
   }
+
+  /// Le message est-il visible pour [me] dans la discussion avec [peer] ?
+  bool _visible(_Msg m, String me, String peer) {
+    if (m.deletedFor.contains(me)) return false;
+    return m.at.isAfter(_conv(me, peer).cleared);
+  }
+
+  ChatMessage _toChat(_Msg m, String me) => ChatMessage(
+    id: m.id,
+    peerId: m.sender == me ? m.recipient : m.sender,
+    mine: m.sender == me,
+    kind: m.kind,
+    text: m.deletedAt == null ? m.body : null,
+    createdAt: m.at,
+    deleted: m.deletedAt != null,
+  );
 }
 
 class FakeFriendsRemote implements FriendsRemote {
@@ -202,6 +290,8 @@ class FakeFriendsRemote implements FriendsRemote {
     a.enabled = enabled;
   }
 
+  // ------------------------------------------------------------ Présence
+
   @override
   Future<DateTime> heartbeat() async {
     _count('heartbeat');
@@ -242,10 +332,35 @@ class FakeFriendsRemote implements FriendsRemote {
   }
 
   @override
-  Future<bool> loadInvisible() async {
-    _count('loadInvisible');
-    return _me.invisible;
+  Future<ChatSettings> loadSettings() async {
+    _count('loadSettings');
+    final a = _me;
+    return ChatSettings(
+      invisible: a.invisible,
+      hideReadReceipts: a.hideReceipts,
+      hideTyping: a.hideTyping,
+      pushPreview: a.pushPreview,
+      isAdmin: a.isAdmin,
+    );
   }
+
+  @override
+  Future<void> setChatSettings({
+    required bool hideReadReceipts,
+    required bool hideTyping,
+    required bool pushPreview,
+  }) async {
+    _count('setChatSettings');
+    final a = _me;
+    a.hideReceipts = hideReadReceipts;
+    a.hideTyping = hideTyping;
+    a.pushPreview = pushPreview;
+    if (hideReadReceipts) {
+      server._reads.removeWhere((k, _) => k.startsWith('${a.id}|'));
+    }
+  }
+
+  // --------------------------------------------------------------- Amis
 
   @override
   Future<FriendsSnapshot> loadFriends() async {
@@ -321,6 +436,23 @@ class FakeFriendsRemote implements FriendsRemote {
         'Aucun compte avec cette adresse. Votre ami doit avoir activé la '
         'fonction Amis.',
       );
+    }
+    if (server.isBlockedBy(me.id, target.id)) {
+      throw const BusinessRuleException(
+        'Vous avez bloqué cette personne. Débloquez-la dans Mes amis pour '
+        "l'inviter.",
+      );
+    }
+    if (server.isBlockedBy(target.id, me.id)) {
+      // Faux envoi : l'invitation reste « en attente » sans jamais arriver.
+      final f = _Friendship(
+        'fr_${++server._n}',
+        me.id,
+        target.id,
+        server.clock(),
+      )..status = 'declined';
+      server._friendships.add(f);
+      return SendResult.sent;
     }
     final existing = server._friendships.where(
       (f) =>
@@ -453,17 +585,425 @@ class FakeFriendsRemote implements FriendsRemote {
     final me = _me;
     final others = server._friendsOf(me.id).toList();
     server._pokes.removeWhere((p) => p.sender == me.id || p.recipient == me.id);
+    server._messages.removeWhere(
+      (m) => m.sender == me.id || m.recipient == me.id,
+    );
+    server._convs.removeWhere(
+      (k, _) => k.startsWith('${me.id}|') || k.endsWith('|${me.id}'),
+    );
+    server._reads.removeWhere(
+      (k, _) => k.startsWith('${me.id}|') || k.endsWith('|${me.id}'),
+    );
+    server._blocks.removeWhere((k) => k.startsWith('${me.id}|'));
     server._friendships.removeWhere(
       (f) => f.requester == me.id || f.addressee == me.id,
     );
     me.enabled = false;
     me.online = false;
     me.invisible = false;
+    me.hideReceipts = false;
+    me.hideTyping = false;
+    me.pushPreview = true;
     me.lastSeen = null;
     for (final o in others) {
       server._push(o, const RelationsChanged());
     }
   }
+
+  // ------------------------------------------------------------ Messagerie
+
+  @override
+  Future<String> sendMessage(String toId, MessageKind kind, String body) async {
+    _count('sendMessage');
+    final me = _me;
+    if (body.trim().isEmpty)
+      throw const BusinessRuleException('Écrivez un message.');
+    if (kind == MessageKind.text && body.length > 1000) {
+      throw const BusinessRuleException(
+        'Message trop long (1 000 caractères au plus).',
+      );
+    }
+    if (!server.areFriends(me.id, toId)) {
+      throw const BusinessRuleException(
+        'Cette personne n\'est plus votre ami.',
+      );
+    }
+    final m = _Msg('m_${++server._n}', me.id, toId, kind, body, server.stamp());
+    server._messages.add(m);
+    server._conv(me.id, toId).archived = false;
+    server._conv(toId, me.id).archived = false;
+    server._push(
+      toId,
+      MessageEvent(messageId: m.id, peerId: me.id, mine: false, isNew: true),
+    );
+    server._push(
+      me.id,
+      MessageEvent(messageId: m.id, peerId: toId, mine: true, isNew: true),
+    );
+    return m.id;
+  }
+
+  @override
+  Future<List<ChatMessage>> loadMessages(
+    String friendId, {
+    DateTime? before,
+    int limit = 50,
+  }) async {
+    _count('loadMessages');
+    final me = _me;
+    if (!server.areFriends(me.id, friendId)) {
+      throw const BusinessRuleException(
+        'Cette personne n\'est plus votre ami.',
+      );
+    }
+    final list =
+        server._messages
+            .where(
+              (m) =>
+                  ((m.sender == me.id && m.recipient == friendId) ||
+                      (m.sender == friendId && m.recipient == me.id)) &&
+                  server._visible(m, me.id, friendId) &&
+                  (before == null || m.at.isBefore(before)),
+            )
+            .toList()
+          ..sort((a, b) => b.at.compareTo(a.at));
+    return [for (final m in list.take(limit)) server._toChat(m, me.id)];
+  }
+
+  @override
+  Future<ChatMessage?> messageById(String id) async {
+    _count('messageById');
+    final me = _me;
+    for (final m in server._messages) {
+      if (m.id != id) continue;
+      if (m.sender != me.id && m.recipient != me.id) return null;
+      if (m.deletedFor.contains(me.id)) return null;
+      return server._toChat(m, me.id);
+    }
+    return null;
+  }
+
+  @override
+  Future<List<Conversation>> loadConversations({bool archived = false}) async {
+    _count('loadConversations');
+    final me = _me;
+    final out = <Conversation>[];
+    for (final fid in server._friendsOf(me.id)) {
+      final conv = server._conv(me.id, fid);
+      if (conv.archived != archived) continue;
+      final msgs =
+          server._messages
+              .where(
+                (m) =>
+                    ((m.sender == me.id && m.recipient == fid) ||
+                        (m.sender == fid && m.recipient == me.id)) &&
+                    server._visible(m, me.id, fid),
+              )
+              .toList()
+            ..sort((a, b) => b.at.compareTo(a.at));
+      if (msgs.isEmpty) continue;
+      final last = server._toChat(msgs.first, me.id);
+      final other = server._acct(fid);
+      out.add(
+        Conversation(
+          friendId: fid,
+          friendName: other.name,
+          avatarUrl: other.avatar,
+          lastAt: last.createdAt,
+          lastMine: last.mine,
+          lastPreview: last.preview,
+          unread: msgs
+              .where(
+                (m) =>
+                    m.recipient == me.id &&
+                    m.deletedAt == null &&
+                    m.at.isAfter(conv.lastRead),
+              )
+              .length,
+          muted: conv.muted,
+          archived: conv.archived,
+        ),
+      );
+    }
+    out.sort((a, b) => b.lastAt.compareTo(a.lastAt));
+    return out;
+  }
+
+  @override
+  Future<ChatInfo> conversationInfo(String friendId) async {
+    _count('conversationInfo');
+    final me = _me;
+    final other = server._acct(friendId);
+    final conv = server._conv(me.id, friendId);
+    DateTime? read;
+    if (!me.hideReceipts && !other.hideReceipts) {
+      read = server._reads[server._key(friendId, me.id)];
+    }
+    return ChatInfo(
+      peerReadAt: read,
+      muted: conv.muted,
+      archived: conv.archived,
+    );
+  }
+
+  @override
+  Future<void> markRead(String friendId) async {
+    _count('markRead');
+    final me = _me;
+    if (!server.areFriends(me.id, friendId)) {
+      throw const BusinessRuleException(
+        'Cette personne n\'est plus votre ami.',
+      );
+    }
+    final now = server.stamp();
+    server._conv(me.id, friendId).lastRead = now;
+    if (!me.hideReceipts) {
+      server._reads[server._key(me.id, friendId)] = now;
+      final other = server._acct(friendId);
+      if (!other.hideReceipts) {
+        server._push(friendId, ReadMarkChanged(me.id, now));
+      }
+    }
+  }
+
+  @override
+  Future<void> setTyping(String friendId, bool typing) async {
+    _count('setTyping');
+    final me = _me;
+    if (me.hideTyping || !server.areFriends(me.id, friendId)) return;
+    final other = server._acct(friendId);
+    if (!other.hideTyping) {
+      server._push(friendId, TypingChanged(me.id, typing));
+    }
+  }
+
+  @override
+  Future<void> deleteMessage(String messageId, {required bool forAll}) async {
+    _count('deleteMessage');
+    final me = _me;
+    final m = server._messages.firstWhere(
+      (m) => m.id == messageId && (m.sender == me.id || m.recipient == me.id),
+      orElse: () => throw const BusinessRuleException('not_found'),
+    );
+    final peer = m.sender == me.id ? m.recipient : m.sender;
+    if (forAll) {
+      if (m.sender != me.id) {
+        throw const BusinessRuleException(
+          "Seul l'auteur peut supprimer un message pour tout le monde.",
+        );
+      }
+      m.deletedAt ??= server.stamp();
+      m.body = '';
+      server._push(
+        peer,
+        MessageEvent(messageId: m.id, peerId: me.id, mine: false, isNew: false),
+      );
+    } else {
+      m.deletedFor.add(me.id);
+    }
+  }
+
+  @override
+  Future<void> clearConversation(String friendId) async {
+    _count('clearConversation');
+    final me = _me;
+    final conv = server._conv(me.id, friendId);
+    conv.cleared = server.stamp();
+    conv.lastRead = conv.cleared;
+    conv.archived = false;
+  }
+
+  @override
+  Future<void> setArchived(String friendId, bool archived) async {
+    _count('setArchived');
+    server._conv(_me.id, friendId).archived = archived;
+  }
+
+  @override
+  Future<void> setMuted(String friendId, bool muted) async {
+    _count('setMuted');
+    server._conv(_me.id, friendId).muted = muted;
+  }
+
+  // ------------------------------------------- Blocage et signalements
+
+  @override
+  Future<void> blockUser(String userId) async {
+    _count('blockUser');
+    final me = _me;
+    server._blocks.add(server._key(me.id, userId));
+    server._friendships.removeWhere(
+      (f) =>
+          (f.requester == me.id && f.addressee == userId) ||
+          (f.requester == userId && f.addressee == me.id),
+    );
+    server._reads.remove(server._key(me.id, userId));
+    server._reads.remove(server._key(userId, me.id));
+    // Pour l'autre, c'est comme un retrait d'ami : rien ne dit qui a bloqué.
+    server._push(userId, const RelationsChanged());
+  }
+
+  @override
+  Future<void> unblockUser(String userId) async {
+    _count('unblockUser');
+    server._blocks.remove(server._key(_me.id, userId));
+  }
+
+  @override
+  Future<List<BlockedUser>> loadBlocks() async {
+    _count('loadBlocks');
+    final me = _me;
+    return [
+      for (final k in server._blocks.where((k) => k.startsWith('${me.id}|')))
+        BlockedUser(
+          id: k.split('|')[1],
+          name: server._acct(k.split('|')[1]).name,
+        ),
+    ];
+  }
+
+  @override
+  Future<void> reportConversation(
+    String friendId,
+    List<String> messageIds, {
+    String? remark,
+    bool alsoBlock = false,
+  }) async {
+    _count('reportConversation');
+    final me = _me;
+    if (messageIds.isEmpty) {
+      throw const BusinessRuleException('Sélectionnez au moins un message.');
+    }
+    if (!server.areFriends(me.id, friendId)) {
+      throw const BusinessRuleException(
+        'Cette personne n\'est plus votre ami.',
+      );
+    }
+    final other = server._acct(friendId);
+    final picked =
+        server._messages
+            .where(
+              (m) =>
+                  messageIds.contains(m.id) &&
+                  ((m.sender == me.id && m.recipient == friendId) ||
+                      (m.sender == friendId && m.recipient == me.id)),
+            )
+            .toList()
+          ..sort((a, b) => a.at.compareTo(b.at));
+    if (picked.isEmpty) {
+      throw const BusinessRuleException('Sélectionnez au moins un message.');
+    }
+    final recent = server._reports
+        .where((r) => r.reporter == me.id && r.reported == friendId)
+        .length;
+    if (recent >= 3) {
+      throw const BusinessRuleException('Doucement : trop de signalements.');
+    }
+    server._reports.add(
+      _Report(
+        id: 'rp_${++server._n}',
+        reporter: me.id,
+        reported: friendId,
+        kind: 'discussion',
+        remark: (remark == null || remark.trim().isEmpty)
+            ? null
+            : remark.trim(),
+        at: server.stamp(),
+        messages: [
+          for (final m in picked)
+            ReportedMessage(
+              from: m.sender == me.id ? me.name : other.name,
+              mine: m.sender == me.id,
+              at: m.at,
+              kind: m.kind,
+              text: m.deletedAt == null ? m.body : null,
+            ),
+        ],
+      ),
+    );
+    if (alsoBlock) {
+      await blockUser(friendId);
+    }
+  }
+
+  @override
+  Future<void> reportPerson(String friendId, String remark) async {
+    _count('reportPerson');
+    final me = _me;
+    if (remark.trim().length < 5) {
+      throw const BusinessRuleException(
+        'Décrivez le problème en 5 caractères au moins.',
+      );
+    }
+    if (!server.areFriends(me.id, friendId)) {
+      throw const BusinessRuleException(
+        'Cette personne n\'est plus votre ami.',
+      );
+    }
+    server._reports.add(
+      _Report(
+        id: 'rp_${++server._n}',
+        reporter: me.id,
+        reported: friendId,
+        kind: 'personne',
+        remark: remark.trim(),
+        messages: const [],
+        at: server.stamp(),
+      ),
+    );
+  }
+
+  void _requireAdmin() {
+    if (!_me.isAdmin) {
+      throw const BusinessRuleException(
+        "Ce compte n'est pas reconnu comme administrateur.",
+      );
+    }
+  }
+
+  @override
+  Future<List<ReportEntry>> adminLoadReports({bool? handled}) async {
+    _count('adminLoadReports');
+    _requireAdmin();
+    return [
+      for (final r in server._reports.reversed)
+        if (handled == null || r.handled == handled)
+          ReportEntry(
+            id: r.id,
+            isConversation: r.kind == 'discussion',
+            handled: r.handled,
+            createdAt: r.at,
+            reporterName: server._acct(r.reporter).name,
+            reportedName: server._acct(r.reported).name,
+            remark: r.remark,
+            messages: r.messages,
+            handledAt: r.handledAt,
+            handledNote: r.note,
+          ),
+    ];
+  }
+
+  @override
+  Future<void> adminHandleReport(String reportId, {String? note}) async {
+    _count('adminHandleReport');
+    _requireAdmin();
+    final r = server._reports.firstWhere(
+      (r) => r.id == reportId,
+      orElse: () => throw const BusinessRuleException('not_found'),
+    );
+    r.handled = true;
+    r.handledAt = server.stamp();
+    r.note = (note == null || note.trim().isEmpty) ? null : note.trim();
+  }
+
+  @override
+  Future<int> adminNewReportsCount() async {
+    _count('adminNewReportsCount');
+    _requireAdmin();
+    return server._reports.where((r) => !r.handled).length;
+  }
+
+  // ------------------------------------------------------------ Temps réel
 
   @override
   Future<void> subscribe() async {

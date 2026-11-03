@@ -1,3 +1,4 @@
+import '../../models/chat.dart';
 import '../../models/friends.dart';
 
 /// Liste d'amis et heure du serveur au moment de la lecture.
@@ -40,17 +41,51 @@ class RelationsChanged extends FriendsEvent {
   const RelationsChanged();
 }
 
-/// Un ami m'a envoyé un message.
+/// Un ami m'a envoyé un message d'encouragement (« poke »).
 class PokeReceived extends FriendsEvent {
   const PokeReceived(this.poke);
   final IncomingPoke poke;
 }
 
-/// Accès au serveur de la fonction Amis.
+/// Un message est apparu ou a changé (supprimé pour tous). Le contenu est
+/// chiffré dans l'événement : on le relit déchiffré avec `messageById`.
+class MessageEvent extends FriendsEvent {
+  const MessageEvent({
+    required this.messageId,
+    required this.peerId,
+    required this.mine,
+    required this.isNew,
+  });
+
+  final String messageId;
+  final String peerId;
+
+  /// Envoyé par moi (depuis un autre appareil, par exemple).
+  final bool mine;
+
+  /// Nouveau message (sinon : modifié ou supprimé).
+  final bool isNew;
+}
+
+/// L'autre personne a lu la discussion (« vu »).
+class ReadMarkChanged extends FriendsEvent {
+  const ReadMarkChanged(this.peerId, this.readAt);
+  final String peerId;
+  final DateTime readAt;
+}
+
+/// L'autre personne commence ou arrête d'écrire.
+class TypingChanged extends FriendsEvent {
+  const TypingChanged(this.peerId, this.typing);
+  final String peerId;
+  final bool typing;
+}
+
+/// Accès au serveur de la fonction Amis et de la messagerie.
 ///
-/// Une interface plutôt que Supabase directement : `FriendsService` ne sait
+/// Une interface plutôt que Supabase directement : les services ne savent
 /// pas d'où viennent les données, ce qui permet de tester toute la logique
-/// sans réseau avec un faux serveur (voir `test/friends_test.dart`).
+/// sans réseau avec un faux serveur (voir `test/friends_fake.dart`).
 abstract class FriendsRemote {
   /// Identifiant du compte connecté au serveur, ou `null`.
   String? get userId;
@@ -82,6 +117,8 @@ abstract class FriendsRemote {
     String? avatarUrl,
   });
 
+  // ------------------------------------------------------------ Présence
+
   /// Signal de présence ; renvoie l'heure du serveur.
   Future<DateTime> heartbeat();
 
@@ -91,7 +128,19 @@ abstract class FriendsRemote {
   /// Mode « Apparaître hors ligne » : les amis ne voient plus ma présence.
   Future<void> setInvisible(bool invisible);
 
-  Future<bool> loadInvisible();
+  // ----------------------------------------------------------- Réglages
+
+  /// Tous mes réglages privés (présence, messagerie, rôle administrateur).
+  Future<ChatSettings> loadSettings();
+
+  /// « Vu », « en train d'écrire » et aperçu des notifications.
+  Future<void> setChatSettings({
+    required bool hideReadReceipts,
+    required bool hideTyping,
+    required bool pushPreview,
+  });
+
+  // --------------------------------------------------------------- Amis
 
   Future<FriendsSnapshot> loadFriends();
 
@@ -112,13 +161,71 @@ abstract class FriendsRemote {
 
   Future<void> sendPoke(String toId, PokeKind kind);
 
-  /// Messages reçus pendant que l'application était fermée.
+  /// Messages d'encouragement reçus pendant que l'application était fermée.
   Future<List<IncomingPoke>> unseenPokes();
 
   Future<void> markPokesSeen(List<String> ids);
 
   /// Efface mes amitiés, demandes et messages sur le serveur.
   Future<void> leave();
+
+  // ------------------------------------------------------------ Messagerie
+
+  /// Envoie un message ; renvoie son identifiant sur le serveur.
+  Future<String> sendMessage(String toId, MessageKind kind, String body);
+
+  /// Messages d'une discussion, du plus récent au plus ancien.
+  Future<List<ChatMessage>> loadMessages(
+    String friendId, {
+    DateTime? before,
+    int limit = 50,
+  });
+
+  Future<ChatMessage?> messageById(String id);
+
+  Future<List<Conversation>> loadConversations({bool archived = false});
+
+  Future<ChatInfo> conversationInfo(String friendId);
+
+  /// J'ai lu la discussion (met à jour mes non-lus et le « vu » de l'autre).
+  Future<void> markRead(String friendId);
+
+  Future<void> setTyping(String friendId, bool typing);
+
+  Future<void> deleteMessage(String messageId, {required bool forAll});
+
+  /// Supprimer la discussion : pour moi seulement.
+  Future<void> clearConversation(String friendId);
+
+  Future<void> setArchived(String friendId, bool archived);
+
+  Future<void> setMuted(String friendId, bool muted);
+
+  // ----------------------------------------------- Blocage et signalements
+
+  Future<void> blockUser(String userId);
+
+  Future<void> unblockUser(String userId);
+
+  Future<List<BlockedUser>> loadBlocks();
+
+  Future<void> reportConversation(
+    String friendId,
+    List<String> messageIds, {
+    String? remark,
+    bool alsoBlock = false,
+  });
+
+  Future<void> reportPerson(String friendId, String remark);
+
+  /// Écran administrateur : signalements (réservé au compte administrateur).
+  Future<List<ReportEntry>> adminLoadReports({bool? handled});
+
+  Future<void> adminHandleReport(String reportId, {String? note});
+
+  Future<int> adminNewReportsCount();
+
+  // ------------------------------------------------------------ Temps réel
 
   /// Démarre l'écoute en direct.
   Future<void> subscribe();

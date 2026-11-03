@@ -7,62 +7,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/core/errors.dart';
 import 'package:gymflow/models/friends.dart';
 import 'package:gymflow/models/privacy.dart';
-import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/services/friends_service.dart';
 import 'package:gymflow/services/platform/platform_services.dart';
 
 import 'friends_fake.dart';
+import 'friends_helpers.dart';
 import 'helpers.dart';
-
-const _pwd = 'Membre2026!';
-const _ahmed = 'ahmed@gymflow.tn';
-const _nour = 'nour@gymflow.tn';
-
-typedef Phone = ({Backend b, FakeFriendsRemote r});
-
-/// Laisse passer les événements en direct (flux et chaînes d'attentes).
-Future<void> flush() async {
-  for (var i = 0; i < 30; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
-Future<Phone> phone(
-  FakeFriendsServer server,
-  String email, {
-  DateTime? now,
-}) async {
-  final r = server.phone();
-  final b = await makeBackend(friendsRemote: r, now: now);
-  await loginAs(b, email);
-  addTearDown(b.friends.stop);
-  return (b: b, r: r);
-}
-
-/// Active la fonction et attend que tout soit en place.
-Future<void> enable(Phone p) async {
-  await p.b.friends.enable(_pwd);
-  await flush();
-}
-
-/// Deux amis déjà acceptés, tous deux connectés.
-Future<(Phone, Phone)> friendsPair(FakeFriendsServer server) async {
-  final a = await phone(server, _ahmed);
-  final n = await phone(server, _nour);
-  await enable(a);
-  await enable(n);
-  await a.b.friends.sendRequest(_nour);
-  await flush();
-  await n.b.friends.respond(n.b.friends.requests.single, true);
-  await flush();
-  return (a, n);
-}
 
 void main() {
   group('Disponibilité et réglage', () {
     test("sans Supabase configuré, la fonction n'est pas disponible", () async {
       final b = await makeBackend();
-      await loginAs(b, _ahmed);
+      await loginAs(b, kAhmed);
       expect(b.friends.available, isFalse);
       expect(b.friends.status, FriendsStatus.unavailable);
     });
@@ -70,7 +26,7 @@ void main() {
     test('désactivée par défaut, y compris sur un ancien compte', () async {
       expect(const PrivacySettings().friends, isFalse);
       expect(PrivacySettings.fromJson(const {}).friends, isFalse);
-      final p = await phone(FakeFriendsServer(), _ahmed);
+      final p = await phone(FakeFriendsServer(), kAhmed);
       expect(p.b.auth.currentUser!.privacy.friends, isFalse);
       expect(p.b.friends.status, FriendsStatus.off);
     });
@@ -79,7 +35,7 @@ void main() {
       'aucun contact avec le serveur tant que la fonction est éteinte',
       () async {
         final server = FakeFriendsServer();
-        final p = await phone(server, _ahmed);
+        final p = await phone(server, kAhmed);
         await flush();
         expect(p.r.calls, isEmpty);
         expect(server.accountCount, 0);
@@ -88,12 +44,12 @@ void main() {
 
     test('un mineur ne peut pas l\'activer', () async {
       final server = FakeFriendsServer();
-      final p = await phone(server, _nour);
+      final p = await phone(server, kNour);
       final nour = p.b.users.byId('u_nour')!;
       await p.b.users.save(nour.copyWith(age: 16));
       p.b.auth.refreshCurrent();
       await expectLater(
-        p.b.friends.enable(_pwd),
+        p.b.friends.enable(kPwd),
         throwsA(isA<BusinessRuleException>()),
       );
       expect(server.accountCount, 0);
@@ -116,7 +72,7 @@ void main() {
   group('Activation', () {
     test('un mauvais mot de passe est refusé avant tout envoi', () async {
       final server = FakeFriendsServer();
-      final p = await phone(server, _ahmed);
+      final p = await phone(server, kAhmed);
       await expectLater(
         p.b.friends.enable('pas-le-bon'),
         throwsA(isA<ValidationException>()),
@@ -129,13 +85,13 @@ void main() {
       'activation : compte créé sur le serveur, consentement tracé',
       () async {
         final server = FakeFriendsServer();
-        final p = await phone(server, _ahmed);
+        final p = await phone(server, kAhmed);
         await enable(p);
 
         expect(p.b.friends.status, FriendsStatus.connected);
-        expect(server.accountExists(_ahmed), isTrue);
-        expect(server.isEnabled(_ahmed), isTrue);
-        expect(server.lastSeenOf(_ahmed), isNotNull, reason: 'premier signal');
+        expect(server.accountExists(kAhmed), isTrue);
+        expect(server.isEnabled(kAhmed), isTrue);
+        expect(server.lastSeenOf(kAhmed), isNotNull, reason: 'premier signal');
         final me = p.b.auth.currentUser!;
         expect(me.privacy.friends, isTrue);
         expect(
@@ -147,16 +103,16 @@ void main() {
 
     test('le mot de passe envoyé est celui de GymFlow', () async {
       final server = FakeFriendsServer();
-      final p = await phone(server, _ahmed);
+      final p = await phone(server, kAhmed);
       await enable(p);
-      expect(server.passwordOf(_ahmed), _pwd);
+      expect(server.passwordOf(kAhmed), kPwd);
     });
 
     test('si le serveur échoue, rien n\'est activé à moitié', () async {
       final server = FakeFriendsServer()..failWith = 'panne';
-      final p = await phone(server, _ahmed);
+      final p = await phone(server, kAhmed);
       await expectLater(
-        p.b.friends.enable(_pwd),
+        p.b.friends.enable(kPwd),
         throwsA(isA<BusinessRuleException>()),
       );
       expect(p.b.auth.currentUser!.privacy.friends, isFalse);
@@ -165,11 +121,11 @@ void main() {
 
     test('à la connexion suivante, la reconnexion est automatique', () async {
       final server = FakeFriendsServer();
-      final p = await phone(server, _ahmed);
+      final p = await phone(server, kAhmed);
       await enable(p);
       await p.b.auth.logout();
       expect(p.b.friends.status, FriendsStatus.off);
-      await loginAs(p.b, _ahmed);
+      await loginAs(p.b, kAhmed);
       await flush();
       expect(p.b.friends.status, FriendsStatus.connected);
       expect(server.accountCount, 1, reason: 'le compte n\'est pas recréé');
@@ -182,7 +138,7 @@ void main() {
       await n.b.friends.disable();
       await flush();
       expect(server.friendshipCount, 0);
-      expect(server.isEnabled(_nour), isFalse);
+      expect(server.isEnabled(kNour), isFalse);
       expect(n.b.auth.currentUser!.privacy.friends, isFalse);
       expect(n.b.friends.status, FriendsStatus.off);
       // L'autre téléphone voit la liste se vider.
@@ -193,12 +149,12 @@ void main() {
   group('Demandes d\'ami par e-mail', () {
     test('la demande arrive en direct avec une notification', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour);
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour);
       await enable(a);
       await enable(n);
 
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
 
       expect(n.b.friends.requests.length, 1);
@@ -233,11 +189,11 @@ void main() {
 
     test('refuser : pas amis, rien ne se passe côté auteur', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour);
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour);
       await enable(a);
       await enable(n);
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
       await n.b.friends.respond(n.b.friends.requests.single, false);
       await flush();
@@ -248,7 +204,7 @@ void main() {
 
     test('adresse sans compte : « aucun compte avec cette adresse »', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
+      final a = await phone(server, kAhmed);
       await enable(a);
       await expectLater(
         a.b.friends.sendRequest('personne@inconnu.tn'),
@@ -266,10 +222,10 @@ void main() {
 
     test("personne qui n'a pas activé la fonction : même message", () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
+      final a = await phone(server, kAhmed);
       await enable(a);
       await expectLater(
-        a.b.friends.sendRequest(_nour),
+        a.b.friends.sendRequest(kNour),
         throwsA(isA<BusinessRuleException>()),
       );
       expect(server.friendshipCount, 0);
@@ -277,11 +233,11 @@ void main() {
 
     test('invitation envoyée : visible « en attente », annulable', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour);
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour);
       await enable(a);
       await enable(n);
-      final result = await a.b.friends.sendRequest(_nour);
+      final result = await a.b.friends.sendRequest(kNour);
       await flush();
       expect(result, SendResult.sent);
       expect(a.b.friends.sentRequests.length, 1);
@@ -316,11 +272,11 @@ void main() {
       "invitation refusée : l'auteur la voit toujours « en attente »",
       () async {
         final server = FakeFriendsServer();
-        final a = await phone(server, _ahmed);
-        final n = await phone(server, _nour);
+        final a = await phone(server, kAhmed);
+        final n = await phone(server, kNour);
         await enable(a);
         await enable(n);
-        await a.b.friends.sendRequest(_nour);
+        await a.b.friends.sendRequest(kNour);
         await flush();
         await n.b.friends.respond(n.b.friends.requests.single, false);
         await flush();
@@ -331,24 +287,24 @@ void main() {
 
     test('résultats : déjà en attente, déjà amis, demande croisée', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour);
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour);
       await enable(a);
       await enable(n);
-      expect(await a.b.friends.sendRequest(_nour), SendResult.sent);
-      expect(await a.b.friends.sendRequest(_nour), SendResult.alreadyPending);
+      expect(await a.b.friends.sendRequest(kNour), SendResult.sent);
+      expect(await a.b.friends.sendRequest(kNour), SendResult.alreadyPending);
       await flush();
-      expect(await n.b.friends.sendRequest(_ahmed), SendResult.accepted);
+      expect(await n.b.friends.sendRequest(kAhmed), SendResult.accepted);
       await flush();
-      expect(await a.b.friends.sendRequest(_nour), SendResult.alreadyFriends);
+      expect(await a.b.friends.sendRequest(kNour), SendResult.alreadyFriends);
     });
 
     test('sa propre adresse ou une adresse invalide sont refusées', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
+      final a = await phone(server, kAhmed);
       await enable(a);
       await expectLater(
-        a.b.friends.sendRequest(_ahmed),
+        a.b.friends.sendRequest(kAhmed),
         throwsA(isA<BusinessRuleException>()),
       );
       await expectLater(
@@ -359,13 +315,13 @@ void main() {
 
     test('demande croisée : acceptée tout de suite', () async {
       final server = FakeFriendsServer();
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour);
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour);
       await enable(a);
       await enable(n);
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
-      await n.b.friends.sendRequest(_ahmed);
+      await n.b.friends.sendRequest(kAhmed);
       await flush();
       expect(a.b.friends.friends.length, 1);
       expect(n.b.friends.friends.length, 1);
@@ -386,11 +342,11 @@ void main() {
       var elapsed = Duration.zero;
       final base = DateTime.utc(2026, 11, 3, 10);
       final server = FakeFriendsServer(clock: () => base.add(elapsed));
-      final a = await phone(server, _ahmed);
-      final n = await phone(server, _nour, now: DateTime(2026, 11, 3, 11));
+      final a = await phone(server, kAhmed);
+      final n = await phone(server, kNour, now: DateTime(2026, 11, 3, 11));
       await enable(a);
       await enable(n);
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
       await n.b.friends.respond(n.b.friends.requests.single, true);
       await flush();
@@ -413,12 +369,12 @@ void main() {
 
     test('une horloge de téléphone fausse ne fausse pas la présence', () async {
       final server = FakeFriendsServer(); // 10 h 00 UTC
-      final a = await phone(server, _ahmed);
+      final a = await phone(server, kAhmed);
       // Le téléphone de Nour a une horloge en avance de 3 heures.
-      final n = await phone(server, _nour, now: DateTime.utc(2026, 11, 3, 13));
+      final n = await phone(server, kNour, now: DateTime.utc(2026, 11, 3, 13));
       await enable(a);
       await enable(n);
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
       await n.b.friends.respond(n.b.friends.requests.single, true);
       await flush();
@@ -482,7 +438,7 @@ void main() {
       final (a, _) = await friendsPair(server);
       await a.b.friends.setInvisible(true);
       await a.b.auth.logout();
-      await loginAs(a.b, _ahmed);
+      await loginAs(a.b, kAhmed);
       await flush();
       expect(a.b.friends.invisible, isTrue);
     });
@@ -508,11 +464,11 @@ void main() {
       () async {
         final server = FakeFriendsServer();
         // Nour d'abord, Ahmed ensuite : setNow() règle l'horloge d'Ahmed.
-        final n = await phone(server, _nour);
-        final a = await phone(server, _ahmed);
+        final n = await phone(server, kNour);
+        final a = await phone(server, kAhmed);
         await enable(n);
         await enable(a);
-        await a.b.friends.sendRequest(_nour);
+        await a.b.friends.sendRequest(kNour);
         await flush();
         await n.b.friends.respond(n.b.friends.requests.single, true);
         await flush();
@@ -539,11 +495,11 @@ void main() {
 
     test('un geste régulier garde en ligne pendant des minutes', () async {
       final server = FakeFriendsServer();
-      final n = await phone(server, _nour);
-      final a = await phone(server, _ahmed);
+      final n = await phone(server, kNour);
+      final a = await phone(server, kAhmed);
       await enable(n);
       await enable(a);
-      await a.b.friends.sendRequest(_nour);
+      await a.b.friends.sendRequest(kNour);
       await flush();
       await n.b.friends.respond(n.b.friends.requests.single, true);
       await flush();
@@ -642,7 +598,7 @@ void main() {
         await flush();
         expect(server.pokeCount, 1);
 
-        await loginAs(n.b, _nour);
+        await loginAs(n.b, kNour);
         await flush();
         final who = a.b.auth.currentUser!.fullName;
         expect(
@@ -659,7 +615,7 @@ void main() {
       await flush();
       // Reconnexion : le message déjà vu ne revient pas.
       await n.b.auth.logout();
-      await loginAs(n.b, _nour);
+      await loginAs(n.b, kNour);
       await flush();
       final count = n.b.notifications
           .mine()
@@ -685,9 +641,9 @@ void main() {
       'lancement avec une session du serveur déjà ouverte : reprise',
       () async {
         final server = FakeFriendsServer();
-        final p = await phone(server, _ahmed);
+        final p = await phone(server, kAhmed);
         await enable(p);
-        p.r.keepSessionFor(_ahmed);
+        p.r.keepSessionFor(kAhmed);
         p.b.friends.stop();
         final signIns = p.r.calls['signIn'];
         await p.b.friends.resume();
@@ -705,11 +661,11 @@ void main() {
       'session du serveur d\'un autre compte : mot de passe demandé',
       () async {
         final server = FakeFriendsServer();
-        final n = await phone(server, _nour);
+        final n = await phone(server, kNour);
         await enable(n);
-        final a = await phone(server, _ahmed);
+        final a = await phone(server, kAhmed);
         await enable(a);
-        a.r.keepSessionFor(_nour); // reste d'un autre compte sur ce téléphone
+        a.r.keepSessionFor(kNour); // reste d'un autre compte sur ce téléphone
         a.b.friends.stop();
         await a.b.friends.resume();
         expect(a.b.friends.status, FriendsStatus.needsPassword);
@@ -717,25 +673,25 @@ void main() {
           a.b.friends.reconnect('faux'),
           throwsA(isA<ValidationException>()),
         );
-        await a.b.friends.reconnect(_pwd);
+        await a.b.friends.reconnect(kPwd);
         expect(a.b.friends.status, FriendsStatus.connected);
       },
     );
 
     test('changer de mot de passe met le compte du serveur à jour', () async {
       final server = FakeFriendsServer();
-      final p = await phone(server, _ahmed);
+      final p = await phone(server, kAhmed);
       await enable(p);
-      await p.b.auth.changePassword(_pwd, 'NouveauPass2026!');
+      await p.b.auth.changePassword(kPwd, 'NouveauPass2026!');
       await flush();
-      expect(server.passwordOf(_ahmed), 'NouveauPass2026!');
+      expect(server.passwordOf(kAhmed), 'NouveauPass2026!');
     });
 
     test('supprimer son compte efface aussi les données du serveur', () async {
       final server = FakeFriendsServer();
       final (_, n) = await friendsPair(server);
       expect(server.friendshipCount, 1);
-      await n.b.privacy.deleteMyAccount(_pwd);
+      await n.b.privacy.deleteMyAccount(kPwd);
       await flush();
       expect(server.friendshipCount, 0);
     });
@@ -744,7 +700,7 @@ void main() {
       'serveur injoignable pendant la reprise : erreur affichable',
       () async {
         final server = FakeFriendsServer();
-        final p = await phone(server, _ahmed);
+        final p = await phone(server, kAhmed);
         await enable(p);
         p.b.friends.stop();
         server.failWith = 'Impossible de joindre le service Amis.';

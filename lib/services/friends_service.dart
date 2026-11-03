@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/errors.dart';
 import '../core/validators.dart';
+import '../models/chat.dart';
 import '../models/enums.dart';
 import '../models/friends.dart';
 import 'backend.dart';
@@ -63,6 +64,7 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   List<FriendRequest> _requests = const [];
   List<SentRequest> _sent = const [];
   bool _invisible = false;
+  ChatSettings _settings = const ChatSettings();
   DateTime? _lastActivity;
   bool _idle = false;
   bool _appActive = true;
@@ -89,8 +91,14 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   /// Invitations que j'ai envoyées et qui n'ont pas abouti.
   List<SentRequest> get sentRequests => _sent;
 
+  /// L'application est au premier plan (pas en arrière-plan).
+  bool get isAppActive => _appActive;
+
   /// Mode « Apparaître hors ligne » actif.
   bool get invisible => _invisible;
+
+  /// Mes réglages privés (présence, « vu », « en train d'écrire », aperçu).
+  ChatSettings get settings => _settings;
   Object? get error => _error;
 
   /// Nombre de demandes en attente (pastille du menu).
@@ -167,6 +175,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _requests = const [];
     _sent = const [];
     _invisible = false;
+    _settings = const ChatSettings();
+    _b.chat.reset();
+    _b.moderation.reset();
     _handled.clear();
     _needsPassword = false;
     _error = null;
@@ -256,6 +267,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _requests = const [];
     _sent = const [];
     _invisible = false;
+    _settings = const ChatSettings();
+    _b.chat.reset();
+    _b.moderation.reset();
     _handled.clear();
     _needsPassword = false;
     _error = null;
@@ -326,7 +340,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
           ? avatar
           : null,
     );
-    _invisible = await _r.loadInvisible();
+    _settings = await _r.loadSettings();
+    _invisible = _settings.invisible;
     _lastActivity = _b.now();
     _idle = false;
     _appActive = true;
@@ -335,6 +350,12 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     await _r.subscribe();
     await _sub?.cancel();
     _sub = _r.events.listen(_onEvent);
+    _b.chat.attach();
+    try {
+      await _b.chat.refreshConversations();
+    } catch (_) {
+      // La liste des discussions se relira à l'ouverture de l'écran.
+    }
     _connecting = false;
     _connected = true;
     _needsPassword = false;
@@ -445,6 +466,7 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     }
     _connected = false;
     _connecting = false;
+    _b.chat.stop();
   }
 
   /// Arrête les minuteurs (tests, fermeture de l'application).
@@ -496,10 +518,33 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     await refresh();
   }
 
+  /// Réglages de la messagerie : masquer les « vu » et « en train d'écrire »
+  /// (règle comme WhatsApp : si je masque les miens, je ne vois plus ceux des
+  /// autres) et aperçu du texte dans les notifications.
+  Future<void> setChatSettings({
+    bool? hideReadReceipts,
+    bool? hideTyping,
+    bool? pushPreview,
+  }) async {
+    final next = _settings.copyWith(
+      hideReadReceipts: hideReadReceipts,
+      hideTyping: hideTyping,
+      pushPreview: pushPreview,
+    );
+    await _r.setChatSettings(
+      hideReadReceipts: next.hideReadReceipts,
+      hideTyping: next.hideTyping,
+      pushPreview: next.pushPreview,
+    );
+    _settings = next;
+    notifyListeners();
+  }
+
   /// Active ou coupe le mode « Apparaître hors ligne ».
   Future<void> setInvisible(bool value) async {
     await _r.setInvisible(value);
     _invisible = value;
+    _settings = _settings.copyWith(invisible: value);
     notifyListeners();
     // En quittant le mode invisible, on redevient visible tout de suite.
     if (!value) await beat();
@@ -560,6 +605,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
         }
       case PokeReceived():
         await _showPoke(e.poke);
+      case MessageEvent() || ReadMarkChanged() || TypingChanged():
+        // La messagerie s'en occupe (ChatService).
+        break;
     }
   }
 

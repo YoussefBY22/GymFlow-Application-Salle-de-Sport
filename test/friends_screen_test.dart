@@ -186,7 +186,7 @@ void main() {
           w.key is ValueKey<String> &&
           (w.key! as ValueKey<String>).value.startsWith('accept_'),
     );
-    await tester.tap(accept);
+    await tapVisible(tester, accept);
     await settle(tester, 1200);
 
     expect(find.byKey(const Key('friend_list')), findsOneWidget);
@@ -210,13 +210,12 @@ void main() {
     await _activate(tester);
     await other.sendRequest('ahmed@gymflow.tn');
     await settle(tester, 800);
-    await tester.tap(
-      find.byWidgetPredicate(
-        (w) =>
-            w.key is ValueKey<String> &&
-            (w.key! as ValueKey<String>).value.startsWith('accept_'),
-      ),
+    final acceptBtn = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('accept_'),
     );
+    await tapVisible(tester, acceptBtn);
     await settle(tester, 1200);
 
     final poke = find.byWidgetPredicate(
@@ -224,12 +223,13 @@ void main() {
           w.key is ValueKey<String> &&
           (w.key! as ValueKey<String>).value.startsWith('poke_'),
     );
-    await tester.tap(poke);
+    await tapVisible(tester, poke);
     await settle(tester, 1000);
     expect(server.pokeCount, 1);
     expect(find.textContaining('Message envoyé à Nour Test'), findsOneWidget);
 
-    await tester.tap(poke);
+    await tester.ensureVisible(poke);
+    await tapVisible(tester, poke);
     await settle(tester, 1000);
     expect(server.pokeCount, 1);
     expect(find.textContaining('un message par minute'), findsOneWidget);
@@ -289,8 +289,7 @@ void main() {
           w.key is ValueKey<String> &&
           (w.key! as ValueKey<String>).value.startsWith('cancel_'),
     );
-    await tester.ensureVisible(cancel);
-    await tester.tap(cancel);
+    await tapVisible(tester, cancel);
     await settle(tester, 1200);
 
     expect(find.byKey(const Key('sent_requests')), findsNothing);
@@ -334,7 +333,11 @@ void main() {
     await go(tester, Routes.friends);
     await _activate(tester);
 
-    await tester.ensureVisible(find.byKey(const Key('friends_disable')));
+    // La page est longue : on la fait défiler jusqu'en bas (liste paresseuse).
+    // (et on laisse partir le message du bas, qui masquerait le bouton).
+    await settle(tester, 5000);
+    await tester.drag(mainScrollable(tester), const Offset(0, -3000));
+    await settle(tester, 400);
     await tester.tap(find.byKey(const Key('friends_disable')));
     await settle(tester, 600);
     expect(find.text('Désactiver la fonction Amis ?'), findsOneWidget);

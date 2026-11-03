@@ -9,6 +9,8 @@ import '../screens/auth/auth_screens.dart';
 import '../screens/auth/intro_tour.dart';
 import '../screens/community/community_screens.dart';
 import '../screens/courses/checkin_screen.dart';
+import '../screens/admin/reports_screen.dart';
+import '../screens/friends/chat_screens.dart';
 import '../screens/friends/friends_screen.dart';
 import '../screens/courses/ticket_screen.dart';
 import '../screens/privacy/privacy_screens.dart';
@@ -88,6 +90,10 @@ class Routes {
   static const privacy = '/privacy';
   static const community = '/community';
   static const friends = '/friends';
+  static const chats = '/chats';
+  static const chat = '/chat';
+  static const chatReport = '/chat/report';
+  static const adminReports = '/admin/reports';
   static const member = '/member';
   static const review = '/review';
 
@@ -192,6 +198,13 @@ class Routes {
     privacy: _RouteDef((_) => const PrivacySettingsScreen()),
     community: _RouteDef((_) => const CommunityScreen()),
     friends: _RouteDef((_) => const FriendsScreen(), roles: _member),
+    chats: _RouteDef((_) => const ConversationsScreen(), roles: _member),
+    chat: _RouteDef((a) => ChatScreen(friendId: a! as String), roles: _member),
+    chatReport: _RouteDef(
+      (a) => ReportConversationScreen(friendId: a! as String),
+      roles: _member,
+    ),
+    adminReports: _RouteDef((_) => const AdminReportsScreen(), roles: _admin),
     member: _RouteDef((a) => MemberProfileScreen(userId: a! as String)),
   };
 
