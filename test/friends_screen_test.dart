@@ -132,7 +132,7 @@ void main() {
     await _done(tester, b);
   });
 
-  testWidgets('ajout d\'un ami par e-mail : confirmation neutre', (
+  testWidgets('ajout d\'un ami par e-mail : invitation en attente visible', (
     tester,
   ) async {
     final server = FakeFriendsServer();
@@ -154,7 +154,9 @@ void main() {
     await settle(tester, 1200);
 
     expect(server.friendshipCount, 1);
-    expect(find.textContaining('Si cette adresse'), findsOneWidget);
+    expect(find.textContaining('Invitation envoyée'), findsOneWidget);
+    expect(find.byKey(const Key('sent_requests')), findsOneWidget);
+    expect(find.text('En attente de réponse'), findsOneWidget);
     expect(other.userId, isNotNull);
     await _done(tester, b);
   });
@@ -231,6 +233,91 @@ void main() {
     await settle(tester, 1000);
     expect(server.pokeCount, 1);
     expect(find.textContaining('un message par minute'), findsOneWidget);
+    await _done(tester, b);
+  });
+
+  testWidgets('adresse sans compte : message clair, aucune invitation', (
+    tester,
+  ) async {
+    final server = FakeFriendsServer();
+    final b = await pumpApp(
+      tester,
+      route: Routes.home,
+      loginEmail: 'ahmed@gymflow.tn',
+      friendsRemote: server.phone(),
+    );
+    await go(tester, Routes.friends);
+    await _activate(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('friend_email')),
+      'personne@inconnu.tn',
+    );
+    await tester.tap(find.byKey(const Key('friend_send')));
+    await settle(tester, 1200);
+
+    expect(
+      find.textContaining('Aucun compte avec cette adresse'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('sent_requests')), findsNothing);
+    expect(server.friendshipCount, 0);
+    await _done(tester, b);
+  });
+
+  testWidgets('annuler une invitation envoyée', (tester) async {
+    final server = FakeFriendsServer();
+    final b = await pumpApp(
+      tester,
+      route: Routes.home,
+      loginEmail: 'ahmed@gymflow.tn',
+      friendsRemote: server.phone(),
+    );
+    await _otherPhone(server);
+    await go(tester, Routes.friends);
+    await _activate(tester);
+    await tester.enterText(
+      find.byKey(const Key('friend_email')),
+      'nour@gymflow.tn',
+    );
+    await tester.tap(find.byKey(const Key('friend_send')));
+    await settle(tester, 1200);
+    expect(find.byKey(const Key('sent_requests')), findsOneWidget);
+
+    final cancel = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('cancel_'),
+    );
+    await tester.ensureVisible(cancel);
+    await tester.tap(cancel);
+    await settle(tester, 1200);
+
+    expect(find.byKey(const Key('sent_requests')), findsNothing);
+    expect(server.friendshipCount, 0);
+    await _done(tester, b);
+  });
+
+  testWidgets('« Apparaître hors ligne » : interrupteur et effet serveur', (
+    tester,
+  ) async {
+    final server = FakeFriendsServer();
+    final b = await pumpApp(
+      tester,
+      route: Routes.home,
+      loginEmail: 'ahmed@gymflow.tn',
+      friendsRemote: server.phone(),
+    );
+    await go(tester, Routes.friends);
+    await _activate(tester);
+
+    final tile = find.byKey(const Key('friends_invisible'));
+    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    await tester.tap(tile);
+    await settle(tester, 1000);
+    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+    expect(server.isInvisible('ahmed@gymflow.tn'), isTrue);
+    expect(find.textContaining('vous voient hors ligne'), findsOneWidget);
     await _done(tester, b);
   });
 

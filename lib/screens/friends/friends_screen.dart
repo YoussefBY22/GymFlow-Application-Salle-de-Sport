@@ -125,10 +125,24 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Future<void> _send() async {
     final email = _email.text;
-    await _run(() async {
-      await _s.sendRequest(email);
+    setState(() => _busy = true);
+    try {
+      final result = await _s.sendRequest(email);
       _email.clear();
-    }, success: 'Si cette adresse a la fonction Amis, la demande est envoyée.');
+      if (mounted) {
+        showSnack(context, switch (result) {
+          SendResult.sent =>
+            'Invitation envoyée. Elle apparaît dans '
+                "« Invitations envoyées » jusqu'à la réponse.",
+          SendResult.accepted => 'Vous êtes maintenant amis.',
+          SendResult.alreadyFriends => 'Vous êtes déjà amis.',
+          SendResult.alreadyPending => 'Invitation déjà en attente.',
+        });
+      }
+    } catch (e) {
+      if (mounted) showSnack(context, friendlyError(e), error: true);
+    }
+    if (mounted) setState(() => _busy = false);
   }
 
   @override
@@ -294,6 +308,28 @@ class _FriendsScreenState extends State<FriendsScreen> {
             : '${_s.onlineCount} ami(s) en ligne',
         style: AppText.label(),
       ),
+      const SizedBox(height: Gap.s),
+      GfCard(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.m),
+        child: SwitchListTile(
+          key: const Key('friends_invisible'),
+          contentPadding: EdgeInsets.zero,
+          value: _s.invisible,
+          onChanged: _busy
+              ? null
+              : (v) => _run(
+                  () => _s.setInvisible(v),
+                  success: v
+                      ? 'Vos amis vous voient hors ligne.'
+                      : 'Vos amis voient quand vous êtes en ligne.',
+                ),
+          title: const Text('Apparaître hors ligne'),
+          subtitle: const Text(
+            'Vos amis ne voient ni « en ligne » ni « vu il y a ». Vous '
+            'continuez de recevoir vos messages et de voir les leurs.',
+          ),
+        ),
+      ),
       const SectionHeader('Ajouter un ami'),
       GfCard(
         child: Column(
@@ -312,9 +348,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             ),
             const SizedBox(height: Gap.s),
             Text(
-              'Votre ami doit avoir activé la fonction Amis avec cette '
-              'adresse. Par discrétion, on ne dit jamais si une adresse a un '
-              'compte.',
+              'Votre ami doit avoir activé la fonction Amis avec cette adresse.',
               style: AppText.label(size: 12),
             ),
             const SizedBox(height: Gap.s),
@@ -366,6 +400,34 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         icon: const Icon(Icons.cancel_outlined),
                       ),
                     ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      if (_s.sentRequests.isNotEmpty) ...[
+        SectionHeader('Invitations envoyées (${_s.sentRequests.length})'),
+        GfCard(
+          key: const Key('sent_requests'),
+          child: Column(
+            children: [
+              for (final r in _s.sentRequests)
+                ListTile(
+                  key: Key('sent_${r.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: _FriendAvatar(name: r.toName, url: r.avatarUrl),
+                  title: Text(r.toName, style: AppText.subtitle(size: 15)),
+                  subtitle: const Text('En attente de réponse'),
+                  trailing: TextButton(
+                    key: Key('cancel_${r.id}'),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => _s.cancelRequest(r),
+                            success: 'Invitation annulée.',
+                          ),
+                    child: const Text('Annuler'),
                   ),
                 ),
             ],

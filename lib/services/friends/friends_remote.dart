@@ -15,10 +15,11 @@ sealed class FriendsEvent {
   const FriendsEvent();
 }
 
-/// Un ami a changé de présence (`lastSeen` nul = hors ligne).
+/// Un ami a changé de présence. `lastSeen` nul = caché ou jamais vu.
 class PresenceChanged extends FriendsEvent {
-  const PresenceChanged(this.userId, this.lastSeen);
+  const PresenceChanged(this.userId, this.online, this.lastSeen);
   final String userId;
+  final bool online;
   final DateTime? lastSeen;
 }
 
@@ -84,14 +85,26 @@ abstract class FriendsRemote {
   /// Signal de présence ; renvoie l'heure du serveur.
   Future<DateTime> heartbeat();
 
+  /// Hors ligne tout de suite, en gardant la date du dernier signal.
   Future<void> goOffline();
+
+  /// Mode « Apparaître hors ligne » : les amis ne voient plus ma présence.
+  Future<void> setInvisible(bool invisible);
+
+  Future<bool> loadInvisible();
 
   Future<FriendsSnapshot> loadFriends();
 
   Future<List<FriendRequest>> loadRequests();
 
-  /// Envoie une demande d'ami. Ne révèle jamais si l'adresse a un compte.
-  Future<void> sendRequest(String email);
+  /// Envoie une invitation. Lève « aucun compte avec cette adresse » si
+  /// personne n'a activé la fonction Amis avec cette adresse.
+  Future<SendResult> sendRequest(String email);
+
+  /// Invitations que j'ai envoyées et qui n'ont pas abouti.
+  Future<List<SentRequest>> loadSentRequests();
+
+  Future<void> cancelRequest(String requestId);
 
   Future<void> respond(String requestId, bool accept);
 

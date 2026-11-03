@@ -2,6 +2,7 @@
 // avec consentement, demandes d'ami par e-mail, présence en direct, messages
 // (« poke ») et notifications, sur deux « téléphones » reliés par un faux
 // serveur qui reproduit les règles de la base Supabase.
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/core/errors.dart';
 import 'package:gymflow/models/friends.dart';
@@ -245,20 +246,101 @@ void main() {
       expect(server.friendshipCount, 1, reason: 'la trace du refus est gardée');
     });
 
-    test('une adresse inconnue donne la même réponse qu\'une connue', () async {
+    test('adresse sans compte : « aucun compte avec cette adresse »', () async {
       final server = FakeFriendsServer();
       final a = await phone(server, _ahmed);
       await enable(a);
-      await a.b.friends.sendRequest('personne@inconnu.tn'); // ne lève rien
+      await expectLater(
+        a.b.friends.sendRequest('personne@inconnu.tn'),
+        throwsA(
+          isA<BusinessRuleException>().having(
+            (e) => e.message,
+            'message',
+            contains('Aucun compte avec cette adresse'),
+          ),
+        ),
+      );
+      expect(server.friendshipCount, 0);
+      expect(a.b.friends.sentRequests, isEmpty);
+    });
+
+    test("personne qui n'a pas activé la fonction : même message", () async {
+      final server = FakeFriendsServer();
+      final a = await phone(server, _ahmed);
+      await enable(a);
+      await expectLater(
+        a.b.friends.sendRequest(_nour),
+        throwsA(isA<BusinessRuleException>()),
+      );
       expect(server.friendshipCount, 0);
     });
 
-    test('une personne sans la fonction activée ne reçoit rien', () async {
+    test('invitation envoyée : visible « en attente », annulable', () async {
       final server = FakeFriendsServer();
       final a = await phone(server, _ahmed);
+      final n = await phone(server, _nour);
       await enable(a);
-      await a.b.friends.sendRequest(_nour);
+      await enable(n);
+      final result = await a.b.friends.sendRequest(_nour);
+      await flush();
+      expect(result, SendResult.sent);
+      expect(a.b.friends.sentRequests.length, 1);
+      expect(
+        a.b.friends.sentRequests.single.toName,
+        n.b.auth.currentUser!.fullName,
+      );
+      expect(n.b.friends.requests.length, 1);
+
+      await a.b.friends.cancelRequest(a.b.friends.sentRequests.single);
+      await flush();
+      expect(a.b.friends.sentRequests, isEmpty);
+      expect(
+        n.b.friends.requests,
+        isEmpty,
+        reason: 'la demande disparaît aussi',
+      );
       expect(server.friendshipCount, 0);
+    });
+
+    test(
+      "l'invitation disparaît de la liste quand elle est acceptée",
+      () async {
+        final server = FakeFriendsServer();
+        final (a, n) = await friendsPair(server);
+        expect(a.b.friends.sentRequests, isEmpty);
+        expect(n.b.friends.friends.length, 1);
+      },
+    );
+
+    test(
+      "invitation refusée : l'auteur la voit toujours « en attente »",
+      () async {
+        final server = FakeFriendsServer();
+        final a = await phone(server, _ahmed);
+        final n = await phone(server, _nour);
+        await enable(a);
+        await enable(n);
+        await a.b.friends.sendRequest(_nour);
+        await flush();
+        await n.b.friends.respond(n.b.friends.requests.single, false);
+        await flush();
+        expect(a.b.friends.sentRequests.length, 1);
+        expect(a.b.friends.friends, isEmpty);
+      },
+    );
+
+    test('résultats : déjà en attente, déjà amis, demande croisée', () async {
+      final server = FakeFriendsServer();
+      final a = await phone(server, _ahmed);
+      final n = await phone(server, _nour);
+      await enable(a);
+      await enable(n);
+      expect(await a.b.friends.sendRequest(_nour), SendResult.sent);
+      expect(await a.b.friends.sendRequest(_nour), SendResult.alreadyPending);
+      await flush();
+      expect(await n.b.friends.sendRequest(_ahmed), SendResult.accepted);
+      await flush();
+      expect(await a.b.friends.sendRequest(_nour), SendResult.alreadyFriends);
     });
 
     test('sa propre adresse ou une adresse invalide sont refusées', () async {
@@ -300,7 +382,7 @@ void main() {
   });
 
   group('Présence en direct', () {
-    test('en ligne, puis hors ligne après 75 secondes sans signal', () async {
+    test('en ligne, puis hors ligne après 45 secondes sans signal', () async {
       var elapsed = Duration.zero;
       final base = DateTime.utc(2026, 11, 3, 10);
       final server = FakeFriendsServer(clock: () => base.add(elapsed));
@@ -323,8 +405,8 @@ void main() {
       setNow(DateTime(2026, 11, 3, 11).add(elapsed));
       expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
 
-      // 76 s sans nouveau signal : hors ligne.
-      elapsed = const Duration(seconds: 76);
+      // 46 s sans nouveau signal : hors ligne.
+      elapsed = const Duration(seconds: 46);
       setNow(DateTime(2026, 11, 3, 11).add(elapsed));
       expect(n.b.friends.isOnline(n.b.friends.friends.single), isFalse);
     });
@@ -354,9 +436,124 @@ void main() {
 
       await a.b.auth.logout();
       await flush();
-      expect(n.b.friends.isOnline(n.b.friends.friends.single), isFalse);
+      final seen = n.b.friends.friends.single;
+      expect(n.b.friends.isOnline(seen), isFalse);
+      expect(
+        seen.presenceLabel(n.b.friends.serverNow()),
+        startsWith('Vu il y a'),
+        reason: 'on garde la date du dernier signal',
+      );
       expect(a.r.calls['signOut'], 1);
       expect(a.r.userId, isNull, reason: 'la session du serveur est fermée');
+    });
+
+    test('mode « Apparaître hors ligne » : les amis ne voient rien', () async {
+      final server = FakeFriendsServer();
+      final (a, n) = await friendsPair(server);
+      await a.b.friends.beat();
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+
+      await a.b.friends.setInvisible(true);
+      await flush();
+      var f = n.b.friends.friends.single;
+      expect(n.b.friends.isOnline(f), isFalse);
+      expect(
+        f.presenceLabel(n.b.friends.serverNow()),
+        'Hors ligne',
+        reason: 'ni « en ligne », ni « vu il y a »',
+      );
+      expect(a.b.friends.invisible, isTrue);
+
+      // Les signaux continuent, mais rien ne se voit.
+      await a.b.friends.beat();
+      await flush();
+      f = n.b.friends.friends.single;
+      expect(n.b.friends.isOnline(f), isFalse);
+      expect(f.lastSeen, isNull);
+
+      await a.b.friends.setInvisible(false);
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+    });
+
+    test('le mode invisible survit à une reconnexion', () async {
+      final server = FakeFriendsServer();
+      final (a, _) = await friendsPair(server);
+      await a.b.friends.setInvisible(true);
+      await a.b.auth.logout();
+      await loginAs(a.b, _ahmed);
+      await flush();
+      expect(a.b.friends.invisible, isTrue);
+    });
+
+    test('application en arrière-plan : hors ligne tout de suite', () async {
+      final server = FakeFriendsServer();
+      final (a, n) = await friendsPair(server);
+      await a.b.friends.beat();
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+
+      a.b.friends.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isFalse);
+
+      a.b.friends.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+    });
+
+    test(
+      'appli ouverte mais inutilisée depuis 2 minutes : hors ligne',
+      () async {
+        final server = FakeFriendsServer();
+        // Nour d'abord, Ahmed ensuite : setNow() règle l'horloge d'Ahmed.
+        final n = await phone(server, _nour);
+        final a = await phone(server, _ahmed);
+        await enable(n);
+        await enable(a);
+        await a.b.friends.sendRequest(_nour);
+        await flush();
+        await n.b.friends.respond(n.b.friends.requests.single, true);
+        await flush();
+        expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+
+        // 1 min 59 s sans geste : encore en ligne.
+        setNow(testNow.add(const Duration(minutes: 1, seconds: 59)));
+        await a.b.friends.tick();
+        await flush();
+        expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+
+        // 2 min 1 s sans geste : hors ligne.
+        setNow(testNow.add(const Duration(minutes: 2, seconds: 1)));
+        await a.b.friends.tick();
+        await flush();
+        expect(n.b.friends.isOnline(n.b.friends.friends.single), isFalse);
+
+        // Un geste : de nouveau en ligne.
+        a.b.friends.noteActivity();
+        await flush();
+        expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
+      },
+    );
+
+    test('un geste régulier garde en ligne pendant des minutes', () async {
+      final server = FakeFriendsServer();
+      final n = await phone(server, _nour);
+      final a = await phone(server, _ahmed);
+      await enable(n);
+      await enable(a);
+      await a.b.friends.sendRequest(_nour);
+      await flush();
+      await n.b.friends.respond(n.b.friends.requests.single, true);
+      await flush();
+      for (var min = 1; min <= 6; min++) {
+        setNow(testNow.add(Duration(minutes: min)));
+        a.b.friends.noteActivity();
+        await a.b.friends.tick();
+      }
+      await flush();
+      expect(n.b.friends.isOnline(n.b.friends.friends.single), isTrue);
     });
 
     test('le nombre d\'amis en ligne est tenu à jour', () async {
@@ -560,18 +757,19 @@ void main() {
 
   group('Modèles', () {
     final now = DateTime.utc(2026, 11, 3, 10);
-    Friend at(DateTime? seen) =>
-        Friend(id: 'x', name: 'X', since: now, lastSeen: seen);
+    Friend at(DateTime? seen, {bool online = true}) =>
+        Friend(id: 'x', name: 'X', since: now, lastSeen: seen, online: online);
 
-    test('en ligne : signal de moins de 75 secondes', () {
+    test('en ligne : serveur en ligne ET signal de moins de 45 secondes', () {
       expect(
-        at(now.subtract(const Duration(seconds: 74))).isOnline(now),
+        at(now.subtract(const Duration(seconds: 44))).isOnline(now),
         isTrue,
       );
       expect(
-        at(now.subtract(const Duration(seconds: 75))).isOnline(now),
+        at(now.subtract(const Duration(seconds: 45))).isOnline(now),
         isFalse,
       );
+      expect(at(now, online: false).isOnline(now), isFalse);
       expect(at(null).isOnline(now), isFalse);
     });
 

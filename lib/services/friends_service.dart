@@ -42,7 +42,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   FriendsService(
     this._b,
     this._remote, {
-    this.heartbeatEvery = const Duration(seconds: 30),
+    this.heartbeatEvery = const Duration(seconds: 15),
+    this.idleAfter = const Duration(minutes: 2),
   });
 
   final Backend _b;
@@ -51,11 +52,20 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   /// Intervalle entre deux signaux de présence (réduit dans les tests).
   final Duration heartbeatEvery;
 
+  /// Sans toucher l'écran pendant ce délai, on n'est plus « en ligne » : être
+  /// en ligne veut dire utiliser l'application, pas la laisser ouverte.
+  final Duration idleAfter;
+
   /// Route de l'écran, ouverte depuis les notifications.
   static const route = '/friends';
 
   List<Friend> _friends = const [];
   List<FriendRequest> _requests = const [];
+  List<SentRequest> _sent = const [];
+  bool _invisible = false;
+  DateTime? _lastActivity;
+  bool _idle = false;
+  bool _appActive = true;
   Duration _serverOffset = Duration.zero;
   bool _connecting = false;
   bool _connected = false;
@@ -75,6 +85,12 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
 
   List<Friend> get friends => _friends;
   List<FriendRequest> get requests => _requests;
+
+  /// Invitations que j'ai envoyées et qui n'ont pas abouti.
+  List<SentRequest> get sentRequests => _sent;
+
+  /// Mode « Apparaître hors ligne » actif.
+  bool get invisible => _invisible;
   Object? get error => _error;
 
   /// Nombre de demandes en attente (pastille du menu).
@@ -149,6 +165,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _stop();
     _friends = const [];
     _requests = const [];
+    _sent = const [];
+    _invisible = false;
     _handled.clear();
     _needsPassword = false;
     _error = null;
@@ -236,6 +254,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     }
     _friends = const [];
     _requests = const [];
+    _sent = const [];
+    _invisible = false;
     _handled.clear();
     _needsPassword = false;
     _error = null;
@@ -306,6 +326,10 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
           ? avatar
           : null,
     );
+    _invisible = await _r.loadInvisible();
+    _lastActivity = _b.now();
+    _idle = false;
+    _appActive = true;
     await _beat();
     await refresh();
     await _r.subscribe();
@@ -330,10 +354,29 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(heartbeatEvery, (_) => beat());
+    _timer = Timer.periodic(heartbeatEvery, (_) => unawaited(tick()));
   }
 
-  /// Un signal de présence (appelé par le minuteur ; public pour les tests).
+  /// Une tâche du minuteur : signal de présence, sauf si l'application est
+  /// en arrière-plan ou si personne n'a touché l'écran depuis [idleAfter].
+  /// Public pour les tests.
+  Future<void> tick() async {
+    if (!_connected || !_appActive) return;
+    final last = _lastActivity;
+    if (last != null && _b.now().difference(last) > idleAfter) {
+      if (!_idle) {
+        _idle = true;
+        try {
+          await _r.goOffline();
+        } catch (_) {}
+        notifyListeners();
+      }
+      return;
+    }
+    await beat();
+  }
+
+  /// Un signal de présence (public pour les tests).
   Future<void> beat() async {
     if (!_connected) return;
     try {
@@ -341,6 +384,16 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     } catch (_) {
       // Coupure passagère : le prochain signal rattrape.
+    }
+  }
+
+  /// À appeler à chaque geste de la personne (touche, défilement, saisie) :
+  /// c'est ce qui la garde « en ligne ».
+  void noteActivity() {
+    _lastActivity = _b.now();
+    if (_idle && _connected && _appActive) {
+      _idle = false;
+      unawaited(beat());
     }
   }
 
@@ -358,6 +411,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_connected) return;
     if (state == AppLifecycleState.resumed) {
+      _appActive = true;
+      _idle = false;
+      _lastActivity = _b.now();
       _startTimer();
       unawaited(() async {
         await beat();
@@ -367,7 +423,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
-      // En arrière-plan : on n'est plus « en ligne » pour les amis.
+      // En arrière-plan : on n'est plus « en ligne » pour les amis, même si
+      // le système laisse l'application tourner.
+      _appActive = false;
       _timer?.cancel();
       unawaited(_r.goOffline().catchError((Object _) {}));
     }
@@ -406,14 +464,16 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _serverOffset = snap.serverNow.difference(_b.now());
     _friends = snap.friends;
     _requests = await _r.loadRequests();
+    _sent = await _r.loadSentRequests();
     notifyListeners();
   }
 
   // ------------------------------------------------------------- Actions
 
-  /// Envoie une demande d'ami. La réponse est volontairement la même que
-  /// l'adresse ait un compte ou non (on ne révèle rien sur les autres).
-  Future<void> sendRequest(String email) async {
+  /// Envoie une invitation. Si aucune personne n'a activé la fonction Amis
+  /// avec cette adresse, le serveur répond « aucun compte avec cette
+  /// adresse » (choix assumé, voir SECURITE_CONFIDENTIALITE.md).
+  Future<SendResult> sendRequest(String email) async {
     final me = _b.requireRole({UserRole.member});
     final clean = email.trim().toLowerCase();
     final problem = Validators.email(clean);
@@ -423,9 +483,26 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
         'C\'est votre propre adresse : saisissez celle d\'un ami.',
       );
     }
-    await _r.sendRequest(clean);
-    // Si la personne nous avait déjà demandé en ami, c'est déjà accepté.
+    final result = await _r.sendRequest(clean);
+    // Si la personne nous avait déjà invité, c'est déjà accepté : la liste
+    // d'amis et les invitations en attente sont relues dans tous les cas.
     await refresh();
+    return result;
+  }
+
+  /// Annule une invitation que j'ai envoyée.
+  Future<void> cancelRequest(SentRequest request) async {
+    await _r.cancelRequest(request.id);
+    await refresh();
+  }
+
+  /// Active ou coupe le mode « Apparaître hors ligne ».
+  Future<void> setInvisible(bool value) async {
+    await _r.setInvisible(value);
+    _invisible = value;
+    notifyListeners();
+    // En quittant le mode invisible, on redevient visible tout de suite.
+    if (!value) await beat();
   }
 
   Future<void> respond(FriendRequest request, bool accept) async {
@@ -455,8 +532,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
         if (i < 0) return;
         final list = [..._friends];
         list[i] = e.lastSeen == null
-            ? list[i].copyWith(clearLastSeen: true)
-            : list[i].copyWith(lastSeen: e.lastSeen);
+            ? list[i].copyWith(online: e.online, clearLastSeen: true)
+            : list[i].copyWith(online: e.online, lastSeen: e.lastSeen);
         _friends = list;
         notifyListeners();
       case RelationsChanged():

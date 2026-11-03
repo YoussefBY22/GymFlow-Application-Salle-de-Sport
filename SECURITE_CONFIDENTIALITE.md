@@ -102,7 +102,8 @@ Fonction **facultative, désactivée par défaut, interdite aux mineurs**. Elle 
 | Compte d'authentification | E-mail et mot de passe (chiffré de façon irréversible par Supabase Auth) | Personne d'autre ; l'e-mail n'apparaît dans aucune table publique |
 
 - **Sécurité** : règles d'accès par ligne (RLS) sur toutes les tables ; le client ne peut ni créer une amitié ou un message en direct, ni modifier l'empreinte d'e-mail ou la présence : tout passe par des fonctions qui vérifient les règles. Seule la clé publique « publishable » est dans l'application.
-- **Pas de fuite sur les comptes** : demander un ami par e-mail répond toujours « ok », que l'adresse ait un compte ou non.
+- **Existence d'un compte (choix assumé)** : demander un ami par e-mail répond « Aucun compte avec cette adresse » si personne n'a activé la fonction Amis avec elle. Cela permet de sonder si une adresse a un compte *Amis* ; limité aux abonnés majeurs connectés qui ont activé la fonction, à 10 invitations par heure. À reconsidérer en production.
+- **Présence** : « en ligne » = application au premier plan et utilisée ; mode « Apparaître hors ligne » (réglage privé, jamais visible des amis) ; une invitation refusée reste « en attente » pour son auteur.
 - **Pas de harcèlement** : messages prédéfinis (aucun texte libre), 1 par minute et par ami, 60 par jour, possibilité de retirer un ami.
 - **Effacement** : désactiver la fonction, ou supprimer son compte GymFlow, efface ses amitiés, demandes et messages du serveur.
 - **Limites** : confirmation d'e-mail désactivée pour la démo (adresses fictives) → un tiers pourrait ouvrir un compte Supabase avec l'adresse d'un autre ; **à activer en production**. L'exclusion des mineurs est côté application (l'âge n'est pas connu du serveur). Hébergement : région choisie à la création du projet (Europe conseillée) ; à inscrire dans la liste des sous-traitants ultérieurs. Un projet gratuit est mis en pause après 7 jours d'inactivité.

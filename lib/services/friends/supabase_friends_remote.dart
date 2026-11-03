@@ -73,8 +73,8 @@ class SupabaseFriendsRemote implements FriendsRemote {
   static String _postgrestMessage(PostgrestException e) {
     final m = e.message;
     if (m.contains('rate_limited')) {
-      return 'Doucement : vous avez déjà envoyé un message à cet ami il y a '
-          'moins d\'une minute.';
+      return "Doucement : trop d'envois en peu de temps. Réessayez dans un "
+          'instant.';
     }
     if (m.contains('daily_limit')) {
       return "Limite de messages atteinte pour aujourd'hui. Réessayez demain.";
@@ -84,6 +84,10 @@ class SupabaseFriendsRemote implements FriendsRemote {
     }
     if (m.contains('friends_disabled')) {
       return 'La fonction Amis doit être activée des deux côtés.';
+    }
+    if (m.contains('no_account')) {
+      return 'Aucun compte avec cette adresse. Votre ami doit avoir activé la '
+          'fonction Amis.';
     }
     if (m.contains('invalid_email')) return 'Adresse e-mail invalide.';
     if (m.contains('not_found')) return 'Demande introuvable.';
@@ -206,6 +210,19 @@ class SupabaseFriendsRemote implements FriendsRemote {
     await c.rpc('go_offline');
   });
 
+  @override
+  Future<void> setInvisible(bool invisible) => _run(() async {
+    final c = await _c();
+    await c.rpc('set_invisible', params: {'p_on': invisible});
+  });
+
+  @override
+  Future<bool> loadInvisible() => _run(() async {
+    final c = await _c();
+    final rows = (await c.rpc('my_settings') as List).cast<Map>();
+    return rows.isNotEmpty && rows.first['invisible'] == true;
+  });
+
   // --------------------------------------------------------------- Amis
 
   /// Le serveur écrit `1970-01-01` pour « hors ligne ».
@@ -229,6 +246,7 @@ class SupabaseFriendsRemote implements FriendsRemote {
           id: r['id'] as String,
           name: r['display_name'] as String,
           avatarUrl: r['avatar_url'] as String?,
+          online: r['online'] == true,
           lastSeen: _seen(r['last_seen']),
           since: DateTime.tryParse('${r['since']}') ?? DateTime.now(),
         ),
@@ -256,9 +274,34 @@ class SupabaseFriendsRemote implements FriendsRemote {
   });
 
   @override
-  Future<void> sendRequest(String email) => _run(() async {
+  Future<SendResult> sendRequest(String email) => _run(() async {
     final c = await _c();
-    await c.rpc('send_friend_request', params: {'p_email': email.trim()});
+    final r = await c.rpc(
+      'send_friend_request',
+      params: {'p_email': email.trim()},
+    );
+    return SendResult.fromKey(r as String?);
+  });
+
+  @override
+  Future<List<SentRequest>> loadSentRequests() => _run(() async {
+    final c = await _c();
+    final rows = (await c.rpc('my_sent_requests') as List).cast<Map>();
+    return [
+      for (final r in rows)
+        SentRequest(
+          id: r['id'] as String,
+          toName: r['to_name'] as String,
+          avatarUrl: r['avatar_url'] as String?,
+          createdAt: DateTime.tryParse('${r['created_at']}') ?? DateTime.now(),
+        ),
+    ];
+  });
+
+  @override
+  Future<void> cancelRequest(String requestId) => _run(() async {
+    final c = await _c();
+    await c.rpc('cancel_friend_request', params: {'p_id': requestId});
   });
 
   @override
@@ -349,6 +392,7 @@ class SupabaseFriendsRemote implements FriendsRemote {
         callback: (p) => _events.add(
           PresenceChanged(
             '${p.newRecord['id']}',
+            p.newRecord['online'] == true,
             _seen(p.newRecord['last_seen']),
           ),
         ),

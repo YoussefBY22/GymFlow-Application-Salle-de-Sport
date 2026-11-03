@@ -1,9 +1,10 @@
 // Faux serveur de la fonction Amis, pour tester toute la logique sans réseau.
 //
-// Il reproduit les règles de `supabase/schema.sql` : un compte par e-mail,
-// demandes qui ne révèlent rien, amitié acceptée des deux côtés, présence à
-// l'heure du serveur, un message par minute et par ami. Plusieurs « téléphones »
-// (un `FakeFriendsRemote` chacun) se parlent à travers le même serveur.
+// Il reproduit les règles de `supabase/` : un compte par e-mail, invitations
+// (« aucun compte » si l'adresse est inconnue), amitié acceptée des deux
+// côtés, présence à l'heure du serveur (en ligne + dernier signal), mode
+// invisible, un message par minute et par ami. Plusieurs « téléphones » (un
+// `FakeFriendsRemote` chacun) se parlent à travers le même serveur.
 import 'dart:async';
 
 import 'package:gymflow/core/errors.dart';
@@ -18,6 +19,8 @@ class _Account {
   String name;
   String? avatar;
   bool enabled = false;
+  bool online = false;
+  bool invisible = false;
   DateTime? lastSeen;
 }
 
@@ -66,8 +69,14 @@ class FakeFriendsServer {
   bool isEnabled(String email) =>
       _byEmail[email.trim().toLowerCase()]?.enabled ?? false;
 
+  bool isInvisible(String email) =>
+      _byEmail[email.trim().toLowerCase()]?.invisible ?? false;
+
   String? lastSeenOf(String email) =>
       _byEmail[email.trim().toLowerCase()]?.lastSeen?.toIso8601String();
+
+  bool isOnlineOnServer(String email) =>
+      _byEmail[email.trim().toLowerCase()]?.online ?? false;
 
   String passwordOf(String email) =>
       _byEmail[email.trim().toLowerCase()]!.password;
@@ -97,7 +106,7 @@ class FakeFriendsServer {
 
   void _presence(_Account a) {
     for (final f in _friendsOf(a.id)) {
-      _push(f, PresenceChanged(a.id, a.lastSeen));
+      _push(f, PresenceChanged(a.id, a.online, a.lastSeen));
     }
   }
 }
@@ -197,7 +206,8 @@ class FakeFriendsRemote implements FriendsRemote {
   Future<DateTime> heartbeat() async {
     _count('heartbeat');
     final a = _me;
-    if (a.enabled) {
+    if (a.enabled && !a.invisible) {
+      a.online = true;
       a.lastSeen = server.clock();
       server._presence(a);
     }
@@ -209,8 +219,32 @@ class FakeFriendsRemote implements FriendsRemote {
     _count('goOffline');
     if (_uid == null) return;
     final a = _me;
-    a.lastSeen = null;
+    // On garde lastSeen : les amis voient « Vu il y a 5 min ».
+    if (a.online) {
+      a.online = false;
+      server._presence(a);
+    }
+  }
+
+  @override
+  Future<void> setInvisible(bool invisible) async {
+    _count('setInvisible');
+    final a = _me;
+    a.invisible = invisible;
+    if (invisible) {
+      a.online = false;
+      a.lastSeen = null;
+    } else if (a.enabled) {
+      a.online = true;
+      a.lastSeen = server.clock();
+    }
     server._presence(a);
+  }
+
+  @override
+  Future<bool> loadInvisible() async {
+    _count('loadInvisible');
+    return _me.invisible;
   }
 
   @override
@@ -231,6 +265,7 @@ class FakeFriendsRemote implements FriendsRemote {
           id: other.id,
           name: other.name,
           avatarUrl: other.avatar,
+          online: other.online,
           lastSeen: other.lastSeen,
           since: f.createdAt,
         ),
@@ -258,30 +293,53 @@ class FakeFriendsRemote implements FriendsRemote {
   }
 
   @override
-  Future<void> sendRequest(String email) async {
+  Future<List<SentRequest>> loadSentRequests() async {
+    _count('loadSentRequests');
+    final me = _me;
+    // Une invitation refusée reste « en attente » pour son auteur.
+    return [
+      for (final f in server._friendships.where(
+        (f) => f.requester == me.id && f.status != 'accepted',
+      ))
+        SentRequest(
+          id: f.id,
+          toName: server._acct(f.addressee).name,
+          avatarUrl: server._acct(f.addressee).avatar,
+          createdAt: f.createdAt,
+        ),
+    ];
+  }
+
+  @override
+  Future<SendResult> sendRequest(String email) async {
     _count('sendRequest');
     final me = _me;
     if (!me.enabled) throw const BusinessRuleException('friends_disabled');
     final target = server._byEmail[email.trim().toLowerCase()];
-    // Comme le serveur réel : même réponse que l'adresse existe ou non.
-    if (target == null || !target.enabled || target.id == me.id) return;
-    final reverse = server._friendships.where(
-      (f) =>
-          f.requester == target.id &&
-          f.addressee == me.id &&
-          f.status == 'pending',
-    );
-    if (reverse.isNotEmpty) {
-      reverse.first.status = 'accepted';
-      server._push(target.id, RequestAccepted(me.id));
-      return;
+    if (target == null || !target.enabled || target.id == me.id) {
+      throw const BusinessRuleException(
+        'Aucun compte avec cette adresse. Votre ami doit avoir activé la '
+        'fonction Amis.',
+      );
     }
-    final exists = server._friendships.any(
+    final existing = server._friendships.where(
       (f) =>
           (f.requester == me.id && f.addressee == target.id) ||
           (f.requester == target.id && f.addressee == me.id),
     );
-    if (exists) return;
+    if (existing.isNotEmpty) {
+      final f = existing.first;
+      if (f.status == 'accepted') return SendResult.alreadyFriends;
+      if (f.status == 'pending') {
+        if (f.requester == target.id) {
+          f.status = 'accepted';
+          server._push(target.id, RequestAccepted(me.id));
+          return SendResult.accepted;
+        }
+        return SendResult.alreadyPending;
+      }
+      return SendResult.sent; // refusée : l'auteur n'en sait rien
+    }
     final f = _Friendship(
       'fr_${++server._n}',
       me.id,
@@ -290,6 +348,20 @@ class FakeFriendsRemote implements FriendsRemote {
     );
     server._friendships.add(f);
     server._push(target.id, RequestReceived(f.id));
+    return SendResult.sent;
+  }
+
+  @override
+  Future<void> cancelRequest(String requestId) async {
+    _count('cancelRequest');
+    final me = _me;
+    final f = server._friendships.firstWhere(
+      (f) =>
+          f.id == requestId && f.requester == me.id && f.status != 'accepted',
+      orElse: () => throw const BusinessRuleException('not_found'),
+    );
+    server._friendships.remove(f);
+    server._push(f.addressee, const RelationsChanged());
   }
 
   @override
@@ -301,7 +373,11 @@ class FakeFriendsRemote implements FriendsRemote {
       orElse: () => throw const BusinessRuleException('not_found'),
     );
     f.status = accept ? 'accepted' : 'declined';
-    if (accept) server._push(f.requester, RequestAccepted(me.id));
+    if (accept) {
+      server._push(f.requester, RequestAccepted(me.id));
+    } else {
+      server._push(f.requester, const RelationsChanged());
+    }
   }
 
   @override
@@ -381,6 +457,8 @@ class FakeFriendsRemote implements FriendsRemote {
       (f) => f.requester == me.id || f.addressee == me.id,
     );
     me.enabled = false;
+    me.online = false;
+    me.invisible = false;
     me.lastSeen = null;
     for (final o in others) {
       server._push(o, const RelationsChanged());

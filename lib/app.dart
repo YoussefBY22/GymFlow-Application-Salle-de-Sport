@@ -4,6 +4,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/routes.dart';
 import 'core/theme.dart';
+import 'services/backend.dart';
+
+void _noteActivity() {
+  if (Backend.isReady) Backend.I.friends.noteActivity();
+}
 
 /// Racine de l'application (cours S01 : MaterialApp + arbre de widgets).
 class GymFlowApp extends StatelessWidget {
@@ -46,6 +51,15 @@ class GymFlowApp extends StatelessWidget {
         Routes.onGenerateRoute(RouteSettings(name: name)),
       ],
       onGenerateRoute: Routes.onGenerateRoute,
+      // Chaque geste (toucher, défilement, souris) garde la personne « en
+      // ligne » pour ses amis ; sans geste pendant 2 minutes, elle ne l'est plus.
+      builder: (context, child) => Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _noteActivity(),
+        onPointerMove: (_) => _noteActivity(),
+        onPointerSignal: (_) => _noteActivity(),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

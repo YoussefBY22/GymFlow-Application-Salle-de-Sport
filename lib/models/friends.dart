@@ -1,10 +1,12 @@
 // Modèles de la fonction « Amis » (données hébergées sur Supabase).
 
-/// Un signal de présence plus ancien que cela = hors ligne.
+/// Un signal de présence plus ancien que cela = hors ligne, même si le
+/// serveur dit encore « en ligne » (téléphone coupé, plus de réseau…).
 ///
-/// L'application envoie un signal toutes les 30 secondes ; on laisse deux
-/// signaux manqués avant de considérer la personne hors ligne.
-const Duration presenceTimeout = Duration(seconds: 75);
+/// L'application envoie un signal toutes les 15 secondes ; on laisse deux
+/// signaux manqués (plus une marge) avant de considérer la personne hors
+/// ligne.
+const Duration presenceTimeout = Duration(seconds: 45);
 
 /// Un ami accepté.
 class Friend {
@@ -14,6 +16,7 @@ class Friend {
     required this.since,
     this.avatarUrl,
     this.lastSeen,
+    this.online = false,
   });
 
   /// Identifiant Supabase (et non l'identifiant du compte GymFlow local).
@@ -22,14 +25,19 @@ class Friend {
   final String? avatarUrl;
 
   /// Dernier signal de présence, à l'heure du serveur ; `null` = jamais vu
-  /// ou volontairement hors ligne.
+  /// ou volontairement caché (mode « Apparaître hors ligne »).
   final DateTime? lastSeen;
+
+  /// Le serveur le dit en ligne : l'application est au premier plan et
+  /// utilisée. Quitter l'application met `false` tout de suite.
+  final bool online;
   final DateTime since;
 
-  /// En ligne = signal récent. [serverNow] est l'heure du serveur estimée.
+  /// En ligne = le serveur le dit ET le dernier signal est récent.
+  /// [serverNow] est l'heure du serveur estimée.
   bool isOnline(DateTime serverNow) {
     final seen = lastSeen;
-    if (seen == null) return false;
+    if (!online || seen == null) return false;
     return serverNow.difference(seen) < presenceTimeout;
   }
 
@@ -46,11 +54,16 @@ class Friend {
     return 'Vu il y a ${d.inDays} j';
   }
 
-  Friend copyWith({DateTime? lastSeen, bool clearLastSeen = false}) => Friend(
+  Friend copyWith({
+    bool? online,
+    DateTime? lastSeen,
+    bool clearLastSeen = false,
+  }) => Friend(
     id: id,
     name: name,
     avatarUrl: avatarUrl,
     since: since,
+    online: online ?? this.online,
     lastSeen: clearLastSeen ? null : (lastSeen ?? this.lastSeen),
   );
 }
@@ -68,6 +81,43 @@ class FriendRequest {
   final String fromName;
   final String? avatarUrl;
   final DateTime createdAt;
+}
+
+/// Invitation que j'ai envoyée, pas encore aboutie.
+///
+/// Une invitation refusée y reste affichée « en attente » : son auteur n'est
+/// pas informé du refus (discrétion).
+class SentRequest {
+  const SentRequest({
+    required this.id,
+    required this.toName,
+    required this.createdAt,
+    this.avatarUrl,
+  });
+
+  final String id;
+  final String toName;
+  final String? avatarUrl;
+  final DateTime createdAt;
+}
+
+/// Résultat de l'envoi d'une invitation.
+enum SendResult {
+  /// Invitation envoyée, en attente de réponse.
+  sent,
+
+  /// L'autre personne m'avait déjà invité : vous êtes amis.
+  accepted,
+
+  alreadyFriends,
+  alreadyPending;
+
+  static SendResult fromKey(String? key) => switch (key) {
+    'accepted' => SendResult.accepted,
+    'already_friends' => SendResult.alreadyFriends,
+    'already_pending' => SendResult.alreadyPending,
+    _ => SendResult.sent,
+  };
 }
 
 /// Messages prédéfinis qu'on peut envoyer à un ami (« poke »).
