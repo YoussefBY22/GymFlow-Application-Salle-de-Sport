@@ -112,6 +112,18 @@ class Legal {
           'anonymes (sans compte) pour les statistiques de la salle.',
     ),
     (
+      'Fonction Amis (facultative)',
+      'Désactivée par défaut et indisponible pour les mineurs. Si vous '
+          'l\'activez, un compte est créé sur un service en ligne (Supabase, '
+          'hébergé dans la région choisie par la salle) avec votre e-mail et votre mot de passe (stocké '
+          'sous forme chiffrée irréversible par le service). Vos amis voient '
+          'votre nom, votre photo et si vous êtes en ligne ; vous pouvez leur '
+          'envoyer et recevoir des messages d\'encouragement prédéfinis. Votre '
+          'adresse e-mail n\'est jamais visible : le service ne garde que son '
+          'empreinte pour retrouver un ami. Désactiver la fonction efface vos '
+          'amis, demandes et messages du service.',
+    ),
+    (
       'Permissions du téléphone',
       'Appareil photo et galerie : seulement quand vous ajoutez une photo ou '
           'une vidéo. Notifications : rappels de cours. Agenda : seulement '

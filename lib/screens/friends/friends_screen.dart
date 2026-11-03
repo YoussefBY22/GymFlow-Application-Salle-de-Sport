@@ -1,0 +1,532 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../core/errors.dart';
+import '../../core/responsive.dart';
+import '../../core/theme.dart';
+import '../../models/friends.dart';
+import '../../services/backend.dart';
+import '../../services/friends_service.dart';
+import '../../widgets/common.dart';
+
+/// Mes amis : ajout par e-mail, demandes reçues, présence en direct et
+/// petits messages d'encouragement.
+class FriendsScreen extends StatefulWidget {
+  const FriendsScreen({super.key});
+
+  @override
+  State<FriendsScreen> createState() => _FriendsScreenState();
+}
+
+class _FriendsScreenState extends State<FriendsScreen> {
+  final _email = TextEditingController();
+  Timer? _tick;
+  bool _busy = false;
+
+  FriendsService get _s => Backend.I.friends;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rafraîchit « Vu il y a 3 min » et le passage hors ligne sans attendre
+    // un événement du serveur.
+    _tick = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+    if (_s.status == FriendsStatus.connected) {
+      unawaited(_s.refresh().catchError((Object _) {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    _email.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _askPassword(String message) {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmez votre mot de passe'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message, style: AppText.body(size: 14)),
+            const SizedBox(height: Gap.m),
+            TextField(
+              key: const Key('friends_password'),
+              controller: ctrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Mot de passe GymFlow',
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            key: const Key('friends_password_ok'),
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _run(Future<void> Function() action, {String? success}) async {
+    setState(() => _busy = true);
+    await runAction(context, action, success: success);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _enable() async {
+    final pwd = await _askPassword(
+      'Votre compte sera relié à un service en ligne (Supabase) pour retrouver '
+      'vos amis d\'un téléphone à l\'autre. Utilisez votre mot de passe '
+      'GymFlow : il doit rester le même des deux côtés.',
+    );
+    if (pwd == null || pwd.isEmpty) return;
+    await _run(() => _s.enable(pwd), success: 'Fonction Amis activée.');
+  }
+
+  Future<void> _reconnect() async {
+    final pwd = await _askPassword(
+      'Pour vous reconnecter au service Amis, ressaisissez votre mot de passe.',
+    );
+    if (pwd == null || pwd.isEmpty) return;
+    await _run(() => _s.reconnect(pwd), success: 'Connecté.');
+  }
+
+  Future<void> _disable() async {
+    final ok = await confirm(
+      context,
+      title: 'Désactiver la fonction Amis ?',
+      message:
+          'Vos amis, demandes et messages seront effacés du service en ligne. '
+          'Vous devrez tout recommencer si vous la réactivez.',
+      confirmLabel: 'Désactiver',
+      destructive: true,
+    );
+    if (!ok) return;
+    await _run(_s.disable, success: 'Fonction Amis désactivée.');
+  }
+
+  Future<void> _send() async {
+    final email = _email.text;
+    await _run(() async {
+      await _s.sendRequest(email);
+      _email.clear();
+    }, success: 'Si cette adresse a la fonction Amis, la demande est envoyée.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = Backend.I;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mes amis')),
+      body: ListenableBuilder(
+        listenable: Listenable.merge([_s, b.auth]),
+        builder: (context, _) {
+          final me = b.auth.currentUser;
+          final status = _s.status;
+          return RefreshIndicator(
+            onRefresh: () async {
+              if (status == FriendsStatus.connected) {
+                try {
+                  await _s.refresh();
+                } catch (_) {}
+              }
+            },
+            child: ListView(
+              padding: pagePadding(context, maxWidth: 760),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                if (status == FriendsStatus.unavailable)
+                  const GfCard(
+                    child: InfoRow(
+                      Icons.cloud_off_outlined,
+                      'La fonction Amis n\'est pas disponible dans cette '
+                      'version de l\'application.',
+                    ),
+                  )
+                else if (me == null || !me.isMember)
+                  const GfCard(
+                    child: InfoRow(
+                      Icons.info_outline,
+                      'La fonction Amis est réservée aux abonnés.',
+                    ),
+                  )
+                else if (!me.isAdult)
+                  const GfCard(
+                    child: InfoRow(
+                      Icons.shield_outlined,
+                      'La fonction Amis est indisponible pour les comptes de '
+                      'mineurs.',
+                    ),
+                  )
+                else if (status == FriendsStatus.off)
+                  _intro()
+                else ...[
+                  if (status != FriendsStatus.connected) _notConnected(status),
+                  if (status == FriendsStatus.connected) ..._connected(),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ------------------------------------------------------- Fonction éteinte
+
+  Widget _intro() {
+    return GfCard(
+      key: const Key('friends_intro'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Entraînez-vous avec vos amis', style: AppText.title(size: 18)),
+          const SizedBox(height: Gap.s),
+          Text(
+            'Ajoutez des amis avec leur adresse e-mail, voyez en direct '
+            's\'ils sont connectés et envoyez-leur un petit message '
+            'd\'encouragement.',
+            style: AppText.body(size: 14, color: AppColors.inkSoft),
+          ),
+          const SizedBox(height: Gap.s),
+          const InfoRow(
+            Icons.lock_outline,
+            'Facultatif, désactivé par défaut. Vos amis voient seulement '
+            'votre nom, votre photo et si vous êtes en ligne.',
+          ),
+          const InfoRow(
+            Icons.cloud_outlined,
+            'Un compte est créé sur un service en ligne (Supabase) avec votre '
+            'e-mail et votre mot de passe. Désactiver la fonction efface vos '
+            'données de ce service.',
+          ),
+          const SizedBox(height: Gap.m),
+          ElevatedButton.icon(
+            key: const Key('friends_enable'),
+            onPressed: _busy ? null : _enable,
+            icon: const Icon(Icons.people_outline),
+            label: const Text('Activer la fonction Amis'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notConnected(FriendsStatus status) {
+    return GfCard(
+      key: const Key('friends_not_connected'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (status == FriendsStatus.connecting) ...[
+            Row(
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: Gap.s),
+                Text('Connexion au service Amis…', style: AppText.body()),
+              ],
+            ),
+          ] else ...[
+            Text(
+              status == FriendsStatus.needsPassword
+                  ? 'Reconnexion nécessaire'
+                  : 'Service Amis injoignable',
+              style: AppText.title(size: 17),
+            ),
+            const SizedBox(height: Gap.xs),
+            Text(
+              _s.error != null
+                  ? friendlyError(_s.error!)
+                  : 'Ressaisissez votre mot de passe pour retrouver vos amis.',
+              style: AppText.body(size: 14, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: Gap.m),
+            ElevatedButton.icon(
+              key: const Key('friends_reconnect'),
+              onPressed: _busy ? null : _reconnect,
+              icon: const Icon(Icons.login),
+              label: const Text('Se reconnecter'),
+            ),
+          ],
+          const SizedBox(height: Gap.s),
+          TextButton(
+            key: const Key('friends_disable'),
+            onPressed: _busy ? null : _disable,
+            child: const Text('Désactiver la fonction Amis'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------- Connecté
+
+  List<Widget> _connected() {
+    final friends = _s.friends;
+    final requests = _s.requests;
+    final now = _s.serverNow();
+    return [
+      Text(
+        _s.onlineCount == 0
+            ? 'Personne en ligne pour le moment'
+            : '${_s.onlineCount} ami(s) en ligne',
+        style: AppText.label(),
+      ),
+      const SectionHeader('Ajouter un ami'),
+      GfCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const Key('friend_email'),
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: const InputDecoration(
+                labelText: 'Adresse e-mail de votre ami',
+                prefixIcon: Icon(Icons.alternate_email),
+              ),
+              onSubmitted: (_) => _busy ? null : _send(),
+            ),
+            const SizedBox(height: Gap.s),
+            Text(
+              'Votre ami doit avoir activé la fonction Amis avec cette '
+              'adresse. Par discrétion, on ne dit jamais si une adresse a un '
+              'compte.',
+              style: AppText.label(size: 12),
+            ),
+            const SizedBox(height: Gap.s),
+            ElevatedButton.icon(
+              key: const Key('friend_send'),
+              onPressed: _busy ? null : _send,
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Envoyer la demande'),
+            ),
+          ],
+        ),
+      ),
+      if (requests.isNotEmpty) ...[
+        SectionHeader('Demandes reçues (${requests.length})'),
+        GfCard(
+          key: const Key('friend_requests'),
+          child: Column(
+            children: [
+              for (final r in requests)
+                ListTile(
+                  key: Key('request_${r.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: _FriendAvatar(name: r.fromName, url: r.avatarUrl),
+                  title: Text(r.fromName, style: AppText.subtitle(size: 15)),
+                  subtitle: const Text('veut vous ajouter en ami'),
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      IconButton(
+                        key: Key('accept_${r.id}'),
+                        tooltip: 'Accepter',
+                        color: AppColors.success,
+                        onPressed: _busy
+                            ? null
+                            : () => _run(
+                                () => _s.respond(r, true),
+                                success:
+                                    '${r.fromName} est maintenant votre ami.',
+                              ),
+                        icon: const Icon(Icons.check_circle_outline),
+                      ),
+                      IconButton(
+                        key: Key('decline_${r.id}'),
+                        tooltip: 'Refuser',
+                        color: AppColors.red,
+                        onPressed: _busy
+                            ? null
+                            : () => _run(() => _s.respond(r, false)),
+                        icon: const Icon(Icons.cancel_outlined),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      SectionHeader('Mes amis (${friends.length})'),
+      if (friends.isEmpty)
+        const GfCard(
+          child: InfoRow(
+            Icons.people_outline,
+            'Aucun ami pour le moment. Ajoutez-en avec leur adresse e-mail.',
+          ),
+        )
+      else
+        GfCard(
+          key: const Key('friend_list'),
+          child: Column(
+            children: [for (final f in friends) _friendTile(f, now)],
+          ),
+        ),
+      const SizedBox(height: Gap.m),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          key: const Key('friends_disable'),
+          onPressed: _busy ? null : _disable,
+          child: const Text('Désactiver la fonction Amis'),
+        ),
+      ),
+    ];
+  }
+
+  Widget _friendTile(Friend f, DateTime now) {
+    final online = f.isOnline(now);
+    return ListTile(
+      key: Key('friend_${f.id}'),
+      contentPadding: EdgeInsets.zero,
+      leading: _FriendAvatar(name: f.name, url: f.avatarUrl, online: online),
+      title: Text(f.name, style: AppText.subtitle(size: 15)),
+      subtitle: Text(
+        f.presenceLabel(now),
+        key: Key('presence_${f.id}'),
+        style: AppText.label(
+          size: 12,
+          color: online ? AppColors.success : AppColors.inkSoft,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: Key('poke_${f.id}'),
+            tooltip: 'Encourager',
+            color: AppColors.red,
+            onPressed: _busy ? null : () => _poke(f, PokeKind.encourage),
+            icon: const Icon(Icons.bolt),
+          ),
+          PopupMenuButton<String>(
+            key: Key('friend_menu_${f.id}'),
+            tooltip: 'Plus d\'actions',
+            onSelected: (v) {
+              switch (v) {
+                case 'challenge':
+                  _poke(f, PokeKind.challenge);
+                case 'miss':
+                  _poke(f, PokeKind.missYou);
+                case 'remove':
+                  _remove(f);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'challenge', child: Text('Lancer un défi')),
+              PopupMenuItem(value: 'miss', child: Text('Tu me manques')),
+              PopupMenuItem(value: 'remove', child: Text('Retirer cet ami')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _poke(Friend f, PokeKind kind) =>
+      _run(() => _s.poke(f, kind), success: 'Message envoyé à ${f.name}.');
+
+  Future<void> _remove(Friend f) async {
+    final ok = await confirm(
+      context,
+      title: 'Retirer ${f.name} ?',
+      message:
+          'Vous ne verrez plus sa présence et ne pourrez plus vous écrire.',
+      confirmLabel: 'Retirer',
+      destructive: true,
+    );
+    if (ok) await _run(() => _s.remove(f));
+  }
+}
+
+/// Avatar d'un ami avec pastille de présence (verte = en ligne).
+class _FriendAvatar extends StatelessWidget {
+  const _FriendAvatar({required this.name, this.url, this.online});
+
+  final String name;
+  final String? url;
+
+  /// `null` : pas de pastille (demande reçue).
+  final bool? online;
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .take(2)
+        .map((p) => p[0].toUpperCase())
+        .join();
+    final color =
+        AppColors.accents[name.hashCode.abs() % AppColors.accents.length];
+    final avatar = (url != null && url!.startsWith('https://'))
+        ? ClipOval(
+            child: NetImage(
+              url,
+              width: 44,
+              height: 44,
+              fallbackIcon: Icons.person,
+              cacheWidth: 88,
+            ),
+          )
+        : CircleAvatar(
+            radius: 22,
+            backgroundColor: color,
+            child: Text(
+              initials.isEmpty ? '?' : initials,
+              style: AppText.subtitle(color: onColor(color), size: 15),
+            ),
+          );
+    final state = online;
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: Center(child: avatar)),
+          if (state != null)
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: state ? AppColors.success : AppColors.outline,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.white, width: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -391,6 +391,21 @@ class AppDrawer extends StatelessWidget {
                     'Membres de la salle',
                     () => go(Routes.community),
                   ),
+                if (user.isMember && b.friends.available)
+                  ListenableBuilder(
+                    listenable: b.friends,
+                    builder: (context, _) => _item(
+                      Icons.people_outline,
+                      'Mes amis',
+                      () => go(Routes.friends),
+                      trailing: b.friends.pendingCount > 0
+                          ? Pill(
+                              '${b.friends.pendingCount}',
+                              color: AppColors.red,
+                            )
+                          : null,
+                    ),
+                  ),
                 _item(
                   Icons.receipt_long_outlined,
                   'Mes commandes',

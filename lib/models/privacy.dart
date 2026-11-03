@@ -13,6 +13,7 @@ class PrivacySettings {
     this.askToShareSessions = true,
     this.hiddenByAdmin = false,
     this.analytics = false,
+    this.friends = false,
   });
 
   /// Profil visible des autres membres dans « Communauté ».
@@ -36,6 +37,11 @@ class PrivacySettings {
   /// activé à la place de la personne : c'est un transfert vers un tiers.
   final bool analytics;
 
+  /// Fonction « Amis » activée : le compte est alors créé sur Supabase pour
+  /// retrouver ses amis, montrer sa présence et recevoir leurs messages.
+  /// **Désactivée par défaut** et interdite aux mineurs.
+  final bool friends;
+
   /// Visible pour les autres membres, en tenant compte de la modération.
   bool get isPubliclyVisible => profileVisible && !hiddenByAdmin;
 
@@ -46,6 +52,7 @@ class PrivacySettings {
     bool? askToShareSessions,
     bool? hiddenByAdmin,
     bool? analytics,
+    bool? friends,
   }) => PrivacySettings(
     profileVisible: profileVisible ?? this.profileVisible,
     showSocialLinks: showSocialLinks ?? this.showSocialLinks,
@@ -53,6 +60,7 @@ class PrivacySettings {
     askToShareSessions: askToShareSessions ?? this.askToShareSessions,
     hiddenByAdmin: hiddenByAdmin ?? this.hiddenByAdmin,
     analytics: analytics ?? this.analytics,
+    friends: friends ?? this.friends,
   );
 
   Json toJson() => {
@@ -62,6 +70,7 @@ class PrivacySettings {
     'askToShareSessions': askToShareSessions,
     'hiddenByAdmin': hiddenByAdmin,
     'analytics': analytics,
+    'friends': friends,
   };
 
   factory PrivacySettings.fromJson(Json? j) {
@@ -74,6 +83,7 @@ class PrivacySettings {
       hiddenByAdmin: j['hiddenByAdmin'] as bool? ?? false,
       // Les comptes existants n'ont jamais donné ce consentement : faux.
       analytics: j['analytics'] as bool? ?? false,
+      friends: j['friends'] as bool? ?? false,
     );
   }
 }
@@ -172,6 +182,7 @@ class ConsentType {
   static const socialLinks = 'reseaux_sociaux';
   static const shareSession = 'partage_seance';
   static const analytics = 'mesure_audience';
+  static const friends = 'fonction_amis';
 
   static String label(String type) => switch (type) {
     terms => 'Conditions d\'utilisation et politique de confidentialité',
@@ -179,6 +190,7 @@ class ConsentType {
     socialLinks => 'Affichage des réseaux sociaux',
     shareSession => 'Partage d\'une séance sur le fil du club',
     analytics => 'Mesure d\'audience anonyme (Google Analytics)',
+    friends => "Fonction Amis (compte Supabase, présence et messages)",
     _ => type,
   };
 }

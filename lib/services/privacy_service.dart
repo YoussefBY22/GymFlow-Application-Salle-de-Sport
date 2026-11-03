@@ -65,6 +65,11 @@ class PrivacyService {
         'Les comptes de mineurs ne peuvent pas activer la mesure d\'audience.',
       );
     }
+    if (next.friends && !me.isAdult) {
+      throw const BusinessRuleException(
+        'Les comptes de mineurs ne peuvent pas activer la fonction Amis.',
+      );
+    }
     final previous = me.privacy;
     final settings = next.copyWith(
       hiddenByAdmin: previous.hiddenByAdmin,
@@ -78,6 +83,9 @@ class PrivacyService {
     }
     if (previous.showSocialLinks != settings.showSocialLinks) {
       await recordConsent(ConsentType.socialLinks, settings.showSocialLinks);
+    }
+    if (previous.friends != settings.friends) {
+      await recordConsent(ConsentType.friends, settings.friends);
     }
     if (previous.analytics != settings.analytics) {
       await recordConsent(ConsentType.analytics, settings.analytics);
@@ -223,6 +231,7 @@ class PrivacyService {
         )) {
       throw const ValidationException('Mot de passe incorrect.');
     }
+    await _b.friends.eraseRemoteData();
     await eraseUser(me);
     await _b.audit.log(
       'Effacement à la demande',

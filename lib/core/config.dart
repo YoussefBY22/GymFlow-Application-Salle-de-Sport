@@ -16,8 +16,8 @@ class AppConfig {
   /// (`test/version_test.dart`) compare les deux et échoue en cas d'oubli.
   /// Elle est visible sur l'écran de connexion et dans « À propos », pour
   /// qu'on sache d'un coup d'œil quelle version est installée.
-  static const String appVersion = '2.1';
-  static const String appVersionFull = '2.1.0';
+  static const String appVersion = '2.2';
+  static const String appVersionFull = '2.2.0';
   static const String gymName = 'GymFlow Club Lac 2';
   static const String gymAddress =
       'Rue du Lac Windermere, Les Berges du Lac 2, Tunis';
@@ -90,6 +90,20 @@ class AppConfig {
   static bool get gaCanSend =>
       gaMeasurementId.trim().isNotEmpty && gaApiSecret.trim().isNotEmpty;
   static bool get gaCanRead => gaPropertyId.trim().isNotEmpty;
+
+  /// Supabase (fonction « Amis » : comptes, présence et notifications en
+  /// direct entre téléphones). L'URL et la clé « publishable » (anciennement
+  /// « anon ») sont publiques par conception : la sécurité repose sur les
+  /// règles d'accès de la base (voir `supabase/schema.sql`). Ne jamais mettre
+  /// ici la clé `service_role` ni la clé « secret ».
+  /// Absentes : la fonction Amis n'est pas proposée.
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+  );
+
+  static bool get supabaseEnabled =>
+      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 

@@ -74,6 +74,20 @@ class FlutterLocalNotifier implements LocalNotifier {
     ),
   );
 
+  /// Notifications immédiates (demandes d'ami, messages d'encouragement) :
+  /// canal à part, pour que la personne puisse les couper sans toucher aux
+  /// rappels de cours.
+  static const _friendDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'gymflow_amis',
+      'Amis',
+      channelDescription: "Demandes d'ami et messages d'encouragement",
+      importance: Importance.high,
+      priority: Priority.high,
+      color: Color(0xFFBA0C2F),
+    ),
+  );
+
   @override
   Future<void> init() async {
     try {
@@ -125,7 +139,7 @@ class FlutterLocalNotifier implements LocalNotifier {
       id: id,
       title: title,
       body: body,
-      notificationDetails: _details,
+      notificationDetails: _friendDetails,
     );
   }
 

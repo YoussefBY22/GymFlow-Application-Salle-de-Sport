@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -17,6 +19,9 @@ import '../repositories/data_store.dart';
 import '../repositories/repository.dart';
 import 'ai_assistant_service.dart';
 import 'analytics_service.dart';
+import 'friends/friends_remote.dart';
+import 'friends/supabase_friends_remote.dart';
+import 'friends_service.dart';
 import 'ga_report_service.dart';
 import 'announcement_service.dart';
 import 'audit_service.dart';
@@ -81,6 +86,7 @@ class Backend {
     String? emailJsTemplateId,
     String? emailJsPublicKey,
     String? emailJsDemoRecipient,
+    FriendsRemote? friendsRemote,
   }) {
     users = _repo(
       Collections.users,
@@ -192,6 +198,16 @@ class Backend {
     wger = WgerApi(this);
     privacy = PrivacyService(this);
     analytics = AnalyticsService(this);
+    friends = FriendsService(
+      this,
+      friendsRemote ??
+          (AppConfig.supabaseEnabled
+              ? SupabaseFriendsRemote(
+                  url: AppConfig.supabaseUrl.trim(),
+                  anonKey: AppConfig.supabaseAnonKey.trim(),
+                )
+              : null),
+    );
     gemini = GeminiClient(
       httpClient,
       apiKey: geminiApiKey ?? AppConfig.geminiApiKey,
@@ -250,6 +266,7 @@ class Backend {
     String? emailJsTemplateId,
     String? emailJsPublicKey,
     String? emailJsDemoRecipient,
+    FriendsRemote? friendsRemote,
     bool seed = true,
     int passwordIterations = PasswordHasher.defaultIterations,
   }) async {
@@ -268,6 +285,7 @@ class Backend {
       emailJsTemplateId: emailJsTemplateId,
       emailJsPublicKey: emailJsPublicKey,
       emailJsDemoRecipient: emailJsDemoRecipient,
+      friendsRemote: friendsRemote,
     );
     _instance = b;
     await store.open();
@@ -277,6 +295,8 @@ class Backend {
       await SeedService(b).upgrade();
     }
     await b.auth.restoreSession();
+    // Fonction Amis : reprend la connexion au serveur si elle était activée.
+    unawaited(b.friends.resume());
     return b;
   }
 
@@ -329,6 +349,7 @@ class Backend {
   late final WgerApi wger;
   late final PrivacyService privacy;
   late final AnalyticsService analytics;
+  late final FriendsService friends;
   late final GaReportService gaReport;
 
   /// Client Gemini commun (remplaçable dans les tests, sans réseau).

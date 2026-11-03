@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/app.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/services/backend.dart';
+import 'package:gymflow/services/friends/friends_remote.dart';
 import 'package:gymflow/widgets/common.dart';
 import 'package:http/http.dart' as http;
 
@@ -16,6 +17,7 @@ Future<Backend> pumpApp(
   String? loginEmail,
   http.Client? httpClient,
   String? geminiApiKey,
+  FriendsRemote? friendsRemote,
 }) async {
   NetImage.networkEnabled = false;
   tester.view.physicalSize = const Size(1080, 2340);
@@ -24,6 +26,7 @@ Future<Backend> pumpApp(
   final b = await makeBackend(
     httpClient: httpClient,
     geminiApiKey: geminiApiKey,
+    friendsRemote: friendsRemote,
   );
   if (loginEmail != null) await loginAs(b, loginEmail);
   await tester.pumpWidget(GymFlowApp(initialRoute: route));

@@ -9,6 +9,7 @@ import '../screens/auth/auth_screens.dart';
 import '../screens/auth/intro_tour.dart';
 import '../screens/community/community_screens.dart';
 import '../screens/courses/checkin_screen.dart';
+import '../screens/friends/friends_screen.dart';
 import '../screens/courses/ticket_screen.dart';
 import '../screens/privacy/privacy_screens.dart';
 import '../screens/auth/splash_onboarding.dart';
@@ -86,6 +87,7 @@ class Routes {
   static const legal = '/legal';
   static const privacy = '/privacy';
   static const community = '/community';
+  static const friends = '/friends';
   static const member = '/member';
   static const review = '/review';
 
@@ -189,6 +191,7 @@ class Routes {
     legal: _RouteDef((_) => const LegalScreen(), public: true),
     privacy: _RouteDef((_) => const PrivacySettingsScreen()),
     community: _RouteDef((_) => const CommunityScreen()),
+    friends: _RouteDef((_) => const FriendsScreen(), roles: _member),
     member: _RouteDef((a) => MemberProfileScreen(userId: a! as String)),
   };
 

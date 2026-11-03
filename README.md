@@ -103,6 +103,16 @@ Le bouton **Statistiques** du tableau de bord admin ouvre deux onglets : **GymFl
 
 Mise en place pas à pas et choix de confidentialité : `DECISIONS.md` (« Statistiques d'usage et Google Analytics ») et `SECURITE_CONFIDENTIALITE.md` § 4 ter. Comme pour les autres clés, ne pas compiler la version web publique avec `secrets.json`.
 
+### Fonction Amis (Supabase, facultatif)
+Les abonnés majeurs peuvent ajouter des amis par e-mail, voir en direct s'ils sont connectés et leur envoyer un message d'encouragement (menu **Mes amis**). Les données partagées vivent sur **Supabase** ; tout le reste reste en local (SQLite).
+
+1. Créer un projet Supabase gratuit (région Europe), puis **Authentication → Sign In / Providers → Email → désactiver « Confirm email »** (démo seulement).
+2. **SQL Editor** : exécuter `supabase/schema.sql`. Si la base existait déjà d'une version précédente, exécuter ensuite `supabase/002_presence_serveur.sql`.
+3. Ajouter dans `secrets.json` : `SUPABASE_URL` et `SUPABASE_ANON_KEY` (clé « publishable » ; **jamais** la clé `service_role` ni la clé « secret »).
+4. Installer l'APK sur deux téléphones, se connecter avec deux comptes différents (par ex. `ahmed@gymflow.tn` et `nour@gymflow.tn`), activer la fonction dans **Mes amis** sur chacun, puis ajouter l'autre par son e-mail.
+
+Un projet Supabase gratuit est mis en pause après 7 jours sans activité : l'ouvrir (ou utiliser l'application) avant une présentation. Détails et limites : `DECISIONS.md` (« Fonction Amis sur Supabase »).
+
 ### Analyse de sentiment des avis (IA, facultatif)
 Les avis commentés reçoivent un ton (😊 / 😐 / 😞). Fournisseurs, dans cet ordre, chacun facultatif dans `secrets.json` :
 

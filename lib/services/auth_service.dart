@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -163,7 +164,11 @@ class AuthService extends ChangeNotifier {
       );
     }
 
-    return _startSession(user, cred);
+    final session = await _startSession(user, cred);
+    // Fonction Amis : le mot de passe est connu, la connexion au serveur
+    // se fait en arrière-plan (sans effet si la fonction est désactivée).
+    unawaited(_b.friends.onLogin(password));
+    return session;
   }
 
   /// Ouvre la session : jeton de session, horodatage de connexion et
@@ -231,7 +236,9 @@ class AuthService extends ChangeNotifier {
       }
       // Un verrouillage pour essais ratés ne bloque pas Google : le mot de
       // passe n'est pas en jeu ici, c'est Google qui a authentifié.
-      return _startSession(existing, cred, method: 'google');
+      final session = await _startSession(existing, cred, method: 'google');
+      unawaited(_b.friends.onLogin(null));
+      return session;
     }
 
     final now = _b.now();
@@ -365,6 +372,7 @@ class AuthService extends ChangeNotifier {
       }
     }
     await _clearStoredSession();
+    await _b.friends.onLogout();
     _current = null;
     _b.cart.clear();
     notifyListeners();
@@ -454,5 +462,16 @@ class AuthService extends ChangeNotifier {
         iterations: hasher.iterations,
       ),
     );
+    // Le compte du serveur Amis garde le même mot de passe.
+    unawaited(_b.friends.onPasswordChanged(newPassword));
+  }
+
+  /// Le mot de passe saisi est-il celui du compte connecté ? (Sert à
+  /// confirmer l'identité avant de relier le compte au serveur Amis.)
+  bool checkPassword(String password) {
+    final user = _current;
+    final cred = user == null ? null : _b.credentials.byId(user.id);
+    if (cred == null) return false;
+    return hasher.verify(password, cred.salt, cred.hash, cred.iterations);
   }
 }

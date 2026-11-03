@@ -173,7 +173,8 @@ enum NotificationType {
   order(Icons.shopping_bag),
   kudos(Icons.thumb_up),
   announcement(Icons.campaign),
-  system(Icons.info);
+  system(Icons.info),
+  friend(Icons.people);
 
   const NotificationType(this.icon);
   final IconData icon;
