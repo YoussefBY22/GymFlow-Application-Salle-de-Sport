@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/emoji.dart';
 import '../../core/errors.dart';
 import '../../core/formatters.dart';
 import '../../core/responsive.dart';
@@ -13,6 +15,7 @@ import '../../models/friends.dart';
 import '../../services/backend.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/common.dart';
+import '../../widgets/emoji_widgets.dart';
 import '../../widgets/friend_avatar.dart';
 import '../../widgets/share_widgets.dart';
 
@@ -297,6 +300,8 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _text = TextEditingController();
   final _scroll = ScrollController();
+  final _focus = FocusNode();
+  bool _showEmoji = false;
   bool _loading = true;
   Object? _error;
 
@@ -335,6 +340,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat.stopTyping(widget.friendId);
     _text.dispose();
     _scroll.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -697,7 +703,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _inputBar() {
-    return Material(
+    final bar = Material(
       color: AppColors.white,
       elevation: 6,
       child: SafeArea(
@@ -707,6 +713,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              IconButton(
+                key: const Key('chat_emoji'),
+                tooltip: _showEmoji ? 'Clavier' : 'Emojis',
+                color: AppColors.navy,
+                onPressed: () {
+                  setState(() => _showEmoji = !_showEmoji);
+                  if (_showEmoji) {
+                    _focus.unfocus();
+                  } else {
+                    _focus.requestFocus();
+                  }
+                },
+                icon: Icon(
+                  _showEmoji
+                      ? Icons.keyboard_alt_outlined
+                      : Icons.emoji_emotions_outlined,
+                ),
+              ),
               IconButton(
                 key: const Key('chat_attach'),
                 tooltip: 'Partager une séance, un workout…',
@@ -718,6 +742,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 child: TextField(
                   key: const Key('chat_input'),
                   controller: _text,
+                  focusNode: _focus,
+                  onTap: () {
+                    if (_showEmoji) setState(() => _showEmoji = false);
+                  },
                   minLines: 1,
                   maxLines: 5,
                   textCapitalization: TextCapitalization.sentences,
@@ -744,6 +772,93 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ],
           ),
+        ),
+      ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [bar, if (_showEmoji) _emojiPanel()],
+    );
+  }
+
+  Future<void> _sendEmoji(String emoji) async {
+    try {
+      await _chat.send(widget.friendId, emoji);
+    } catch (e) {
+      if (mounted) showSnack(context, friendlyError(e), error: true);
+    }
+  }
+
+  /// Réactions rapides (envoyées tout de suite, animées) puis tous les
+  /// emojis (ajoutés au texte en cours de saisie, recherche en français).
+  Widget _emojiPanel() {
+    return Material(
+      key: const Key('emoji_panel'),
+      color: AppColors.white,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Divider(height: 1),
+            SizedBox(
+              height: 64,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Gap.s),
+                children: [
+                  for (final e in Emojis.quickReactions)
+                    InkWell(
+                      key: Key('react_$e'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _sendEmoji(e),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: EmojiView(e, size: 40),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            SizedBox(
+              height: 260,
+              child: EmojiPicker(
+                key: const Key('emoji_picker'),
+                textEditingController: _text,
+                onEmojiSelected: (_, _) {
+                  setState(() {});
+                  _chat.userTyping(widget.friendId, _text.text.trim().isNotEmpty);
+                },
+                onBackspacePressed: () => setState(() {}),
+                config: Config(
+                  height: 260,
+                  locale: const Locale('fr'),
+                  checkPlatformCompatibility: false,
+                  emojiViewConfig: const EmojiViewConfig(
+                    columns: 8,
+                    emojiSizeMax: 30,
+                    backgroundColor: AppColors.white,
+                  ),
+                  categoryViewConfig: const CategoryViewConfig(
+                    backgroundColor: AppColors.white,
+                    indicatorColor: AppColors.red,
+                    iconColor: AppColors.inkSoft,
+                    iconColorSelected: AppColors.red,
+                    backspaceColor: AppColors.red,
+                  ),
+                  bottomActionBarConfig: const BottomActionBarConfig(
+                    backgroundColor: AppColors.navy,
+                    buttonColor: AppColors.navy,
+                  ),
+                  searchViewConfig: const SearchViewConfig(
+                    backgroundColor: AppColors.white,
+                    hintText: 'Rechercher un emoji',
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -789,6 +904,11 @@ class _Bubble extends StatelessWidget {
     final m = message;
     final mine = m.mine;
     final deleted = m.deleted;
+    final emojiOnly =
+        !deleted &&
+        m.kind == MessageKind.text &&
+        m.text != null &&
+        Emojis.isEmojiOnly(m.text!);
     final fg = deleted
         ? AppColors.inkSoft
         : (mine ? AppColors.white : AppColors.ink);
@@ -815,13 +935,15 @@ class _Bubble extends StatelessWidget {
                   horizontal: 12,
                   vertical: 8,
                 ),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: deleted || !mine
-                      ? Border.all(color: AppColors.divider)
-                      : null,
-                ),
+                decoration: emojiOnly
+                    ? null
+                    : BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: deleted || !mine
+                            ? Border.all(color: AppColors.divider)
+                            : null,
+                      ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
@@ -841,6 +963,8 @@ class _Bubble extends StatelessWidget {
                           ),
                         ],
                       )
+                    else if (emojiOnly)
+                      EmojiOnlyContent(m.text!)
                     else if (m.share != null)
                       ShareCardBubble(card: m.share!, mine: mine)
                     else

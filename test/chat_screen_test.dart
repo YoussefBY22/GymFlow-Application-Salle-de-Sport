@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/models/chat.dart';
 import 'package:gymflow/services/backend.dart';
+import 'package:gymflow/widgets/emoji_widgets.dart';
 
 import 'friends_fake.dart';
 import 'widget_helpers.dart';
@@ -314,6 +315,57 @@ void main() {
     await go(tester, Routes.chat, s.otherId);
     expect(find.byKey(const Key('share_view')), findsOneWidget);
     expect(find.byKey(const Key('share_save')), findsNothing);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('panneau d\'emojis : réactions rapides et tous les emojis', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    expect(find.byKey(const Key('emoji_panel')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('chat_emoji')));
+    await settle(tester, 800);
+    expect(find.byKey(const Key('emoji_panel')), findsOneWidget);
+    expect(find.byKey(const Key('emoji_picker')), findsOneWidget);
+    expect(find.byKey(const Key('react_🔥')), findsOneWidget);
+
+    // Le même bouton referme le panneau.
+    await tester.tap(find.byKey(const Key('chat_emoji')));
+    await settle(tester, 500);
+    expect(find.byKey(const Key('emoji_panel')), findsNothing);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('une réaction rapide s\'envoie tout de suite, en grand', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    await tester.tap(find.byKey(const Key('chat_emoji')));
+    await settle(tester, 800);
+    await tester.tap(find.byKey(const Key('react_🔥')));
+    await settle(tester, 800);
+
+    final sent = (await s.other.loadMessages(s.myId)).single;
+    expect(sent.text, '🔥');
+    expect(sent.kind, MessageKind.text);
+    // Affiché sans bulle, en grand (un seul emoji).
+    expect(find.byType(EmojiOnlyContent), findsOneWidget);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('un emoji reçu s\'affiche en grand, un texte reste normal', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await s.other.sendMessage(s.myId, MessageKind.text, '💪');
+    await s.other.sendMessage(s.myId, MessageKind.text, 'Bravo 💪');
+    await settle(tester, 400);
+    await go(tester, Routes.chat, s.otherId);
+    expect(find.byType(EmojiOnlyContent), findsOneWidget);
+    expect(find.text('Bravo 💪'), findsOneWidget);
     await _done(tester, s.b);
   });
 

@@ -142,3 +142,8 @@ Aucune photo de personne réelle pour les comptes : avatars à initiales coloré
 ## Réseaux sociaux de démonstration
 
 Les comptes de démo visibles utilisent des **identifiants fictifs** (`gymflow.demo.*`) et des e-mails en `example.com` (domaine réservé à la documentation, RFC 2606). Ils ne pointent vers aucune personne réelle.
+
+## Emojis
+
+- **Emojis animés** : *Noto Emoji Animation* de Google (SIL Open Font License 1.1), chargés à l'affichage depuis `fonts.gstatic.com`, jamais envoyés dans un message (le message ne contient que le caractère). Liste des emojis animés : `https://googlefonts.github.io/noto-emoji-animation/data/api.json`.
+- **Sélecteur d'emojis** : package `emoji_picker_flutter` (licence BSD-2-Clause), données embarquées.
