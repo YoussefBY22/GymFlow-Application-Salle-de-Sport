@@ -225,6 +225,14 @@ abstract class FriendsRemote {
 
   Future<int> adminNewReportsCount();
 
+  // ----------------------------------------------------------- Notifications
+
+  /// Enregistre ce téléphone pour les notifications push.
+  Future<void> registerPushToken(String token);
+
+  /// Retire ce téléphone (déconnexion, désactivation).
+  Future<void> unregisterPushToken(String token);
+
   // ------------------------------------------------------------ Temps réel
 
   /// Démarre l'écoute en direct.

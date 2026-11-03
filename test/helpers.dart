@@ -4,6 +4,7 @@ import 'package:http/testing.dart';
 import 'package:gymflow/repositories/data_store.dart';
 import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/services/friends/friends_remote.dart';
+import 'package:gymflow/services/push/push_gateway.dart';
 import 'package:gymflow/services/payment/payment_gateway.dart';
 import 'package:gymflow/services/platform/platform_services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -20,6 +21,7 @@ Future<Backend> makeBackend({
   http.Client? httpClient,
   String? geminiApiKey,
   FriendsRemote? friendsRemote,
+  PushGateway? pushGateway,
 }) async {
   GoogleFonts.config.allowRuntimeFetching = false;
   SharedPreferences.setMockInitialValues({});
@@ -35,6 +37,7 @@ Future<Backend> makeBackend({
     payment: SimulatedPaymentGateway(latency: Duration.zero),
     geminiApiKey: geminiApiKey,
     friendsRemote: friendsRemote,
+    pushGateway: pushGateway,
     seed: seed,
     // Jamais de vrai réseau dans les tests : FormSubmit (email par défaut,
     // sans clé) enverrait sinon de vrais emails à chaque réservation.

@@ -51,6 +51,8 @@ import 'product_service.dart';
 import 'progress_service.dart';
 import 'reservation_service.dart';
 import 'seed/seed_service.dart';
+import 'push/push_gateway.dart';
+import 'push_service.dart';
 import 'sentiment_service.dart';
 import 'share_service.dart';
 import 'training_log_service.dart';
@@ -90,6 +92,7 @@ class Backend {
     String? emailJsPublicKey,
     String? emailJsDemoRecipient,
     FriendsRemote? friendsRemote,
+    PushGateway? pushGateway,
   }) {
     users = _repo(
       Collections.users,
@@ -214,6 +217,11 @@ class Backend {
     friends = FriendsService(this, remote);
     chat = ChatService(this, remote);
     share = ShareService(this);
+    push = PushService(
+      this,
+      remote,
+      pushGateway ?? (AppConfig.firebaseEnabled ? FirebasePushGateway() : null),
+    );
     moderation = ModerationService(this, remote);
     gemini = GeminiClient(
       httpClient,
@@ -274,6 +282,7 @@ class Backend {
     String? emailJsPublicKey,
     String? emailJsDemoRecipient,
     FriendsRemote? friendsRemote,
+    PushGateway? pushGateway,
     bool seed = true,
     int passwordIterations = PasswordHasher.defaultIterations,
   }) async {
@@ -293,6 +302,7 @@ class Backend {
       emailJsPublicKey: emailJsPublicKey,
       emailJsDemoRecipient: emailJsDemoRecipient,
       friendsRemote: friendsRemote,
+      pushGateway: pushGateway,
     );
     _instance = b;
     await store.open();
@@ -360,6 +370,7 @@ class Backend {
   late final FriendsService friends;
   late final ChatService chat;
   late final ShareService share;
+  late final PushService push;
   late final ModerationService moderation;
   late final GaReportService gaReport;
 

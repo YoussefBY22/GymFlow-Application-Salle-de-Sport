@@ -35,6 +35,17 @@ Future<void> _done(WidgetTester tester, Backend b) async {
   await tester.pumpWidget(const SizedBox());
 }
 
+/// Fait défiler la page jusqu'à l'élément (la liste ne construit que ce qui
+/// est proche de l'écran, et la page des amis est longue).
+Future<void> _see(WidgetTester tester, Finder f) async {
+  await tester.scrollUntilVisible(
+    f,
+    300,
+    scrollable: find.byType(Scrollable).first,
+    maxScrolls: 40,
+  );
+}
+
 Future<void> _activate(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('friends_enable')));
   await settle(tester, 600);
@@ -105,6 +116,7 @@ void main() {
     expect(server.accountExists('ahmed@gymflow.tn'), isTrue);
     expect(find.byKey(const Key('friend_email')), findsOneWidget);
     expect(find.byKey(const Key('friend_send')), findsOneWidget);
+    await _see(tester, find.textContaining('Aucun ami pour le moment'));
     expect(find.textContaining('Aucun ami pour le moment'), findsOneWidget);
     await _done(tester, b);
   });
@@ -150,11 +162,12 @@ void main() {
       find.byKey(const Key('friend_email')),
       'nour@gymflow.tn',
     );
-    await tester.tap(find.byKey(const Key('friend_send')));
+    await tapVisible(tester, find.byKey(const Key('friend_send')));
     await settle(tester, 1200);
 
     expect(server.friendshipCount, 1);
     expect(find.textContaining('Invitation envoyée'), findsOneWidget);
+    await _see(tester, find.byKey(const Key('sent_requests')));
     expect(find.byKey(const Key('sent_requests')), findsOneWidget);
     expect(find.text('En attente de réponse'), findsOneWidget);
     expect(other.userId, isNotNull);
@@ -178,6 +191,7 @@ void main() {
     // Nour demande Ahmed en ami : la demande apparaît sans recharger.
     await other.sendRequest('ahmed@gymflow.tn');
     await settle(tester, 800);
+    await _see(tester, find.byKey(const Key('friend_requests')));
     expect(find.byKey(const Key('friend_requests')), findsOneWidget);
     expect(find.textContaining('veut vous ajouter'), findsWidgets);
 
@@ -253,7 +267,7 @@ void main() {
       find.byKey(const Key('friend_email')),
       'personne@inconnu.tn',
     );
-    await tester.tap(find.byKey(const Key('friend_send')));
+    await tapVisible(tester, find.byKey(const Key('friend_send')));
     await settle(tester, 1200);
 
     expect(
@@ -280,7 +294,7 @@ void main() {
       find.byKey(const Key('friend_email')),
       'nour@gymflow.tn',
     );
-    await tester.tap(find.byKey(const Key('friend_send')));
+    await tapVisible(tester, find.byKey(const Key('friend_send')));
     await settle(tester, 1200);
     expect(find.byKey(const Key('sent_requests')), findsOneWidget);
 

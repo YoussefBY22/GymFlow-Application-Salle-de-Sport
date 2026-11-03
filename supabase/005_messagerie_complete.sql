@@ -1001,6 +1001,7 @@ begin
   delete from public.typing_state where user_id = me or peer_id = me;
   delete from public.blocks where blocker = me;
   delete from public.friendships where requester = me or addressee = me;
+  delete from public.push_tokens where user_id = me;
   delete from public.user_settings where user_id = me;
   update public.profiles
      set friends_enabled = false, online = false, last_seen = 'epoch'
@@ -1080,6 +1081,350 @@ begin
 exception when duplicate_object then null;
 end $$;
 
--- (La partie « notifications push » de la version 2.8 est ajoutée plus bas.)
+-- ======================================================= Notifications push (2.8)
+-- Quand quelqu'un n'utilise pas l'application, une petite fonction Supabase
+-- (`notify`, voir supabase/functions/notify) envoie une notification
+-- Firebase Cloud Messaging Ã  son tÃ©lÃ©phone. Si la personne utilise
+-- l'application, rien n'est envoyÃ© : le temps rÃ©el s'en charge (pas de doublon).
+
+-- Envoi des appels HTTP vers la fonction. Si l'extension est indisponible,
+-- le reste du script s'applique quand mÃªme (les push ne partiront pas tant
+-- qu'elle n'est pas activÃ©e : Supabase -> Database -> Extensions -> pg_net).
+do $$
+begin
+  create extension if not exists pg_net;
+exception when others then
+  raise notice 'pg_net indisponible : %', sqlerrm;
+end $$;
+
+-- Adresse de la fonction (projet gymflow). Ã€ changer si le projet change.
+insert into private.app_secrets (name, value)
+values ('push_url', 'https://avroiapimzybmyruyqjv.supabase.co/functions/v1/notify')
+on conflict (name) do nothing;
+
+-- Jetons d'appareil (un par tÃ©lÃ©phone et par compte).
+create table if not exists public.push_tokens (
+  token text primary key,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  platform text not null default 'android',
+  updated_at timestamptz not null default now()
+);
+create index if not exists push_tokens_user_idx on public.push_tokens (user_id);
+alter table public.push_tokens enable row level security;
+revoke all on public.push_tokens from anon, authenticated;
+
+-- Un Ã©vÃ©nement n'est notifiÃ© qu'une fois (la fonction peut Ãªtre rappelÃ©e).
+create table if not exists private.push_log (
+  event text primary key,
+  created_at timestamptz not null default now()
+);
+alter table private.push_log enable row level security;
+revoke all on private.push_log from public, anon, authenticated;
+
+create or replace function public.register_push_token(p_token text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'not_authenticated';
+  end if;
+  if p_token is null or char_length(p_token) < 20 or char_length(p_token) > 4096 then
+    raise exception 'invalid_token';
+  end if;
+  insert into public.push_tokens (token, user_id)
+  values (p_token, me)
+  on conflict (token) do update set user_id = me, updated_at = now();
+  -- On ne garde que les 5 appareils les plus rÃ©cents.
+  delete from public.push_tokens
+   where user_id = me
+     and token not in (
+       select t.token from public.push_tokens t
+        where t.user_id = me
+        order by t.updated_at desc
+        limit 5
+     );
+end;
+$$;
+
+create or replace function public.unregister_push_token(p_token text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.push_tokens where token = p_token and user_id = auth.uid();
+end;
+$$;
+
+-- Faut-il notifier ? Pas si la discussion est en silence, si la personne n'a
+-- aucun appareil enregistrÃ©, ou si elle utilise l'application en ce moment.
+create or replace function private.push_event(
+  p_event text,
+  p_recipient uuid,
+  p_muted boolean default false
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_url text;
+begin
+  if p_muted then
+    return;
+  end if;
+  if not exists (select 1 from public.push_tokens t where t.user_id = p_recipient) then
+    return;
+  end if;
+  if exists (select 1 from public.user_settings s
+              where s.user_id = p_recipient
+                and s.last_active > now() - interval '40 seconds') then
+    return;
+  end if;
+  select value into v_url from private.app_secrets where name = 'push_url';
+  if v_url is null then
+    return;
+  end if;
+  perform net.http_post(
+    url := v_url,
+    body := jsonb_build_object('event', p_event),
+    headers := '{"Content-Type": "application/json"}'::jsonb
+  );
+exception when others then
+  -- Une notification qui Ã©choue ne doit jamais empÃªcher d'envoyer un message.
+  null;
+end;
+$$;
+
+create or replace function private.trg_message_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.push_event(
+    'message:' || new.id::text,
+    new.recipient,
+    coalesce((select cs.muted from public.conversation_state cs
+               where cs.user_id = new.recipient and cs.friend_id = new.sender), false)
+  );
+  return new;
+end;
+$$;
+
+create or replace function private.trg_poke_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.push_event('poke:' || new.id::text, new.recipient);
+  return new;
+end;
+$$;
+
+create or replace function private.trg_request_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.push_event('request:' || new.id::text, new.addressee);
+  return new;
+end;
+$$;
+
+create or replace function private.trg_accept_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.push_event('accepted:' || new.id::text, new.requester);
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_push on public.messages;
+create trigger messages_push after insert on public.messages
+  for each row execute function private.trg_message_push();
+
+drop trigger if exists pokes_push on public.pokes;
+create trigger pokes_push after insert on public.pokes
+  for each row execute function private.trg_poke_push();
+
+drop trigger if exists friendships_request_push on public.friendships;
+create trigger friendships_request_push after insert on public.friendships
+  for each row when (new.status = 'pending')
+  execute function private.trg_request_push();
+
+drop trigger if exists friendships_accept_push on public.friendships;
+create trigger friendships_accept_push after update of status on public.friendships
+  for each row when (old.status = 'pending' and new.status = 'accepted')
+  execute function private.trg_accept_push();
+
+-- Contenu de la notification, lu par la fonction `notify` (clÃ© de service
+-- uniquement : l'application n'y a pas accÃ¨s). Renvoie une ligne vide si
+-- l'Ã©vÃ©nement a dÃ©jÃ  Ã©tÃ© traitÃ©.
+create or replace function public.push_payload(p_event text)
+returns table (
+  tokens text[],
+  title text,
+  body text,
+  route text,
+  ref text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_type text := split_part(p_event, ':', 1);
+  v_id uuid;
+  v_recipient uuid;
+  v_name text;
+  v_title text;
+  v_body text;
+  v_route text;
+  v_ref text;
+  v_preview boolean;
+  v_msg public.messages%rowtype;
+  v_poke public.pokes%rowtype;
+  v_fr public.friendships%rowtype;
+  v_raw text;
+  v_card jsonb;
+  v_label text;
+begin
+  begin
+    v_id := split_part(p_event, ':', 2)::uuid;
+  exception when others then
+    return;
+  end;
+
+  insert into private.push_log (event) values (p_event) on conflict do nothing;
+  if not found then
+    return;
+  end if;
+
+  if v_type = 'message' then
+    select * into v_msg from public.messages m where m.id = v_id and m.deleted_at is null;
+    if not found then
+      return;
+    end if;
+    v_recipient := v_msg.recipient;
+    select display_name into v_name from public.profiles where id = v_msg.sender;
+    v_preview := coalesce(
+      (select s.push_preview from public.user_settings s where s.user_id = v_recipient),
+      true
+    );
+    v_route := '/chat';
+    v_ref := v_msg.sender::text;
+    if not v_preview then
+      v_title := 'GymFlow';
+      v_body := v_name || ' vous a Ã©crit';
+    elsif v_msg.kind = 'share' then
+      v_raw := private.dec(v_msg.body);
+      begin
+        v_card := v_raw::jsonb;
+        v_label := case v_card ->> 'type'
+          when 'session' then 'une sÃ©ance'
+          when 'workout' then 'un workout'
+          when 'exercise' then 'un exercice'
+          when 'program' then 'un programme'
+          else 'un Ã©lÃ©ment'
+        end;
+        v_body := 'a partagÃ© ' || v_label || ' : ' || coalesce(v_card ->> 'title', '');
+      exception when others then
+        v_body := 'a partagÃ© un Ã©lÃ©ment';
+      end;
+      v_title := v_name;
+    else
+      v_title := v_name;
+      v_body := left(private.dec(v_msg.body), 140);
+    end if;
+
+  elsif v_type = 'poke' then
+    select * into v_poke from public.pokes p where p.id = v_id;
+    if not found then
+      return;
+    end if;
+    v_recipient := v_poke.recipient;
+    select display_name into v_name from public.profiles where id = v_poke.sender;
+    v_route := '/friends';
+    v_ref := null;
+    if v_poke.kind = 'challenge' then
+      v_title := v_name || ' vous lance un dÃ©fi';
+      v_body := v_name || ' vous dÃ©fie : une sÃ©ance aujourd''hui, partant(e) ?';
+    else
+      v_title := v_name || ' vous encourage';
+      v_body := 'Votre ami(e) vous encourage Ã  dÃ©passer vos limites aujourd''hui !';
+    end if;
+
+  elsif v_type = 'request' then
+    select * into v_fr from public.friendships f where f.id = v_id and f.status = 'pending';
+    if not found then
+      return;
+    end if;
+    v_recipient := v_fr.addressee;
+    select display_name into v_name from public.profiles where id = v_fr.requester;
+    v_title := v_name || ' veut vous ajouter';
+    v_body := 'Ouvrez Mes amis pour accepter ou refuser la demande.';
+    v_route := '/friends';
+    v_ref := null;
+
+  elsif v_type = 'accepted' then
+    select * into v_fr from public.friendships f where f.id = v_id and f.status = 'accepted';
+    if not found then
+      return;
+    end if;
+    v_recipient := v_fr.requester;
+    select display_name into v_name from public.profiles where id = v_fr.addressee;
+    v_title := v_name || ' a acceptÃ©';
+    v_body := 'Vous Ãªtes maintenant amis : vous voyez quand il ou elle est en ligne.';
+    v_route := '/friends';
+    v_ref := null;
+
+  else
+    return;
+  end if;
+
+  return query
+    select array_agg(t.token), v_title, v_body, v_route, v_ref
+    from public.push_tokens t
+    where t.user_id = v_recipient
+    having count(*) > 0;
+end;
+$$;
+
+-- Jeton refusÃ© par Firebase (application dÃ©sinstallÃ©e) : on l'oublie.
+create or replace function public.drop_push_token(p_token text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from public.push_tokens where token = p_token;
+$$;
+
+revoke all on function public.push_payload(text) from public, anon, authenticated;
+revoke all on function public.drop_push_token(text) from public, anon, authenticated;
+grant execute on function public.push_payload(text) to service_role;
+grant execute on function public.drop_push_token(text) to service_role;
+
+revoke all on function public.register_push_token(text) from public, anon;
+revoke all on function public.unregister_push_token(text) from public, anon;
+grant execute on function public.register_push_token(text) to authenticated;
+grant execute on function public.unregister_push_token(text) to authenticated;
 
 commit;

@@ -98,6 +98,20 @@ class FlutterLocalNotifier implements LocalNotifier {
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
       );
+      // Le canal « Amis » doit exister avant qu'une notification push
+      // n'arrive (application fermée) : on le crée dès le démarrage.
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(
+            const AndroidNotificationChannel(
+              'gymflow_amis',
+              'Amis',
+              description: "Demandes d'ami, messages et encouragements",
+              importance: Importance.high,
+            ),
+          );
       _ready = true;
     } catch (e) {
       debugPrint('Notifications indisponibles : ${e.runtimeType}');

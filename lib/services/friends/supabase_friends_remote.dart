@@ -677,6 +677,21 @@ class SupabaseFriendsRemote implements FriendsRemote {
     return (r as num?)?.toInt() ?? 0;
   });
 
+  // ----------------------------------------------------------- Notifications
+
+  @override
+  Future<void> registerPushToken(String token) => _run(() async {
+    final c = await _c();
+    await c.rpc('register_push_token', params: {'p_token': token});
+  });
+
+  @override
+  Future<void> unregisterPushToken(String token) => _run(() async {
+    final c = _client;
+    if (c == null || c.auth.currentUser == null) return;
+    await c.rpc('unregister_push_token', params: {'p_token': token});
+  });
+
   // ------------------------------------------------------------ Temps réel
 
   @override

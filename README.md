@@ -111,6 +111,8 @@ Les abonnés majeurs peuvent ajouter des amis par e-mail, voir en direct s'ils s
 3. Ajouter dans `secrets.json` : `SUPABASE_URL` et `SUPABASE_ANON_KEY` (clé « publishable » ; **jamais** la clé `service_role` ni la clé « secret »).
 4. Installer l'APK sur deux téléphones, se connecter avec deux comptes différents (par ex. `ahmed@gymflow.tn` et `nour@gymflow.tn`), activer la fonction dans **Mes amis** sur chacun, puis ajouter l'autre par son e-mail.
 
+**Notifications quand l'application est fermée** : voir `supabase/functions/notify/README.md` (projet Firebase gratuit, quatre valeurs dans `secrets.json`, une fonction Supabase).
+
 Un projet Supabase gratuit est mis en pause après 7 jours sans activité : l'ouvrir (ou utiliser l'application) avant une présentation. Détails et limites : `DECISIONS.md` (« Fonction Amis sur Supabase »).
 
 ### Analyse de sentiment des avis (IA, facultatif)

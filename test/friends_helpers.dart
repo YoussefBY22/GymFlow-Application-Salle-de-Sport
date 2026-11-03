@@ -2,6 +2,7 @@
 // « téléphones » (deux backends) reliés par un faux serveur.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/services/backend.dart';
+import 'package:gymflow/services/push/push_gateway.dart';
 
 import 'friends_fake.dart';
 import 'helpers.dart';
@@ -23,9 +24,10 @@ Future<Phone> phone(
   FakeFriendsServer server,
   String email, {
   DateTime? now,
+  PushGateway? push,
 }) async {
   final r = server.phone();
-  final b = await makeBackend(friendsRemote: r, now: now);
+  final b = await makeBackend(friendsRemote: r, now: now, pushGateway: push);
   await loginAs(b, email);
   addTearDown(() {
     b.friends.stop();

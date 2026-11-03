@@ -10,6 +10,7 @@ import '../../core/validators.dart';
 import '../../models/friends.dart';
 import '../../services/backend.dart';
 import '../../services/friends_service.dart';
+import '../../services/push_service.dart';
 import '../../widgets/common.dart';
 import '../../widgets/friend_avatar.dart';
 import '../../widgets/pickers.dart';
@@ -156,7 +157,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mes amis')),
       body: ListenableBuilder(
-        listenable: Listenable.merge([_s, b.auth, b.chat]),
+        listenable: Listenable.merge([_s, b.auth, b.chat, b.push]),
         builder: (context, _) {
           final me = b.auth.currentUser;
           final status = _s.status;
@@ -379,6 +380,31 @@ class _FriendsScreenState extends State<FriendsScreen> {
               subtitle: const Text(
                 'Même règle : si vous le masquez, vous ne le voyez plus non plus.',
               ),
+            ),
+            SwitchListTile(
+              key: const Key('chat_push_preview'),
+              contentPadding: EdgeInsets.zero,
+              value: _s.settings.pushPreview,
+              onChanged: _busy
+                  ? null
+                  : (v) => _run(() => _s.setChatSettings(pushPreview: v)),
+              title: const Text('Afficher le texte des messages'),
+              subtitle: const Text(
+                'Dans les notifications, y compris sur l\'écran verrouillé. '
+                'Désactivé : « X vous a écrit ».',
+              ),
+            ),
+            ListTile(
+              key: const Key('push_status'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.notifications_active_outlined,
+                color: Backend.I.push.status == PushStatus.enabled
+                    ? AppColors.success
+                    : AppColors.inkSoft,
+              ),
+              title: const Text('Notifications application fermée'),
+              subtitle: Text(_pushLabel(Backend.I.push.status)),
             ),
           ],
         ),
@@ -603,6 +629,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ),
     );
   }
+
+  static String _pushLabel(PushStatus s) => switch (s) {
+    PushStatus.enabled =>
+      'Activées : vous êtes prévenu(e) même quand l\'application est fermée.',
+    PushStatus.denied =>
+      'Refusées : autorisez les notifications de GymFlow dans les réglages du '
+          'téléphone.',
+    PushStatus.error => 'Indisponibles pour le moment (réseau ou serveur).',
+    PushStatus.unavailable =>
+      'Non configurées : l\'application ne vous prévient que lorsqu\'elle est '
+          'ouverte.',
+    PushStatus.off => 'En cours d\'activation…',
+  };
 
   /// Signaler la **personne** (sa conduite en général) : le motif est
   /// obligatoire. Pour signaler des messages précis, on signale la discussion.

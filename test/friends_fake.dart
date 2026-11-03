@@ -111,6 +111,9 @@ class FakeFriendsServer {
   int _n = 0;
   int _tick = 0;
 
+  /// Jetons de notification enregistrés (jeton → identifiant du compte).
+  final Map<String, String> pushTokens = {};
+
   /// Panne simulée : toute requête échoue avec ce message.
   String? failWith;
 
@@ -1001,6 +1004,22 @@ class FakeFriendsRemote implements FriendsRemote {
     _count('adminNewReportsCount');
     _requireAdmin();
     return server._reports.where((r) => !r.handled).length;
+  }
+
+  // ----------------------------------------------------------- Notifications
+
+  @override
+  Future<void> registerPushToken(String token) async {
+    _count('registerPushToken');
+    server.pushTokens[token] = _me.id;
+  }
+
+  @override
+  Future<void> unregisterPushToken(String token) async {
+    _count('unregisterPushToken');
+    if (_uid != null && server.pushTokens[token] == _uid) {
+      server.pushTokens.remove(token);
+    }
   }
 
   // ------------------------------------------------------------ Temps réel

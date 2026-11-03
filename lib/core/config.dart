@@ -16,8 +16,8 @@ class AppConfig {
   /// (`test/version_test.dart`) compare les deux et échoue en cas d'oubli.
   /// Elle est visible sur l'écran de connexion et dans « À propos », pour
   /// qu'on sache d'un coup d'œil quelle version est installée.
-  static const String appVersion = '2.7';
-  static const String appVersionFull = '2.7.0';
+  static const String appVersion = '2.8';
+  static const String appVersionFull = '2.8.0';
   static const String gymName = 'GymFlow Club Lac 2';
   static const String gymAddress =
       'Rue du Lac Windermere, Les Berges du Lac 2, Tunis';
@@ -104,6 +104,28 @@ class AppConfig {
 
   static bool get supabaseEnabled =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+
+  /// Notifications push (Firebase Cloud Messaging) : quatre identifiants
+  /// publics du projet Firebase, à copier dans `secrets.json`. Absents : pas
+  /// de notification quand l'application est fermée (le reste fonctionne).
+  static const String firebaseApiKey = String.fromEnvironment(
+    'FIREBASE_API_KEY',
+  );
+  static const String firebaseAppId = String.fromEnvironment(
+    'FIREBASE_APP_ID',
+  );
+  static const String firebaseSenderId = String.fromEnvironment(
+    'FIREBASE_SENDER_ID',
+  );
+  static const String firebaseProjectId = String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+  );
+
+  static bool get firebaseEnabled =>
+      firebaseApiKey.trim().isNotEmpty &&
+      firebaseAppId.trim().isNotEmpty &&
+      firebaseSenderId.trim().isNotEmpty &&
+      firebaseProjectId.trim().isNotEmpty;
 
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 

@@ -170,6 +170,8 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   /// session du serveur (le téléphone suivant ne doit pas en hériter).
   Future<void> onLogout() async {
     final remote = _remote;
+    // Ce téléphone ne doit plus recevoir les notifications de ce compte.
+    await _b.push.stop(forget: _connected);
     _stop();
     _friends = const [];
     _requests = const [];
@@ -250,6 +252,7 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> disable() async {
     final me = _b.requireRole({UserRole.member});
     final remote = _remote;
+    await _b.push.stop(forget: true);
     _stop();
     if (remote != null && remote.userId != null) {
       try {
@@ -351,6 +354,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     await _sub?.cancel();
     _sub = _r.events.listen(_onEvent);
     _b.chat.attach();
+    // Notifications quand l'application est fermée (sans effet si les clés
+    // Firebase sont absentes).
+    unawaited(_b.push.start());
     try {
       await _b.chat.refreshConversations();
     } catch (_) {

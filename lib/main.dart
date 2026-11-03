@@ -41,5 +41,14 @@ Future<void> main() async {
     ),
   );
 
+  // Toucher une notification push ouvre la bonne page (discussion, amis).
+  BackendBootstrap.ready.then((b) {
+    b.push.onOpen = (route, ref) {
+      final nav = GymFlowApp.navigatorKey.currentState;
+      if (nav == null) return;
+      nav.pushNamed(route, arguments: ref);
+    };
+  });
+
   runApp(const GymFlowApp());
 }
