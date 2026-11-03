@@ -431,15 +431,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
               switch (v) {
                 case 'challenge':
                   _poke(f, PokeKind.challenge);
-                case 'miss':
-                  _poke(f, PokeKind.missYou);
                 case 'remove':
                   _remove(f);
               }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'challenge', child: Text('Lancer un défi')),
-              PopupMenuItem(value: 'miss', child: Text('Tu me manques')),
               PopupMenuItem(value: 'remove', child: Text('Retirer cet ami')),
             ],
           ),

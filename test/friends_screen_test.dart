@@ -193,7 +193,7 @@ void main() {
     await _done(tester, b);
   });
 
-  testWidgets('message d\'encouragement : envoyé, puis limité à 1 par heure', (
+  testWidgets('message d\'encouragement : envoyé, puis limité à 1 par minute', (
     tester,
   ) async {
     final server = FakeFriendsServer();
@@ -230,7 +230,7 @@ void main() {
     await tester.tap(poke);
     await settle(tester, 1000);
     expect(server.pokeCount, 1);
-    expect(find.textContaining('un message par heure'), findsOneWidget);
+    expect(find.textContaining('un message par minute'), findsOneWidget);
     await _done(tester, b);
   });
 

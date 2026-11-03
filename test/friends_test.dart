@@ -393,7 +393,7 @@ void main() {
       },
     );
 
-    test('un message par heure et par ami', () async {
+    test('un message par minute et par ami', () async {
       final server = FakeFriendsServer();
       final (a, _) = await friendsPair(server);
       final friend = a.b.friends.friends.single;
@@ -402,6 +402,23 @@ void main() {
         a.b.friends.poke(friend),
         throwsA(isA<BusinessRuleException>()),
       );
+    });
+
+    test('après une minute, on peut renvoyer un message', () async {
+      var elapsed = Duration.zero;
+      final base = DateTime.utc(2026, 11, 3, 10);
+      final server = FakeFriendsServer(clock: () => base.add(elapsed));
+      final (a, _) = await friendsPair(server);
+      final friend = a.b.friends.friends.single;
+      await a.b.friends.poke(friend);
+      elapsed = const Duration(seconds: 59);
+      await expectLater(
+        a.b.friends.poke(friend),
+        throwsA(isA<BusinessRuleException>()),
+      );
+      elapsed = const Duration(seconds: 61);
+      await a.b.friends.poke(friend);
+      expect(server.pokeCount, 2);
     });
 
     test('on ne peut pas écrire à quelqu\'un qui n\'est plus ami', () async {
@@ -454,8 +471,8 @@ void main() {
       expect(count, 1);
     });
 
-    test('les trois messages ont un texte et une clé acceptés par la base', () {
-      const allowed = {'encourage', 'challenge', 'miss_you'};
+    test('les deux messages ont un texte et une clé acceptés par la base', () {
+      const allowed = {'encourage', 'challenge'};
       for (final k in PokeKind.values) {
         expect(allowed, contains(k.key));
         expect(k.title('Sarra'), contains('Sarra'));

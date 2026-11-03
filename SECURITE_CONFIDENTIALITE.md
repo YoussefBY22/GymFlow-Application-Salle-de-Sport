@@ -98,12 +98,12 @@ Fonction **facultative, désactivée par défaut, interdite aux mineurs**. Elle 
 |---|---|---|
 | Profil | Nom, photo (si lien https), **empreinte SHA-256 de l'e-mail** (jamais l'e-mail), présence | Soi-même et ses amis acceptés |
 | Amitiés | Qui a demandé à qui, statut | Les deux personnes |
-| Messages | Type prédéfini (encourager, défi, « tu me manques »), date | L'expéditeur et le destinataire |
+| Messages | Type prédéfini (encourager, lancer un défi), date | L'expéditeur et le destinataire |
 | Compte d'authentification | E-mail et mot de passe (chiffré de façon irréversible par Supabase Auth) | Personne d'autre ; l'e-mail n'apparaît dans aucune table publique |
 
 - **Sécurité** : règles d'accès par ligne (RLS) sur toutes les tables ; le client ne peut ni créer une amitié ou un message en direct, ni modifier l'empreinte d'e-mail ou la présence : tout passe par des fonctions qui vérifient les règles. Seule la clé publique « publishable » est dans l'application.
 - **Pas de fuite sur les comptes** : demander un ami par e-mail répond toujours « ok », que l'adresse ait un compte ou non.
-- **Pas de harcèlement** : messages prédéfinis (aucun texte libre), 1 par heure et par ami, 30 par jour, possibilité de retirer un ami.
+- **Pas de harcèlement** : messages prédéfinis (aucun texte libre), 1 par minute et par ami, 60 par jour, possibilité de retirer un ami.
 - **Effacement** : désactiver la fonction, ou supprimer son compte GymFlow, efface ses amitiés, demandes et messages du serveur.
 - **Limites** : confirmation d'e-mail désactivée pour la démo (adresses fictives) → un tiers pourrait ouvrir un compte Supabase avec l'adresse d'un autre ; **à activer en production**. L'exclusion des mineurs est côté application (l'âge n'est pas connu du serveur). Hébergement : région choisie à la création du projet (Europe conseillée) ; à inscrire dans la liste des sous-traitants ultérieurs. Un projet gratuit est mis en pause après 7 jours d'inactivité.
 

@@ -76,8 +76,7 @@ class FriendRequest {
 /// personne ne peut envoyer un texte libre à quelqu'un.
 enum PokeKind {
   encourage('encourage', 'Encourager', 'vous encourage'),
-  challenge('challenge', 'Lancer un défi', 'vous lance un défi'),
-  missYou('miss_you', 'Tu me manques', 'pense à vous');
+  challenge('challenge', 'Lancer un défi', 'vous lance un défi');
 
   const PokeKind(this.key, this.label, this._titleSuffix);
 
@@ -100,7 +99,6 @@ enum PokeKind {
       'Votre ami(e) vous encourage à dépasser vos limites aujourd\'hui !',
     PokeKind.challenge =>
       '$senderName vous défie : une séance aujourd\'hui, partant(e) ?',
-    PokeKind.missYou => 'Vous manquez à $senderName à la salle !',
   };
 }
 

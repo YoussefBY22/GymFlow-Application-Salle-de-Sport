@@ -50,7 +50,7 @@ create table if not exists public.pokes (
   sender uuid not null references public.profiles (id) on delete cascade,
   recipient uuid not null references public.profiles (id) on delete cascade,
   -- Messages prédéfinis (le texte est dans l'application) : rien à modérer.
-  kind text not null check (kind in ('encourage', 'challenge', 'miss_you')),
+  kind text not null check (kind in ('encourage', 'challenge')),
   created_at timestamptz not null default now(),
   seen_at timestamptz,
   check (sender <> recipient)
@@ -251,7 +251,7 @@ begin
   if me is null then
     raise exception 'not_authenticated';
   end if;
-  if p_kind not in ('encourage', 'challenge', 'miss_you') then
+  if p_kind not in ('encourage', 'challenge') then
     raise exception 'invalid_kind';
   end if;
   if not public.are_friends(me, p_to) then
@@ -261,15 +261,15 @@ begin
      or not exists (select 1 from public.profiles where id = p_to and friends_enabled) then
     raise exception 'friends_disabled';
   end if;
-  -- Anti-harcèlement : 1 poke par heure et par ami, 30 par jour au total.
+  -- Anti-harcèlement : 1 message par minute et par ami, 60 par jour au total.
   if exists (select 1 from public.pokes
               where sender = me and recipient = p_to
-                and created_at > now() - interval '1 hour') then
+                and created_at > now() - interval '1 minute') then
     raise exception 'rate_limited';
   end if;
   if (select count(*) from public.pokes
-        where sender = me and created_at > now() - interval '1 day') >= 30 then
-    raise exception 'rate_limited';
+        where sender = me and created_at > now() - interval '1 day') >= 60 then
+    raise exception 'daily_limit';
   end if;
 
   insert into public.pokes (sender, recipient, kind)

@@ -74,7 +74,10 @@ class SupabaseFriendsRemote implements FriendsRemote {
     final m = e.message;
     if (m.contains('rate_limited')) {
       return 'Doucement : vous avez déjà envoyé un message à cet ami il y a '
-          'moins d\'une heure.';
+          'moins d\'une minute.';
+    }
+    if (m.contains('daily_limit')) {
+      return "Limite de messages atteinte pour aujourd'hui. Réessayez demain.";
     }
     if (m.contains('not_friends')) {
       return 'Cette personne n\'est plus votre ami.';

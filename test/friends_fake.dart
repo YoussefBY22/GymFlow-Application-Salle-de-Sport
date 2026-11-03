@@ -2,7 +2,7 @@
 //
 // Il reproduit les règles de `supabase/schema.sql` : un compte par e-mail,
 // demandes qui ne révèlent rien, amitié acceptée des deux côtés, présence à
-// l'heure du serveur, un message par heure et par ami. Plusieurs « téléphones »
+// l'heure du serveur, un message par minute et par ami. Plusieurs « téléphones »
 // (un `FakeFriendsRemote` chacun) se parlent à travers le même serveur.
 import 'dart:async';
 
@@ -331,10 +331,10 @@ class FakeFriendsRemote implements FriendsRemote {
       (p) =>
           p.sender == me.id &&
           p.recipient == toId &&
-          now.difference(p.createdAt) < const Duration(hours: 1),
+          now.difference(p.createdAt) < const Duration(minutes: 1),
     );
     if (recent) {
-      throw const BusinessRuleException('Doucement : un message par heure.');
+      throw const BusinessRuleException('Doucement : un message par minute.');
     }
     final p = _Poke('pk_${++server._n}', me.id, toId, kind, now);
     server._pokes.add(p);
