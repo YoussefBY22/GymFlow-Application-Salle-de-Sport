@@ -251,6 +251,72 @@ void main() {
     await _done(tester, s.b);
   });
 
+  testWidgets('partager un workout depuis la discussion', (tester) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    await tester.tap(find.byKey(const Key('chat_attach')));
+    await settle(tester, 500);
+    await tester.tap(find.byKey(const Key('share_type_workout')));
+    await settle(tester, 500);
+    final pick = find.byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('share_pick_'),
+    );
+    await tester.tap(pick.first);
+    await settle(tester, 1000);
+
+    expect(find.byKey(const Key('share_view')), findsOneWidget);
+    expect(
+      find.byKey(const Key('share_save')),
+      findsNothing,
+      reason: 'on n\'enregistre pas sa propre carte',
+    );
+    final sent = (await s.other.loadMessages(s.myId)).single;
+    expect(sent.kind, MessageKind.share);
+    expect(sent.share!.type, 'workout');
+    await _done(tester, s.b);
+  });
+
+  testWidgets('carte reçue : aperçu puis « Enregistrer chez moi »', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    final workout = s.b.share.workouts().first;
+    final card = s.b.share.workoutCard(workout);
+    await s.other.sendMessage(s.myId, MessageKind.share, card.encode());
+    await settle(tester, 400);
+    await go(tester, Routes.chat, s.otherId);
+
+    expect(find.text(workout.name), findsWidgets);
+    await tester.tap(find.byKey(const Key('share_view')));
+    await settle(tester, 600);
+    expect(find.byKey(const Key('share_detail')), findsOneWidget);
+    expect(find.byKey(const Key('share_save_detail')), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // referme la feuille
+    await settle(tester, 600);
+
+    final before = s.b.workouts.all.length;
+    await tester.tap(find.byKey(const Key('share_save')));
+    await settle(tester, 1000);
+    expect(s.b.workouts.all.length, before + 1);
+    expect(find.textContaining('enregistré dans vos workouts'), findsOneWidget);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('séance reçue : aperçu seulement, pas d\'enregistrement', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    final card = s.b.share.sessionCard(s.b.share.mySessions().first);
+    await s.other.sendMessage(s.myId, MessageKind.share, card.encode());
+    await settle(tester, 400);
+    await go(tester, Routes.chat, s.otherId);
+    expect(find.byKey(const Key('share_view')), findsOneWidget);
+    expect(find.byKey(const Key('share_save')), findsNothing);
+    await _done(tester, s.b);
+  });
+
   testWidgets('écran administrateur : connexion puis signalements', (
     tester,
   ) async {

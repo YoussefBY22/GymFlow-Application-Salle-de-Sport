@@ -23,6 +23,7 @@ import '../../widgets/bits.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
 import '../../widgets/media.dart';
+import '../../widgets/share_widgets.dart';
 import '../shell/main_shell.dart';
 import 'smartwatch_dialog.dart';
 
@@ -1088,7 +1089,12 @@ class SessionDetailScreen extends StatelessWidget {
                   .toList()
             : <String>[];
         return Scaffold(
-          appBar: AppBar(title: Text(s.title)),
+          appBar: AppBar(
+            title: Text(s.title),
+            actions: [
+              if (mine) ShareButton(card: () => b.share.sessionCard(s)),
+            ],
+          ),
           body: ListView(
             padding: pagePadding(context, maxWidth: 860),
             children: [

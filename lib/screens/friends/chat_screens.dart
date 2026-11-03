@@ -14,6 +14,7 @@ import '../../services/backend.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/common.dart';
 import '../../widgets/friend_avatar.dart';
+import '../../widgets/share_widgets.dart';
 
 /// Heure locale d'un instant donné par le serveur (en UTC).
 String _clock(DateTime d) => Fmt.time(d.toLocal());
@@ -706,6 +707,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              IconButton(
+                key: const Key('chat_attach'),
+                tooltip: 'Partager une séance, un workout…',
+                color: AppColors.navy,
+                onPressed: () => showSharePicker(context, widget.friendId),
+                icon: const Icon(Icons.add_circle_outline),
+              ),
               Expanded(
                 child: TextField(
                   key: const Key('chat_input'),
@@ -833,6 +841,8 @@ class _Bubble extends StatelessWidget {
                           ),
                         ],
                       )
+                    else if (m.share != null)
+                      ShareCardBubble(card: m.share!, mine: mine)
                     else
                       Text(m.preview, style: AppText.body(size: 15, color: fg)),
                     const SizedBox(height: 2),

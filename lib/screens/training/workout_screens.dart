@@ -16,6 +16,7 @@ import '../../widgets/common.dart';
 import '../../widgets/library_widgets.dart';
 import '../../widgets/media.dart';
 import '../../widgets/pickers.dart';
+import '../../widgets/share_widgets.dart';
 
 const weekdayNames = [
   'Lundi',
@@ -159,6 +160,10 @@ class WorkoutDetailScreen extends StatelessWidget {
                 heroTag: 'w_${w.id}',
                 actions: [
                   FavoriteButton(id: w.id, onDark: true),
+                  ShareButton(
+                    onDark: true,
+                    card: () => b.share.workoutCard(w),
+                  ),
                   if (b.workoutService.canEditWorkout(me, w))
                     ownerMenu(
                       onEdit: () => Navigator.pushNamed(
@@ -988,6 +993,10 @@ class ProgramDetailScreen extends StatelessWidget {
                 heroTag: 'p_${p.id}',
                 actions: [
                   FavoriteButton(id: p.id, onDark: true),
+                  ShareButton(
+                    onDark: true,
+                    card: () => b.share.programCard(p),
+                  ),
                   if (b.workoutService.canEditProgram(me, p))
                     ownerMenu(
                       onEdit: () => Navigator.pushNamed(

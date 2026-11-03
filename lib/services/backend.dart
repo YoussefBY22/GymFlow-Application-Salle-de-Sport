@@ -52,6 +52,7 @@ import 'progress_service.dart';
 import 'reservation_service.dart';
 import 'seed/seed_service.dart';
 import 'sentiment_service.dart';
+import 'share_service.dart';
 import 'training_log_service.dart';
 import 'user_service.dart';
 import 'calorie_service.dart';
@@ -212,6 +213,7 @@ class Backend {
             : null);
     friends = FriendsService(this, remote);
     chat = ChatService(this, remote);
+    share = ShareService(this);
     moderation = ModerationService(this, remote);
     gemini = GeminiClient(
       httpClient,
@@ -357,6 +359,7 @@ class Backend {
   late final AnalyticsService analytics;
   late final FriendsService friends;
   late final ChatService chat;
+  late final ShareService share;
   late final ModerationService moderation;
   late final GaReportService gaReport;
 

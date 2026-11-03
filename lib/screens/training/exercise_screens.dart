@@ -17,6 +17,7 @@ import '../../widgets/common.dart';
 import '../../widgets/library_widgets.dart';
 import '../../widgets/media.dart';
 import '../../widgets/pickers.dart';
+import '../../widgets/share_widgets.dart';
 
 /// Détail d'un exercice : médias, étapes, erreurs fréquentes, respiration.
 class ExerciseDetailScreen extends StatelessWidget {
@@ -52,6 +53,10 @@ class ExerciseDetailScreen extends StatelessWidget {
                 expandedHeight: 260,
                 actions: [
                   FavoriteButton(id: e.id, onDark: true),
+                  ShareButton(
+                    onDark: true,
+                    card: () => b.share.exerciseCard(e),
+                  ),
                   if (canEdit)
                     PopupMenuButton<String>(
                       tooltip: 'Options',
