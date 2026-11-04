@@ -10,6 +10,7 @@ import 'repositories/sqlite_data_store.dart';
 import 'services/backend.dart';
 import 'services/bootstrap.dart';
 import 'services/platform/platform_services.dart';
+import 'services/theme_controller.dart';
 
 /// Point d'entrée (cours S01 : main() → runApp()).
 Future<void> main() async {
@@ -26,6 +27,9 @@ Future<void> main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Clair / sombre : lu avant le premier affichage (pas de flash blanc).
+  await ThemeController.I.load();
 
   final notifier = FlutterLocalNotifier();
   await notifier.init();

@@ -13,6 +13,7 @@ import '../../widgets/animations.dart';
 import '../../widgets/auto_banner.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
+import '../../widgets/theme_toggle.dart';
 import '../shell/main_shell.dart';
 
 /// Accueil abonné façon Strava : salutation, bannière des nouveautés,
@@ -33,6 +34,7 @@ class MemberHomeScreen extends StatelessWidget {
         leading: const ShellMenuButton(),
         title: const Text('GymFlow'),
         actions: [
+          const ThemeToggleButton(),
           IconButton(
             tooltip: 'Rechercher',
             icon: const Icon(Icons.search),
@@ -263,9 +265,9 @@ class _WeekCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.local_fire_department,
-                        color: AppColors.red,
+                        color: AppColors.redText,
                         size: 20,
                       ),
                       const SizedBox(width: 4),
@@ -276,7 +278,7 @@ class _WeekCard extends StatelessWidget {
                               : 'Série de $streak jour${streak > 1 ? 's' : ''}',
                           style: AppText.subtitle(
                             size: 14,
-                            color: AppColors.red,
+                            color: AppColors.redText,
                           ),
                         ),
                       ),
@@ -299,10 +301,10 @@ class _WeekCard extends StatelessWidget {
                                     shape: BoxShape.circle,
                                     color: activeDays.contains(d)
                                         ? AppColors.red
-                                        : AppColors.white,
+                                        : AppColors.surface,
                                     border: Border.all(
                                       color: d == now.weekday
-                                          ? AppColors.navy
+                                          ? AppColors.heading
                                           : AppColors.outline,
                                       width: d == now.weekday ? 2 : 1,
                                     ),
@@ -430,7 +432,7 @@ class _CtaCard extends StatelessWidget {
       onTap: () => MainShell.tab.value = tab,
       child: Row(
         children: [
-          Icon(icon, color: AppColors.navy, size: 32),
+          Icon(icon, color: AppColors.heading, size: 32),
           const SizedBox(width: Gap.m),
           Expanded(
             child: Column(
@@ -441,7 +443,7 @@ class _CtaCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.navy),
+          Icon(Icons.chevron_right, color: AppColors.heading),
         ],
       ),
     );
@@ -487,13 +489,13 @@ class _CommunityCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Pill(
                     visible ? 'Mon profil : visible' : 'Mon profil : privé',
-                    color: visible ? AppColors.success : AppColors.navy,
+                    color: visible ? AppColors.successText : AppColors.heading,
                     icon: visible ? Icons.visibility : Icons.lock_outline,
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.navy),
+            Icon(Icons.chevron_right, color: AppColors.heading),
           ],
         ),
       ),

@@ -84,7 +84,7 @@ class ShareButton extends StatelessWidget {
     return IconButton(
       key: const Key('share_button'),
       tooltip: 'Envoyer à un ami',
-      color: onDark ? AppColors.white : AppColors.navy,
+      color: onDark ? AppColors.white : AppColors.heading,
       onPressed: () => shareWithFriend(context, card),
       icon: const Icon(Icons.send_outlined),
     );
@@ -112,7 +112,7 @@ Future<void> showSharePicker(BuildContext context, String friendId) async {
           ])
             ListTile(
               key: Key('share_type_${t.$1}'),
-              leading: Icon(_iconOf(t.$1), color: AppColors.navy),
+              leading: Icon(_iconOf(t.$1), color: AppColors.heading),
               title: Text(t.$2),
               onTap: () => Navigator.pop(ctx, t.$1),
             ),
@@ -162,7 +162,7 @@ Future<void> showSharePicker(BuildContext context, String friendId) async {
           for (final o in options)
             ListTile(
               key: Key('share_pick_${o.$1}'),
-              leading: Icon(_iconOf(type), color: AppColors.navy),
+              leading: Icon(_iconOf(type), color: AppColors.heading),
               title: Text(o.$2, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(o.$3),
               onTap: () => Navigator.pop(ctx, o.$4),

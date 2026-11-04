@@ -37,7 +37,7 @@ class PrivacySettingsScreen extends StatelessWidget {
             padding: pagePadding(context, maxWidth: 760),
             children: [
               if (p.hiddenByAdmin)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: Gap.m),
                   child: GfCard(
                     color: AppColors.redSoft,
@@ -193,13 +193,13 @@ class PrivacySettingsScreen extends StatelessWidget {
                     if (u.isMember) ...[
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.delete_forever_outlined,
-                          color: AppColors.red,
+                          color: AppColors.redText,
                         ),
                         title: Text(
                           'Supprimer mon compte',
-                          style: AppText.body(color: AppColors.red),
+                          style: AppText.body(color: AppColors.redText),
                         ),
                         subtitle: const Text(
                           'Effacement définitif de vos données',
@@ -273,7 +273,7 @@ class PrivacySettingsScreen extends StatelessWidget {
                     ListTile(
                       leading: Icon(
                         c.granted ? Icons.check_circle : Icons.cancel,
-                        color: c.granted ? AppColors.success : AppColors.red,
+                        color: c.granted ? AppColors.successText : AppColors.redText,
                       ),
                       title: Text(ConsentType.label(c.type)),
                       subtitle: Text(

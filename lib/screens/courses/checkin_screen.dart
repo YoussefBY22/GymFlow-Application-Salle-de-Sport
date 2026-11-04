@@ -137,12 +137,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
                 color: AppColors.redSoft,
                 child: Row(
                   children: [
-                    const Icon(Icons.block, color: AppColors.red),
+                    Icon(Icons.block, color: AppColors.redText),
                     const SizedBox(width: Gap.s),
                     Expanded(
                       child: Text(
                         _error!,
-                        style: AppText.subtitle(color: AppColors.red, size: 15),
+                        style: AppText.subtitle(color: AppColors.redText, size: 15),
                       ),
                     ),
                   ],

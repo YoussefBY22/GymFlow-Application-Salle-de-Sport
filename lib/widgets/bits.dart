@@ -24,7 +24,7 @@ class GfFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? AppColors.navy : AppColors.white;
+    final bg = selected ? AppColors.navy : AppColors.surface;
     final fg = onColor(bg);
     return Semantics(
       selected: selected,
@@ -41,7 +41,7 @@ class GfFilterChip extends StatelessWidget {
             color: bg,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: selected ? AppColors.navy : AppColors.outline,
+              color: selected ? AppColors.heading : AppColors.outline,
             ),
           ),
           child: Row(
@@ -146,9 +146,9 @@ class RatingStars extends StatelessWidget {
                       size: size,
                       color: value >= i - 0.25
                           ? AppColors.gold
-                          : AppColors.white,
+                          : AppColors.surface,
                     ),
-                    Icon(Icons.star_border, size: size, color: AppColors.navy),
+                    Icon(Icons.star_border, size: size, color: AppColors.heading),
                   ],
                 ),
               ),
@@ -291,13 +291,13 @@ class CountBadge extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.gold,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.navy, width: 1),
+                border: Border.all(color: AppColors.heading, width: 1),
               ),
               child: Text(
                 count > 99 ? '99+' : '$count',
                 textAlign: TextAlign.center,
                 style: AppText.label(
-                  color: AppColors.navy,
+                  color: AppColors.heading,
                   size: 11,
                 ).copyWith(fontWeight: FontWeight.w700),
               ),

@@ -53,7 +53,7 @@ class FavoriteButton extends StatelessWidget {
               key: ValueKey(fav),
               color: fav
                   ? AppColors.red
-                  : (onDark ? AppColors.white : AppColors.navy),
+                  : (onDark ? AppColors.white : AppColors.heading),
             ),
           ),
         );
@@ -203,7 +203,7 @@ class CoverCard extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.label(color: AppColors.cream),
+                    style: AppText.label(color: AppColors.creamText),
                   ),
                 ],
               ),
@@ -313,13 +313,13 @@ class CourseCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(c.category.icon, size: 16, color: AppColors.red),
+                      Icon(c.category.icon, size: 16, color: AppColors.redText),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           c.category.label.toUpperCase(),
                           style: AppText.label(
-                            color: AppColors.red,
+                            color: AppColors.redText,
                             size: 11,
                           ).copyWith(fontWeight: FontWeight.w700),
                         ),
@@ -453,7 +453,7 @@ class ProductCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         Fmt.money(p.effectivePrice),
-                        style: AppText.stat(color: AppColors.red, size: 15),
+                        style: AppText.stat(color: AppColors.redText, size: 15),
                       ),
                     ),
                     if (p.onPromo) ...[

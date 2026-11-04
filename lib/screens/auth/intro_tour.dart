@@ -259,7 +259,7 @@ class _IntroTourScreenState extends State<IntroTourScreen>
                     child: TextButton(
                       key: const Key('intro_next'),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColors.cream,
+                        foregroundColor: AppColors.creamText,
                       ),
                       onPressed: () => _step(1),
                       child: Column(
@@ -276,7 +276,7 @@ class _IntroTourScreenState extends State<IntroTourScreen>
                             wide
                                 ? 'Suivant · molette ou flèche ↓'
                                 : 'Glisse vers le haut',
-                            style: AppText.label(color: AppColors.cream),
+                            style: AppText.label(color: AppColors.creamText),
                           ),
                         ],
                       ),
@@ -329,7 +329,7 @@ class _Slide extends StatelessWidget {
                 style: AppText.display(color: AppColors.white, size: 30),
               ),
               const SizedBox(height: Gap.m),
-              Text(text, style: AppText.body(color: AppColors.cream, size: 16)),
+              Text(text, style: AppText.body(color: AppColors.creamText, size: 16)),
               const SizedBox(height: Gap.l),
               for (var i = 0; i < points.length; i++)
                 FadeSlideIn(

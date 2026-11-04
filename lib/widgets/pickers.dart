@@ -154,7 +154,7 @@ class EnumDropdown<T> extends StatelessWidget {
       initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(labelText: label),
-      dropdownColor: AppColors.white,
+      dropdownColor: AppColors.surface,
       items: [
         for (final v in values)
           DropdownMenuItem(

@@ -91,7 +91,7 @@ class _MainShellState extends State<MainShell> {
                       extended: extended,
                       onMenu: () => _scaffoldKey.currentState?.openDrawer(),
                     ),
-                    const VerticalDivider(width: 1, color: AppColors.outline),
+                    VerticalDivider(width: 1, color: AppColors.outline),
                     Expanded(
                       // Les écrans calculent leurs marges sur la largeur
                       // réelle de la zone de contenu (sans la barre).
@@ -216,16 +216,16 @@ class _SideRail extends StatelessWidget {
       key: const Key('side_rail'),
       extended: extended,
       minExtendedWidth: 232,
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.surface,
       indicatorColor: AppColors.cream,
       selectedIndex: index,
       onDestinationSelected: (v) => MainShell.tab.value = v,
       labelType: extended
           ? NavigationRailLabelType.none
           : NavigationRailLabelType.all,
-      selectedIconTheme: const IconThemeData(color: AppColors.red),
-      unselectedIconTheme: const IconThemeData(color: AppColors.navy),
-      selectedLabelTextStyle: AppText.subtitle(size: 14, color: AppColors.red),
+      selectedIconTheme: IconThemeData(color: AppColors.redText),
+      unselectedIconTheme: IconThemeData(color: AppColors.heading),
+      selectedLabelTextStyle: AppText.subtitle(size: 14, color: AppColors.redText),
       unselectedLabelTextStyle: AppText.body(size: 14),
       leading: Padding(
         padding: const EdgeInsets.symmetric(vertical: Gap.s),
@@ -236,7 +236,7 @@ class _SideRail extends StatelessWidget {
                   children: [
                     IconButton(
                       tooltip: 'Menu',
-                      icon: const Icon(Icons.menu, color: AppColors.navy),
+                      icon: Icon(Icons.menu, color: AppColors.heading),
                       onPressed: onMenu,
                     ),
                     const SizedBox(width: Gap.xs),
@@ -246,7 +246,7 @@ class _SideRail extends StatelessWidget {
               )
             : IconButton(
                 tooltip: 'Menu',
-                icon: const Icon(Icons.menu, color: AppColors.navy),
+                icon: Icon(Icons.menu, color: AppColors.heading),
                 onPressed: onMenu,
               ),
       ),
@@ -360,7 +360,7 @@ class AppDrawer extends StatelessWidget {
                   user.fullName,
                   style: AppText.title(color: AppColors.white, size: 18),
                 ),
-                Text(user.email, style: AppText.label(color: AppColors.cream)),
+                Text(user.email, style: AppText.label(color: AppColors.creamText)),
                 const SizedBox(height: Gap.s),
                 Pill(
                   user.role.label,
@@ -515,10 +515,10 @@ class AppDrawer extends StatelessWidget {
           SafeArea(
             top: false,
             child: ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.red),
+              leading: Icon(Icons.logout, color: AppColors.redText),
               title: Text(
                 'Se déconnecter',
-                style: AppText.subtitle(color: AppColors.red, size: 15),
+                style: AppText.subtitle(color: AppColors.redText, size: 15),
               ),
               onTap: () async {
                 await b.auth.logout();
@@ -548,7 +548,7 @@ class AppDrawer extends StatelessWidget {
     VoidCallback onTap, {
     Widget? trailing,
   }) => ListTile(
-    leading: Icon(icon, color: AppColors.navy),
+    leading: Icon(icon, color: AppColors.heading),
     title: Text(label, style: AppText.body(size: 15)),
     trailing: trailing,
     onTap: onTap,

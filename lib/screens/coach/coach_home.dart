@@ -9,6 +9,7 @@ import '../../widgets/animations.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
 import '../../widgets/sentiment_widgets.dart';
+import '../../widgets/theme_toggle.dart';
 import '../shell/main_shell.dart';
 
 /// Dashboard coach : prochains cours, inscrits, présence, notes,
@@ -23,7 +24,7 @@ class CoachHomeScreen extends StatelessWidget {
       appBar: AppBar(
         leading: const ShellMenuButton(),
         title: const Text('Espace coach'),
-        actions: const [NotificationBell()],
+        actions: const [ThemeToggleButton(), NotificationBell()],
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([b.bus, b.auth]),
@@ -48,20 +49,20 @@ class CoachHomeScreen extends StatelessWidget {
                     icon: Icons.event,
                     value: stats.upcoming.length.toDouble(),
                     label: 'Cours à venir',
-                    color: AppColors.navy,
+                    color: AppColors.heading,
                   ),
                   _KpiCard(
                     icon: Icons.groups,
                     value: stats.enrolled.toDouble(),
                     label: 'Inscrits',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                   ),
                   _KpiCard(
                     icon: Icons.fact_check,
                     value: stats.attendanceRate * 100,
                     label: 'Taux de présence',
                     format: (v) => '${v.round()} %',
-                    color: AppColors.success,
+                    color: AppColors.successText,
                   ),
                   _KpiCard(
                     icon: Icons.star,
@@ -69,7 +70,7 @@ class CoachHomeScreen extends StatelessWidget {
                     label: '${stats.ratingsCount} notes reçues',
                     format: (v) =>
                         stats.averageRating == null ? '—' : '${Fmt.dec1(v)}/5',
-                    color: AppColors.navy,
+                    color: AppColors.heading,
                   ),
                 ],
               ),
@@ -103,7 +104,7 @@ class CoachHomeScreen extends StatelessWidget {
                           children: [
                             Icon(
                               stats.upcoming[i].category.icon,
-                              color: AppColors.red,
+                              color: AppColors.redText,
                             ),
                             const SizedBox(width: Gap.s),
                             Expanded(
@@ -226,11 +227,11 @@ class _KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: color),
+          Icon(icon, color: AppColors.fg(color)),
           AnimatedCounter(
             value: value,
             format: format,
-            style: AppText.display(color: color, size: 26),
+            style: AppText.display(color: AppColors.fg(color), size: 26),
           ),
           Text(
             label,

@@ -101,7 +101,7 @@ class ProgressRing extends StatelessWidget {
     this.size = 120,
     this.stroke = 12,
     this.color = AppColors.red,
-    this.track = AppColors.cream,
+    this.track,
     this.child,
   });
 
@@ -109,11 +109,14 @@ class ProgressRing extends StatelessWidget {
   final double size;
   final double stroke;
   final Color color;
-  final Color track;
+
+  /// Couleur du fond de l'anneau (crème en mode clair, nuit en mode sombre).
+  final Color? track;
   final Widget? child;
 
   @override
   Widget build(BuildContext context) {
+    final track = this.track ?? AppColors.cream;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: progress.clamp(0, 1)),
       duration: const Duration(milliseconds: 1000),

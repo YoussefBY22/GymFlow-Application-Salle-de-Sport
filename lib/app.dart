@@ -5,13 +5,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/routes.dart';
 import 'core/theme.dart';
 import 'services/backend.dart';
+import 'services/theme_controller.dart';
+import 'widgets/theme_toggle.dart';
 
 void _noteActivity() {
   if (Backend.isReady) Backend.I.friends.noteActivity();
 }
 
 /// Racine de l'application (cours S01 : MaterialApp + arbre de widgets).
-class GymFlowApp extends StatelessWidget {
+class GymFlowApp extends StatefulWidget {
   const GymFlowApp({super.key, this.initialRoute = Routes.splash});
 
   final String initialRoute;
@@ -20,13 +22,42 @@ class GymFlowApp extends StatelessWidget {
       GlobalKey<NavigatorState>();
 
   @override
+  State<GymFlowApp> createState() => _GymFlowAppState();
+}
+
+class _GymFlowAppState extends State<GymFlowApp> with WidgetsBindingObserver {
+  final _theme = ThemeController.I;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Le téléphone passe en clair / sombre : on suit en mode « Automatique ».
+  @override
+  void didChangePlatformBrightness() => _theme.platformBrightnessChanged();
+
+  @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(listenable: _theme, builder: _buildApp);
+  }
+
+  Widget _buildApp(BuildContext context, Widget? _) {
+    final initialRoute = widget.initialRoute;
     return MaterialApp(
       title: 'GymFlow',
       debugShowCheckedModeBanner: false,
-      navigatorKey: navigatorKey,
-      // Mode clair uniquement : aucun thème sombre.
-      theme: AppTheme.light(),
+      navigatorKey: GymFlowApp.navigatorKey,
+      // Clair ou sombre (bleu nuit) : un seul thème, reconstruit au changement
+      // (voir ThemeController).
+      theme: _theme.isDark ? AppTheme.dark() : AppTheme.light(),
       themeMode: ThemeMode.light,
       // Ordinateur : carrousels, bannière et présentation se font glisser
       // aussi à la souris / au pavé tactile (pas seulement au doigt).
@@ -58,7 +89,7 @@ class GymFlowApp extends StatelessWidget {
         onPointerDown: (_) => _noteActivity(),
         onPointerMove: (_) => _noteActivity(),
         onPointerSignal: (_) => _noteActivity(),
-        child: child ?? const SizedBox.shrink(),
+        child: ThemeTransitionHost(child: child ?? const SizedBox.shrink()),
       ),
     );
   }

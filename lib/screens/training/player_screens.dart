@@ -413,7 +413,7 @@ class _SessionPlayerScreenState extends State<SessionPlayerScreen> {
                   Text(
                     'EXERCICE ${_index + 1} / ${_items.length}',
                     style: AppText.label(
-                      color: AppColors.red,
+                      color: AppColors.redText,
                     ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 1),
                   ),
                   const SizedBox(height: 4),
@@ -538,7 +538,7 @@ class _SessionPlayerScreenState extends State<SessionPlayerScreen> {
                         ),
                         Text(
                           'Touchez pour reprendre',
-                          style: AppText.body(color: AppColors.cream),
+                          style: AppText.body(color: AppColors.creamText),
                         ),
                       ],
                     ),
@@ -550,8 +550,8 @@ class _SessionPlayerScreenState extends State<SessionPlayerScreen> {
         bottomNavigationBar: SafeArea(
           child: Container(
             padding: const EdgeInsets.all(Gap.m),
-            decoration: const BoxDecoration(
-              color: AppColors.white,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
               boxShadow: [
                 BoxShadow(
                   color: Color(0x14002855),
@@ -604,7 +604,7 @@ class _Target extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 18, color: AppColors.navy),
+      Icon(icon, size: 18, color: AppColors.heading),
       const SizedBox(width: 4),
       Text(text, style: AppText.subtitle(size: 14)),
     ],
@@ -633,7 +633,7 @@ class _SetRow extends StatelessWidget {
       curve: kCurve,
       padding: const EdgeInsets.symmetric(horizontal: Gap.s, vertical: Gap.s),
       decoration: BoxDecoration(
-        color: done ? AppColors.successSoft : AppColors.white,
+        color: done ? AppColors.successSoft : AppColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: done ? AppColors.success : AppColors.divider,
@@ -648,7 +648,7 @@ class _SetRow extends StatelessWidget {
               'Série ${index + 1}',
               style: AppText.subtitle(
                 size: 14,
-                color: done ? AppColors.success : AppColors.navy,
+                color: done ? AppColors.successText : AppColors.heading,
               ),
             ),
           ),
@@ -697,7 +697,7 @@ class _SetRow extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: done ? AppColors.success : AppColors.white,
+                color: done ? AppColors.success : AppColors.surface,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: done ? AppColors.success : AppColors.outline,
@@ -765,7 +765,7 @@ class _RestTimer extends StatelessWidget {
                   ),
                   Text(
                     'Respirez, hydratez-vous.',
-                    style: AppText.label(color: AppColors.cream),
+                    style: AppText.label(color: AppColors.creamText),
                   ),
                   const SizedBox(height: Gap.xs),
                   Row(
@@ -838,7 +838,7 @@ class SessionSummaryScreen extends StatelessWidget {
                 Text(
                   s.title,
                   textAlign: TextAlign.center,
-                  style: AppText.subtitle(color: AppColors.cream),
+                  style: AppText.subtitle(color: AppColors.creamText),
                 ),
                 const SizedBox(height: Gap.l),
                 GfCard(
@@ -881,7 +881,7 @@ class SessionSummaryScreen extends StatelessWidget {
                             child: _BigStat(
                               value: records.length.toDouble(),
                               label: 'records',
-                              color: AppColors.red,
+                              color: AppColors.redText,
                             ),
                           ),
                         ],
@@ -898,7 +898,7 @@ class SessionSummaryScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.watch, color: AppColors.navy, size: 20),
+                            Icon(Icons.watch, color: AppColors.heading, size: 20),
                             const SizedBox(width: Gap.s),
                             Expanded(
                               child: Text(
@@ -918,7 +918,7 @@ class SessionSummaryScreen extends StatelessWidget {
                                 child: _BigStat(
                                   value: s.caloriesBurned!.toDouble(),
                                   label: 'calories (kcal)',
-                                  color: AppColors.red,
+                                  color: AppColors.redText,
                                   format: (v) => v.round().toString(),
                                 ),
                               ),
@@ -927,7 +927,7 @@ class SessionSummaryScreen extends StatelessWidget {
                                 child: _BigStat(
                                   value: s.averageHeartRate!.toDouble(),
                                   label: 'FC moyenne',
-                                  color: AppColors.navy,
+                                  color: AppColors.heading,
                                   format: (v) => '${v.round()} BPM',
                                 ),
                               ),
@@ -966,9 +966,9 @@ class SessionSummaryScreen extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.emoji_events,
-                                color: AppColors.navy,
+                                color: AppColors.heading,
                               ),
                               const SizedBox(width: Gap.s),
                               Expanded(
@@ -991,7 +991,7 @@ class SessionSummaryScreen extends StatelessWidget {
                 Text(
                   'Votre séance est enregistrée dans votre historique et votre progression.',
                   textAlign: TextAlign.center,
-                  style: AppText.body(color: AppColors.cream),
+                  style: AppText.body(color: AppColors.creamText),
                 ),
                 const SizedBox(height: Gap.m),
                 ShareChoiceCard(sessionId: s.id),
@@ -1045,7 +1045,7 @@ class _BigStat extends StatelessWidget {
         AnimatedCounter(
           value: value,
           format: format,
-          style: AppText.display(color: color, size: 30),
+          style: AppText.display(color: AppColors.fg(color), size: 30),
         ),
         Text(label, style: AppText.label()),
       ],
@@ -1109,7 +1109,7 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.caloriesBurned != null)
                         Column(
                           children: [
-                            const Icon(Icons.local_fire_department, color: AppColors.red, size: 22),
+                            Icon(Icons.local_fire_department, color: AppColors.redText, size: 22),
                             const SizedBox(height: 2),
                             Text('${s.caloriesBurned} kcal', style: AppText.stat(size: 16)),
                             Text('Dépense estimée', style: AppText.label(size: 11)),
@@ -1118,7 +1118,7 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.averageHeartRate != null)
                         Column(
                           children: [
-                            const Icon(Icons.favorite, color: AppColors.red, size: 22),
+                            Icon(Icons.favorite, color: AppColors.redText, size: 22),
                             const SizedBox(height: 2),
                             Text('${s.averageHeartRate} BPM', style: AppText.stat(size: 16)),
                             Text('FC moyenne', style: AppText.label(size: 11)),
@@ -1127,7 +1127,7 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.stepCount != null && s.stepCount! > 0)
                         Column(
                           children: [
-                            const Icon(Icons.directions_walk, color: AppColors.success, size: 22),
+                            Icon(Icons.directions_walk, color: AppColors.successText, size: 22),
                             const SizedBox(height: 2),
                             Text(Fmt.number(s.stepCount!), style: AppText.stat(size: 16)),
                             Text('Pas podomètre', style: AppText.label(size: 11)),
@@ -1318,15 +1318,15 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.outline),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.watch_outlined,
-                      color: AppColors.navy,
+                      color: AppColors.heading,
                       size: 20,
                     ),
                     const SizedBox(width: Gap.s),
@@ -1336,7 +1336,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                         style: AppText.label(color: AppColors.inkSoft, size: 12),
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right,
                       size: 18,
                       color: AppColors.outline,
@@ -1399,7 +1399,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           const SizedBox(width: 3),
                           Text(
                             'BPM',
-                            style: AppText.label(color: AppColors.cream, size: 10),
+                            style: AppText.label(color: AppColors.creamText, size: 10),
                           ),
                         ],
                       ),
@@ -1435,7 +1435,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           ),
                           Text(
                             'kcal',
-                            style: AppText.label(color: AppColors.cream, size: 9),
+                            style: AppText.label(color: AppColors.creamText, size: 9),
                           ),
                         ],
                       ),
@@ -1447,9 +1447,9 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.directions_walk,
-                        color: AppColors.success,
+                        color: AppColors.successText,
                         size: 18,
                       ),
                       const SizedBox(width: 4),
@@ -1462,7 +1462,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           ),
                           Text(
                             'pas',
-                            style: AppText.label(color: AppColors.cream, size: 9),
+                            style: AppText.label(color: AppColors.creamText, size: 9),
                           ),
                         ],
                       ),
@@ -1504,7 +1504,7 @@ class _PulsingHeartState extends State<_PulsingHeart>
   Widget build(BuildContext context) {
     return ScaleTransition(
       scale: Tween(begin: 0.85, end: 1.15).animate(_ctrl),
-      child: const Icon(Icons.favorite, color: AppColors.red, size: 20),
+      child: Icon(Icons.favorite, color: AppColors.redText, size: 20),
     );
   }
 }

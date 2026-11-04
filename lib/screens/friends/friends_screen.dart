@@ -320,7 +320,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         child: ListTile(
           key: const Key('open_chats'),
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.chat_bubble_outline, color: AppColors.navy),
+          leading: Icon(Icons.chat_bubble_outline, color: AppColors.heading),
           title: Text('Messages', style: AppText.subtitle(size: 15)),
           subtitle: const Text('Vos discussions avec vos amis'),
           trailing: Backend.I.chat.unreadTotal > 0
@@ -400,7 +400,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               leading: Icon(
                 Icons.notifications_active_outlined,
                 color: Backend.I.push.status == PushStatus.enabled
-                    ? AppColors.success
+                    ? AppColors.successText
                     : AppColors.inkSoft,
               ),
               title: const Text('Notifications application fermée'),
@@ -459,7 +459,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       IconButton(
                         key: Key('accept_${r.id}'),
                         tooltip: 'Accepter',
-                        color: AppColors.success,
+                        color: AppColors.successText,
                         onPressed: _busy
                             ? null
                             : () => _run(
@@ -472,7 +472,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       IconButton(
                         key: Key('decline_${r.id}'),
                         tooltip: 'Refuser',
-                        color: AppColors.red,
+                        color: AppColors.redText,
                         onPressed: _busy
                             ? null
                             : () => _run(() => _s.respond(r, false)),
@@ -579,7 +579,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         key: Key('presence_${f.id}'),
         style: AppText.label(
           size: 12,
-          color: online ? AppColors.success : AppColors.inkSoft,
+          color: online ? AppColors.successText : AppColors.inkSoft,
         ),
       ),
       trailing: Row(
@@ -588,7 +588,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           IconButton(
             key: Key('chat_${f.id}'),
             tooltip: 'Écrire',
-            color: AppColors.navy,
+            color: AppColors.heading,
             onPressed: () =>
                 Navigator.pushNamed(context, Routes.chat, arguments: f.id),
             icon: const Icon(Icons.chat_bubble_outline),
@@ -596,7 +596,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           IconButton(
             key: Key('poke_${f.id}'),
             tooltip: 'Encourager',
-            color: AppColors.red,
+            color: AppColors.redText,
             onPressed: _busy ? null : () => _poke(f, PokeKind.encourage),
             icon: const Icon(Icons.bolt),
           ),

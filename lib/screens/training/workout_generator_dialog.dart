@@ -102,7 +102,7 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
     final preview = _preview;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -224,7 +224,7 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
               // Aperçu de la recommandation générée
               if (preview != null) ...[
                 GfCard(
-                  color: AppColors.white,
+                  color: AppColors.surface,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -245,11 +245,11 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.timer_outlined, size: 14, color: AppColors.navy),
+                                Icon(Icons.timer_outlined, size: 14, color: AppColors.heading),
                                 const SizedBox(width: 4),
                                 Text('~${preview.estimatedMinutes} min', style: AppText.label(size: 11)),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.local_fire_department, size: 14, color: AppColors.red),
+                                Icon(Icons.local_fire_department, size: 14, color: AppColors.redText),
                                 const SizedBox(width: 2),
                                 Text('~${preview.estimatedCalories} kcal', style: AppText.label(size: 11)),
                               ],
@@ -310,7 +310,7 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
         CircleAvatar(
           radius: 10,
           backgroundColor: AppColors.navy.withOpacity(0.08),
-          child: Text('$index', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.navy)),
+          child: Text('$index', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.heading)),
         ),
         const SizedBox(width: Gap.s),
         Expanded(

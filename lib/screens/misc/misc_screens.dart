@@ -87,9 +87,9 @@ class AnnouncementsScreen extends StatelessWidget {
                                       if (isAdmin)
                                         IconButton(
                                           tooltip: 'Supprimer',
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.delete_outline,
-                                            color: AppColors.red,
+                                            color: AppColors.redText,
                                           ),
                                           onPressed: () => runAction(
                                             context,
@@ -265,12 +265,12 @@ class AboutScreen extends StatelessWidget {
                       ),
                       Text(
                         AppConfig.gymAddress,
-                        style: AppText.label(color: AppColors.cream),
+                        style: AppText.label(color: AppColors.creamText),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Lun–Ven 6 h–22 h · Sam–Dim 8 h–20 h',
-                        style: AppText.label(color: AppColors.cream),
+                        style: AppText.label(color: AppColors.creamText),
                       ),
                       const SizedBox(height: Gap.s),
                       // Version de l'application : utile pour vérifier que
@@ -299,7 +299,7 @@ class AboutScreen extends StatelessWidget {
                       backgroundColor: AppColors.cream,
                       child: Text(
                         '${i + 1}',
-                        style: AppText.label(color: AppColors.navy),
+                        style: AppText.label(color: AppColors.heading),
                       ),
                     ),
                     const SizedBox(width: Gap.s),
@@ -546,7 +546,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                                     value: _kcal!,
                                     format: (v) => Fmt.number(v.round()),
                                     style: AppText.display(
-                                      color: AppColors.red,
+                                      color: AppColors.redText,
                                       size: 30,
                                     ),
                                   ),
@@ -629,7 +629,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 padding: const EdgeInsets.fromLTRB(Gap.m, Gap.m, Gap.m, Gap.xs),
                 child: Row(
                   children: [
-                    Icon(icon, size: 18, color: AppColors.red),
+                    Icon(icon, size: 18, color: AppColors.redText),
                     const SizedBox(width: 6),
                     Text(title, style: AppText.subtitle()),
                   ],

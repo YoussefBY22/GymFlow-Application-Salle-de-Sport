@@ -160,7 +160,7 @@ class _MemberCard extends StatelessWidget {
             ),
           ),
           if (!p.social.isEmpty)
-            const Icon(
+            Icon(
               Icons.link,
               color: AppColors.inkSoft,
               semanticLabel: 'Réseaux sociaux',

@@ -337,7 +337,7 @@ class _SatisfactionPanelState extends State<SatisfactionPanel> {
                         Expanded(
                           child: AnimatedBar(
                             value: s.rate,
-                            color: AppColors.navy,
+                            color: AppColors.heading,
                           ),
                         ),
                         const SizedBox(width: Gap.s),

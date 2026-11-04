@@ -124,7 +124,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         const SizedBox(height: Gap.s),
                         Text(
                           friendlyError(m.error!),
-                          style: AppText.body(size: 14, color: AppColors.red),
+                          style: AppText.body(size: 14, color: AppColors.redText),
                         ),
                       ],
                       const SizedBox(height: Gap.m),
@@ -251,7 +251,7 @@ class _ReportCard extends StatelessWidget {
                         m.from,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.label(size: 12, color: AppColors.navy),
+                        style: AppText.label(size: 12, color: AppColors.heading),
                       ),
                     ),
                     Expanded(

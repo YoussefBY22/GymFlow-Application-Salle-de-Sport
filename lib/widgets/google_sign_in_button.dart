@@ -102,8 +102,8 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton> {
             label: const Text('Continuer avec Google'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
-              foregroundColor: AppColors.navy,
-              side: const BorderSide(color: AppColors.navy),
+              foregroundColor: AppColors.heading,
+              side: BorderSide(color: AppColors.heading),
             ),
           );
     return Column(

@@ -391,7 +391,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           return ListView(
             padding: pagePadding(context, maxWidth: 900),
             children: [
-              const GfCard(
+              GfCard(
                 color: AppColors.cream,
                 child: InfoRow(
                   Icons.info_outline,
@@ -471,7 +471,7 @@ class _ReviewCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.navy),
+              Icon(Icons.chevron_right, color: AppColors.heading),
             ],
           ),
           if (deps.isNotEmpty) ...[
@@ -488,7 +488,7 @@ class _ReviewCard extends StatelessWidget {
             alignment: WrapAlignment.end,
             children: [
               OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.red),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.redText),
                 onPressed: onReject,
                 icon: const Icon(Icons.close, size: 18),
                 label: const Text('Refuser'),

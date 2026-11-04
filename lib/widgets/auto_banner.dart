@@ -149,7 +149,7 @@ class _AutoBannerState extends State<AutoBanner> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: AppText.body(
-                                      color: AppColors.cream,
+                                      color: AppColors.creamText,
                                       size: 13,
                                     ),
                                   ),

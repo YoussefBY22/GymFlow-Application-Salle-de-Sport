@@ -251,9 +251,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: i == _photo
                                       ? AppColors.gold
-                                      : AppColors.white,
+                                      : AppColors.surface,
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.navy),
+                                  border: Border.all(color: AppColors.heading),
                                 ),
                               ),
                           ],
@@ -275,7 +275,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Text(
                           Fmt.money(p.effectivePrice),
                           style: AppText.display(
-                            color: AppColors.red,
+                            color: AppColors.redText,
                             size: 26,
                           ),
                         ),
@@ -508,7 +508,7 @@ class CartScreen extends StatelessWidget {
                                   Text(
                                     Fmt.money(l.total),
                                     style: AppText.stat(
-                                      color: AppColors.red,
+                                      color: AppColors.redText,
                                       size: 15,
                                     ),
                                   ),
@@ -560,8 +560,8 @@ class _TotalBar extends StatelessWidget {
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.all(Gap.m),
-        decoration: const BoxDecoration(
-          color: AppColors.white,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
           boxShadow: [
             BoxShadow(
               color: Color(0x14002855),
@@ -580,7 +580,7 @@ class _TotalBar extends StatelessWidget {
                 Text(
                   Fmt.money(total),
                   key: const Key('cart_total'),
-                  style: AppText.display(color: AppColors.red, size: 24),
+                  style: AppText.display(color: AppColors.redText, size: 24),
                 ),
               ],
             ),
@@ -742,7 +742,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const Spacer(),
                         Text(
                           Fmt.money(total),
-                          style: AppText.stat(color: AppColors.red),
+                          style: AppText.stat(color: AppColors.redText),
                         ),
                       ],
                     ),
@@ -752,7 +752,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: Gap.l),
               Row(
                 children: [
-                  const Icon(Icons.lock, color: AppColors.success, size: 18),
+                  Icon(Icons.lock, color: AppColors.successText, size: 18),
                   const SizedBox(width: Gap.xs),
                   Expanded(
                     child: Text(
@@ -764,7 +764,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: Gap.s),
               if (simulated) ...[
-                const GfCard(
+                GfCard(
                   color: AppColors.cream,
                   child: InfoRow(
                     Icons.science_outlined,
@@ -832,7 +832,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 ),
               ] else
-                const GfCard(
+                GfCard(
                   color: AppColors.cream,
                   child: InfoRow(
                     Icons.open_in_browser,
@@ -1070,7 +1070,7 @@ class OrderTile extends StatelessWidget {
             children: [
               Text(
                 Fmt.money(o.total),
-                style: AppText.stat(color: AppColors.red, size: 16),
+                style: AppText.stat(color: AppColors.redText, size: 16),
               ),
               ?trailing,
             ],
@@ -1160,7 +1160,7 @@ class OrderDetailScreen extends StatelessWidget {
                         const Spacer(),
                         Text(
                           Fmt.money(o.total),
-                          style: AppText.stat(color: AppColors.red),
+                          style: AppText.stat(color: AppColors.redText),
                         ),
                       ],
                     ),

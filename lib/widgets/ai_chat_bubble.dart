@@ -142,7 +142,7 @@ class _ChatSheetState extends State<_ChatSheet> {
               padding: const EdgeInsets.fromLTRB(Gap.m, 0, Gap.m, Gap.s),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome, color: AppColors.red),
+                  Icon(Icons.auto_awesome, color: AppColors.redText),
                   const SizedBox(width: Gap.s),
                   Expanded(
                     child: Text(
@@ -216,7 +216,7 @@ class _ChatSheetState extends State<_ChatSheet> {
                             decoration: BoxDecoration(
                               color: m.fromUser
                                   ? AppColors.navy
-                                  : AppColors.white,
+                                  : AppColors.surface,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: SelectableText(

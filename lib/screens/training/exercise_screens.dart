@@ -221,15 +221,15 @@ class ExerciseDetailScreen extends StatelessWidget {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.warning_amber_rounded,
-                                    color: AppColors.red,
+                                    color: AppColors.redText,
                                   ),
                                   const SizedBox(width: Gap.s),
                                   Text(
                                     'Erreurs fréquentes',
                                     style: AppText.subtitle(
-                                      color: AppColors.red,
+                                      color: AppColors.redText,
                                     ),
                                   ),
                                 ],
@@ -254,7 +254,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.air, color: AppColors.navy),
+                              Icon(Icons.air, color: AppColors.heading),
                               const SizedBox(width: Gap.s),
                               Expanded(
                                 child: Column(
@@ -517,7 +517,7 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (!(Backend.I.auth.currentUser?.canManageContent ?? false))
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: Gap.m),
                     child: GfCard(
                       color: AppColors.cream,
@@ -710,9 +710,9 @@ class _ExerciseFormScreenState extends State<ExerciseFormScreen> {
                           ),
                           IconButton(
                             tooltip: 'Retirer',
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.delete_outline,
-                              color: AppColors.red,
+                              color: AppColors.redText,
                             ),
                             onPressed: () => setState(() => _media.removeAt(i)),
                           ),
@@ -817,7 +817,7 @@ class _WgerImportScreenState extends State<WgerImportScreen> {
                   separatorBuilder: (_, _) => const SizedBox(height: Gap.s),
                   itemBuilder: (_, i) {
                     if (fromCache && i == 0) {
-                      return const GfCard(
+                      return GfCard(
                         color: AppColors.cream,
                         child: InfoRow(
                           Icons.wifi_off,

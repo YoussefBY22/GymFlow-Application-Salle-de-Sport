@@ -113,7 +113,7 @@ class ReviewQueueButton extends StatelessWidget {
             isLabelVisible: n > 0,
             label: Text('$n'),
             backgroundColor: AppColors.gold,
-            textColor: AppColors.navy,
+            textColor: AppColors.heading,
             child: const Icon(Icons.fact_check_outlined),
           ),
         );
@@ -228,7 +228,7 @@ class PublicationPanel extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(pub.status.icon, color: AppColors.navy),
+            Icon(pub.status.icon, color: AppColors.heading),
             const SizedBox(width: Gap.s),
             Expanded(
               child: Column(
@@ -281,7 +281,7 @@ class PublicationPanel extends StatelessWidget {
         ),
         OutlinedButton.icon(
           key: const Key('reject_content'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppColors.red),
+          style: OutlinedButton.styleFrom(foregroundColor: AppColors.redText),
           onPressed: () => _reject(context),
           icon: const Icon(Icons.close, size: 18),
           label: const Text('Refuser'),
@@ -415,7 +415,7 @@ class TranslationFields extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.translate, color: AppColors.navy),
+              Icon(Icons.translate, color: AppColors.heading),
               const SizedBox(width: Gap.s),
               Expanded(
                 child: Text(

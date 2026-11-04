@@ -465,7 +465,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           if (status == CourseStatus.scheduled) {
             if (active == null) {
               if (!subOk) {
-                action = const GfCard(
+                action = GfCard(
                   color: AppColors.redSoft,
                   child: InfoRow(
                     Icons.card_membership,
@@ -542,7 +542,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     ),
                   const SizedBox(height: Gap.s),
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: AppColors.red),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.redText),
                     onPressed: _busy
                         ? null
                         : () async {
@@ -662,12 +662,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(c.category.icon, color: AppColors.red, size: 18),
+                        Icon(c.category.icon, color: AppColors.redText, size: 18),
                         const SizedBox(width: 4),
                         Text(
                           c.category.label.toUpperCase(),
                           style: AppText.label(
-                            color: AppColors.red,
+                            color: AppColors.redText,
                           ).copyWith(fontWeight: FontWeight.w700),
                         ),
                         const Spacer(),
@@ -1202,7 +1202,7 @@ class AttendanceScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: Gap.s),
                     if (!canMark)
-                      const GfCard(
+                      GfCard(
                         color: AppColors.cream,
                         child: InfoRow(
                           Icons.info_outline,
@@ -1253,7 +1253,7 @@ class AttendanceScreen extends StatelessWidget {
                                         icon: Icon(
                                           Icons.check_circle,
                                           color: r.attended == true
-                                              ? AppColors.success
+                                              ? AppColors.successText
                                               : AppColors.outline,
                                         ),
                                       ),
@@ -1343,7 +1343,7 @@ class _NotificationTile extends StatelessWidget {
     final x = notification;
     final b = Backend.I;
     return GfCard(
-      color: x.read ? AppColors.white : AppColors.cream,
+      color: x.read ? AppColors.surface : AppColors.cream,
       padding: const EdgeInsets.all(Gap.s + 4),
       onTap: () {
         b.notifications.markRead(x.id);
@@ -1366,7 +1366,7 @@ class _NotificationTile extends StatelessWidget {
             backgroundColor: x.read ? AppColors.cream : AppColors.navy,
             child: Icon(
               x.type.icon,
-              color: x.read ? AppColors.navy : AppColors.white,
+              color: x.read ? AppColors.heading : AppColors.white,
               size: 20,
             ),
           ),

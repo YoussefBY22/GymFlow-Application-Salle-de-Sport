@@ -108,14 +108,14 @@ class _QrCard extends StatelessWidget {
                     : 'Liste d\'attente : le ticket sera actif dès qu\'une '
                           'place se libère.',
                 textAlign: TextAlign.center,
-                style: AppText.body(color: AppColors.navy),
+                style: AppText.body(color: AppColors.heading),
               ),
             ),
           if (valid) ...[
             const SizedBox(height: Gap.m),
             Text(
               'Code de réservation',
-              style: AppText.label(color: AppColors.cream, size: 12),
+              style: AppText.label(color: AppColors.creamText, size: 12),
             ),
             SelectableText(
               code,
@@ -195,7 +195,7 @@ class _CodeFallback extends StatelessWidget {
     ),
     child: Column(
       children: [
-        const Icon(Icons.qr_code_2, color: AppColors.navy, size: 40),
+        Icon(Icons.qr_code_2, color: AppColors.heading, size: 40),
         const SizedBox(height: Gap.s),
         Text(
           'QR indisponible',
@@ -306,7 +306,7 @@ class _EmailCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: AppColors.navy),
+              Icon(icon, color: AppColors.heading),
               const SizedBox(width: Gap.s),
               Expanded(
                 child: Text(

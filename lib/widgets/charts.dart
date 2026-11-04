@@ -34,7 +34,7 @@ FlGridData _grid(double interval) => FlGridData(
   drawVerticalLine: false,
   horizontalInterval: interval,
   getDrawingHorizontalLine: (_) =>
-      const FlLine(color: AppColors.divider, strokeWidth: 1),
+      FlLine(color: AppColors.divider, strokeWidth: 1),
 );
 
 /// Courbe temporelle (poids, inscriptions…).
@@ -130,7 +130,7 @@ class GfLineChart extends StatelessWidget {
               ],
               isCurved: true,
               preventCurveOverShooting: true,
-              color: color,
+              color: AppColors.fg(color),
               barWidth: 3,
               dotData: FlDotData(
                 getDotPainter: (_, _, _, _) => FlDotCirclePainter(
@@ -238,7 +238,7 @@ class GfBarChart extends StatelessWidget {
                 barRods: [
                   BarChartRodData(
                     toY: bars[i].$2,
-                    color: color,
+                    color: AppColors.fg(color),
                     width: 16,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(6),

@@ -12,6 +12,7 @@ import '../../models/user.dart';
 import '../../services/avatar_service.dart';
 import '../../services/backend.dart';
 import '../../services/progress_service.dart';
+import '../../services/theme_controller.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/charts.dart';
@@ -165,7 +166,7 @@ class _InfosTab extends StatelessWidget {
                     style: AppText.body(
                       size: 14,
                       color: sub.isActiveAt(now)
-                          ? AppColors.cream
+                          ? AppColors.creamText
                           : AppColors.ink,
                     ),
                   ),
@@ -244,7 +245,7 @@ class _InfosTab extends StatelessWidget {
               for (final badge in b.progress.badgesOf(user.id))
                 GfCard(
                   padding: const EdgeInsets.all(Gap.s),
-                  color: badge.unlocked ? AppColors.cream : AppColors.white,
+                  color: badge.unlocked ? AppColors.cream : AppColors.surface,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -252,7 +253,7 @@ class _InfosTab extends StatelessWidget {
                         progress: badge.progress,
                         size: 52,
                         stroke: 5,
-                        color: badge.unlocked ? AppColors.red : AppColors.navy,
+                        color: badge.unlocked ? AppColors.redText : AppColors.heading,
                         track: AppColors.divider,
                         child: Icon(
                           badge.icon,
@@ -305,7 +306,7 @@ class _InfosTab extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.fitness_center, color: AppColors.red),
+                      Icon(Icons.fitness_center, color: AppColors.redText),
                       const SizedBox(width: Gap.s),
                       Expanded(
                         child: Column(
@@ -349,7 +350,7 @@ class _InfosTab extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(c.category.icon, color: AppColors.navy),
+                      Icon(c.category.icon, color: AppColors.heading),
                       const SizedBox(width: Gap.s),
                       Expanded(
                         child: Column(
@@ -519,9 +520,9 @@ class ProgressView extends StatelessWidget {
                     const SizedBox(height: Gap.s),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.local_fire_department,
-                          color: AppColors.red,
+                          color: AppColors.redText,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -571,7 +572,7 @@ class ProgressView extends StatelessWidget {
         GfCard(
           child: GfBarChart(
             bars: [for (final (d, v) in volume) ('${d.day}/${d.month}', v)],
-            color: AppColors.navy,
+            color: AppColors.heading,
             valueLabel: (v) => v >= 1000
                 ? '${(v / 1000).toStringAsFixed(1)} t'
                 : v.toStringAsFixed(0),
@@ -596,12 +597,12 @@ class ProgressView extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 18,
                       backgroundColor: AppColors.gold,
                       child: Icon(
                         Icons.emoji_events,
-                        color: AppColors.navy,
+                        color: AppColors.heading,
                         size: 20,
                       ),
                     ),
@@ -1074,14 +1075,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: pagePadding(context, maxWidth: 760, bottom: Gap.m),
         children: [
+          Text('Apparence', style: AppText.title(size: 18)),
+          const SizedBox(height: Gap.s),
+          GfCard(
+            key: const Key('settings_appearance'),
+            child: ListenableBuilder(
+              listenable: ThemeController.I,
+              builder: (context, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Mode d'affichage", style: AppText.subtitle(size: 15)),
+                  const SizedBox(height: Gap.s),
+                  SegmentedButton<AppearanceMode>(
+                    key: const Key('appearance_mode'),
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: AppearanceMode.system,
+                        label: Text('Auto'),
+                        icon: Icon(Icons.brightness_auto_outlined),
+                      ),
+                      ButtonSegment(
+                        value: AppearanceMode.light,
+                        label: Text('Clair'),
+                        icon: Icon(Icons.wb_sunny_outlined),
+                      ),
+                      ButtonSegment(
+                        value: AppearanceMode.dark,
+                        label: Text('Sombre'),
+                        icon: Icon(Icons.nightlight_outlined),
+                      ),
+                    ],
+                    selected: {ThemeController.I.mode},
+                    onSelectionChanged: (s) {
+                      final box = context.findRenderObject() as RenderBox?;
+                      ThemeController.I.setMode(
+                        s.first,
+                        origin: box == null || !box.hasSize
+                            ? null
+                            : box.localToGlobal(box.size.center(Offset.zero)),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: Gap.s),
+                  Text(
+                    'Auto suit le réglage de votre téléphone.',
+                    style: AppText.label(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: Gap.l),
           Text('Confidentialité', style: AppText.title(size: 18)),
           const SizedBox(height: Gap.s),
           GfCard(
             key: const Key('settings_privacy'),
             onTap: () => Navigator.pushNamed(context, Routes.privacy),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.shield_outlined, color: AppColors.navy),
+                Icon(Icons.shield_outlined, color: AppColors.heading),
                 SizedBox(width: Gap.m),
                 Expanded(
                   child: Text(
@@ -1089,7 +1142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'export et suppression de mes données',
                   ),
                 ),
-                Icon(Icons.chevron_right, color: AppColors.navy),
+                Icon(Icons.chevron_right, color: AppColors.heading),
               ],
             ),
           ),
@@ -1154,8 +1207,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: Gap.l),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.red,
-              side: const BorderSide(color: AppColors.red),
+              foregroundColor: AppColors.redText,
+              side: BorderSide(color: AppColors.redText),
             ),
             onPressed: () async {
               await b.auth.logout();

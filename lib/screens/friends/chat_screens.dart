@@ -128,7 +128,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             ),
             ListTile(
               key: const Key('conv_clear'),
-              leading: const Icon(Icons.delete_outline, color: AppColors.red),
+              leading: Icon(Icons.delete_outline, color: AppColors.redText),
               title: const Text('Supprimer la discussion'),
               onTap: () => Navigator.pop(ctx, 'clear'),
             ),
@@ -256,7 +256,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                       ),
                       const SizedBox(height: 4),
                       if (c.muted)
-                        const Icon(
+                        Icon(
                           Icons.notifications_off_outlined,
                           size: 16,
                           color: AppColors.inkSoft,
@@ -402,9 +402,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             if (m.mine && !m.isLocal)
               ListTile(
                 key: const Key('msg_delete_all'),
-                leading: const Icon(
+                leading: Icon(
                   Icons.delete_forever_outlined,
-                  color: AppColors.red,
+                  color: AppColors.redText,
                 ),
                 title: const Text('Supprimer pour tout le monde'),
                 onTap: () => Navigator.pop(ctx, 'all'),
@@ -539,7 +539,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                   : friend.presenceLabel(now),
                               key: const Key('chat_status'),
                               style: AppText.label(
-                                color: AppColors.cream,
+                                color: AppColors.creamText,
                                 size: 12,
                               ),
                             ),
@@ -704,7 +704,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _inputBar() {
     final bar = Material(
-      color: AppColors.white,
+      color: AppColors.surface,
       elevation: 6,
       child: SafeArea(
         top: false,
@@ -716,7 +716,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               IconButton(
                 key: const Key('chat_emoji'),
                 tooltip: _showEmoji ? 'Clavier' : 'Emojis',
-                color: AppColors.navy,
+                color: AppColors.heading,
                 onPressed: () {
                   setState(() => _showEmoji = !_showEmoji);
                   if (_showEmoji) {
@@ -734,7 +734,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               IconButton(
                 key: const Key('chat_attach'),
                 tooltip: 'Partager une séance, un workout…',
-                color: AppColors.navy,
+                color: AppColors.heading,
                 onPressed: () => showSharePicker(context, widget.friendId),
                 icon: const Icon(Icons.add_circle_outline),
               ),
@@ -766,7 +766,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               IconButton(
                 key: const Key('chat_send'),
                 tooltip: 'Envoyer',
-                color: AppColors.red,
+                color: AppColors.redText,
                 onPressed: _text.text.trim().isEmpty ? null : _send,
                 icon: const Icon(Icons.send_rounded),
               ),
@@ -794,7 +794,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Widget _emojiPanel() {
     return Material(
       key: const Key('emoji_panel'),
-      color: AppColors.white,
+      color: AppColors.surface,
       child: SafeArea(
         top: false,
         child: Column(
@@ -835,24 +835,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   height: 260,
                   locale: const Locale('fr'),
                   checkPlatformCompatibility: false,
-                  emojiViewConfig: const EmojiViewConfig(
+                  emojiViewConfig: EmojiViewConfig(
                     columns: 8,
                     emojiSizeMax: 30,
-                    backgroundColor: AppColors.white,
+                    backgroundColor: AppColors.surface,
                   ),
-                  categoryViewConfig: const CategoryViewConfig(
-                    backgroundColor: AppColors.white,
+                  categoryViewConfig: CategoryViewConfig(
+                    backgroundColor: AppColors.surface,
                     indicatorColor: AppColors.red,
                     iconColor: AppColors.inkSoft,
                     iconColorSelected: AppColors.red,
                     backspaceColor: AppColors.red,
                   ),
-                  bottomActionBarConfig: const BottomActionBarConfig(
+                  bottomActionBarConfig: BottomActionBarConfig(
                     backgroundColor: AppColors.navy,
-                    buttonColor: AppColors.navy,
+                    buttonColor: AppColors.heading,
                   ),
-                  searchViewConfig: const SearchViewConfig(
-                    backgroundColor: AppColors.white,
+                  searchViewConfig: SearchViewConfig(
+                    backgroundColor: AppColors.surface,
                     hintText: 'Rechercher un emoji',
                   ),
                 ),
@@ -914,7 +914,7 @@ class _Bubble extends StatelessWidget {
         : (mine ? AppColors.white : AppColors.ink);
     final bg = deleted
         ? AppColors.background
-        : (mine ? AppColors.navy : AppColors.white);
+        : (mine ? AppColors.navy : AppColors.surface);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(

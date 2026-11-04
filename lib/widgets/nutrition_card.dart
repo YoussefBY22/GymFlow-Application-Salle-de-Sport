@@ -37,7 +37,7 @@ class NutritionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.restaurant_menu, color: AppColors.navy),
+              Icon(Icons.restaurant_menu, color: AppColors.heading),
               const SizedBox(width: Gap.s),
               Expanded(
                 child: Text('Nutrition', style: AppText.title(size: 18)),
@@ -109,10 +109,10 @@ class NutritionCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.auto_awesome,
                         size: 18,
-                        color: AppColors.navy,
+                        color: AppColors.heading,
                       ),
                       const SizedBox(width: 6),
                       Text(

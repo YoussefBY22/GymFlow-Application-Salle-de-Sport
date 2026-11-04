@@ -53,7 +53,7 @@ class SmartwatchAppBarButton extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.success,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.navy, width: 1.5),
+                      border: Border.all(color: AppColors.heading, width: 1.5),
                     ),
                   ),
                 ),
@@ -102,7 +102,7 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
     final sw = Backend.I.smartwatch;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -138,7 +138,7 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
                       color: AppColors.navy.withOpacity(0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bluetooth_searching, color: AppColors.navy),
+                    child: Icon(Icons.bluetooth_searching, color: AppColors.heading),
                   ),
                   const SizedBox(width: Gap.s),
                   Expanded(
@@ -252,7 +252,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                       color: AppColors.success.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bluetooth_connected, color: AppColors.success, size: 22),
+                    child: Icon(Icons.bluetooth_connected, color: AppColors.successText, size: 22),
                   ),
                   const SizedBox(width: Gap.s),
                   Expanded(
@@ -265,7 +265,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                         ),
                         Text(
                           '${device.brand} · ${device.macAddress}',
-                          style: AppText.label(color: AppColors.cream, size: 11),
+                          style: AppText.label(color: AppColors.creamText, size: 11),
                         ),
                       ],
                     ),
@@ -298,7 +298,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                     children: [
                       _StatItem(
                         icon: Icons.favorite,
-                        iconColor: AppColors.red,
+                        iconColor: AppColors.redText,
                         value: hr > 0 ? '$hr' : '--',
                         unit: 'BPM',
                         label: zone,
@@ -312,7 +312,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                       ),
                       _StatItem(
                         icon: Icons.directions_walk,
-                        iconColor: AppColors.success,
+                        iconColor: AppColors.successText,
                         value: '$steps',
                         unit: 'pas',
                         label: 'Podomètre',
@@ -329,8 +329,8 @@ class _ConnectedDeviceView extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.red,
-              side: const BorderSide(color: AppColors.red),
+              foregroundColor: AppColors.redText,
+              side: BorderSide(color: AppColors.redText),
             ),
             onPressed: sw.disconnect,
             icon: const Icon(Icons.link_off),
@@ -368,13 +368,13 @@ class _StatItem extends StatelessWidget {
             const SizedBox(width: 4),
             Text(value, style: AppText.stat(color: AppColors.white, size: 20)),
             const SizedBox(width: 2),
-            Text(unit, style: AppText.label(color: AppColors.cream, size: 10)),
+            Text(unit, style: AppText.label(color: AppColors.creamText, size: 10)),
           ],
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: AppText.label(color: AppColors.cream, size: 10),
+          style: AppText.label(color: AppColors.creamText, size: 10),
           textAlign: TextAlign.center,
         ),
       ],
@@ -440,7 +440,7 @@ class _ScanDeviceView extends StatelessWidget {
               return GfCard(
                 child: Column(
                   children: [
-                    const Icon(Icons.bluetooth_searching, size: 44, color: AppColors.outline),
+                    Icon(Icons.bluetooth_searching, size: 44, color: AppColors.outline),
                     const SizedBox(height: Gap.s),
                     Text('Aucune montre connectée pour le moment', style: AppText.subtitle(size: 14)),
                     const SizedBox(height: 4),
@@ -467,14 +467,14 @@ class _ScanDeviceView extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: Gap.s),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.white,
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppColors.outline),
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: AppColors.navy.withOpacity(0.08),
-                          child: const Icon(Icons.watch, color: AppColors.navy),
+                          child: Icon(Icons.watch, color: AppColors.heading),
                         ),
                         title: Text(d.name, style: AppText.subtitle(size: 14)),
                         subtitle: Text(

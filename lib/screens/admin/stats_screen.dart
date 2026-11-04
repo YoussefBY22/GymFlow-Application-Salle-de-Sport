@@ -116,9 +116,9 @@ class _LocalTab extends StatelessWidget {
         return ListView(
           padding: pagePadding(context, bottom: Gap.l),
           children: [
-            const _SourceBanner(
+            _SourceBanner(
               icon: Icons.fitness_center,
-              color: AppColors.navy,
+              color: AppColors.heading,
               soft: AppColors.cream,
               title: 'Source : GymFlow (dans l\'application)',
               text:
@@ -146,7 +146,7 @@ class _LocalTab extends StatelessWidget {
                     for (final (d, n) in a.perDay)
                       ('${d.substring(8)}/${d.substring(5, 7)}', n.toDouble()),
                   ],
-                  color: AppColors.navy,
+                  color: AppColors.heading,
                 ),
               ),
               const SectionHeader('Parcours d\'achat'),
@@ -503,7 +503,7 @@ class _GaTabState extends State<_GaTab> with AutomaticKeepAliveClientMixin {
             const SizedBox(height: Gap.s),
             Text(
               friendlyError(_error!),
-              style: AppText.body(size: 14, color: AppColors.red),
+              style: AppText.body(size: 14, color: AppColors.redText),
             ),
           ],
           const SizedBox(height: Gap.m),
@@ -770,7 +770,7 @@ class _Kpi extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Gap.m, vertical: Gap.s),
       child: Row(
         children: [
-          Icon(icon, color: color),
+          Icon(icon, color: AppColors.fg(color)),
           const SizedBox(width: Gap.s),
           Expanded(
             child: Column(
@@ -781,7 +781,7 @@ class _Kpi extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.stat(color: color, size: 20),
+                  style: AppText.stat(color: AppColors.fg(color), size: 20),
                 ),
                 Text(
                   label,
@@ -855,7 +855,7 @@ class _Funnel extends StatelessWidget {
                     value: top == 0 ? 0 : (steps[i].$2 / top).clamp(0, 1),
                     color: i == steps.length - 1
                         ? AppColors.success
-                        : AppColors.navy,
+                        : AppColors.heading,
                     height: 8,
                   ),
                 ],
@@ -985,7 +985,7 @@ class _RankedList extends StatelessWidget {
                   AnimatedBar(
                     value: max == 0 ? 0 : items[i].$2 / max,
                     height: 6,
-                    color: i == 0 ? AppColors.red : AppColors.navy,
+                    color: i == 0 ? AppColors.red : AppColors.heading,
                   ),
                 ],
               ),

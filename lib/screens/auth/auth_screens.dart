@@ -63,7 +63,7 @@ class _AuthHeader extends StatelessWidget {
                 ),
                 child: Text(
                   'v${AppConfig.appVersion}',
-                  style: AppText.label(size: 11, color: AppColors.cream),
+                  style: AppText.label(size: 11, color: AppColors.creamText),
                 ),
               ),
             ],
@@ -71,7 +71,7 @@ class _AuthHeader extends StatelessWidget {
           const SizedBox(height: Gap.l),
           Text(title, style: AppText.display(color: AppColors.white, size: 28)),
           const SizedBox(height: Gap.xs),
-          Text(subtitle, style: AppText.body(color: AppColors.cream)),
+          Text(subtitle, style: AppText.body(color: AppColors.creamText)),
         ],
       ),
     );
@@ -186,16 +186,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.error_outline,
-                                      color: AppColors.red,
+                                      color: AppColors.redText,
                                     ),
                                     const SizedBox(width: Gap.s),
                                     Expanded(
                                       child: Text(
                                         _banner!,
                                         style: AppText.body(
-                                          color: AppColors.red,
+                                          color: AppColors.redText,
                                           size: 14,
                                         ),
                                       ),
@@ -307,9 +307,9 @@ class DemoAccountsPanel extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          leading: const Icon(Icons.science_outlined, color: AppColors.navy),
-          iconColor: AppColors.navy,
-          collapsedIconColor: AppColors.navy,
+          leading: Icon(Icons.science_outlined, color: AppColors.heading),
+          iconColor: AppColors.heading,
+          collapsedIconColor: AppColors.heading,
           title: Text('Comptes de démo', style: AppText.subtitle(size: 15)),
           subtitle: Text(
             'Touchez un compte pour remplir le formulaire',
@@ -319,7 +319,7 @@ class DemoAccountsPanel extends StatelessWidget {
             for (final a in demoAccounts)
               ListTile(
                 dense: true,
-                leading: Icon(a.role.icon, color: AppColors.navy),
+                leading: Icon(a.role.icon, color: AppColors.heading),
                 title: Text(a.label, style: AppText.body(size: 14)),
                 subtitle: Text(a.email, style: AppText.label(size: 12)),
                 onTap: () => onPick(a),

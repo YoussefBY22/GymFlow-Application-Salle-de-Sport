@@ -87,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: Gap.s),
                   Text(
                     'Bougez. Progressez. Ensemble.',
-                    style: AppText.body(color: AppColors.cream),
+                    style: AppText.body(color: AppColors.creamText),
                   ),
                 ],
               ),

@@ -154,9 +154,9 @@ class FilterSearchBar extends StatelessWidget {
                             label: Text(o.label),
                             avatar: o.icon == null
                                 ? null
-                                : Icon(o.icon, size: 16, color: AppColors.navy),
+                                : Icon(o.icon, size: 16, color: AppColors.heading),
                             labelStyle: AppText.label(
-                              color: AppColors.navy,
+                              color: AppColors.heading,
                               size: 13,
                             ),
                             backgroundColor: AppColors.cream,
@@ -198,9 +198,9 @@ class _FilterButton extends StatelessWidget {
         key: const Key('filters_button'),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 48),
-          backgroundColor: on ? AppColors.navy : AppColors.white,
-          foregroundColor: on ? AppColors.white : AppColors.navy,
-          side: const BorderSide(color: AppColors.navy),
+          backgroundColor: on ? AppColors.navy : AppColors.surface,
+          foregroundColor: on ? AppColors.white : AppColors.heading,
+          side: BorderSide(color: AppColors.heading),
           padding: const EdgeInsets.symmetric(horizontal: Gap.m),
         ),
         onPressed: onTap,
@@ -289,14 +289,14 @@ class _FilterSheetState extends State<_FilterSheet> {
                   Row(
                     children: [
                       if (g.icon != null) ...[
-                        Icon(g.icon, size: 18, color: AppColors.red),
+                        Icon(g.icon, size: 18, color: AppColors.redText),
                         const SizedBox(width: 6),
                       ],
                       Expanded(child: Text(g.title, style: AppText.subtitle())),
                       if (_v.isActive(g.id))
                         Text(
                           '${_v.of(g.id).length} choisi${_v.of(g.id).length > 1 ? 's' : ''}',
-                          style: AppText.label(size: 12, color: AppColors.red),
+                          style: AppText.label(size: 12, color: AppColors.redText),
                         ),
                     ],
                   ),
@@ -356,15 +356,15 @@ class _FilterSheetState extends State<_FilterSheet> {
           onSelected: (_) => _toggle(g, o),
           selectedColor: AppColors.navy,
           checkmarkColor: AppColors.white,
-          backgroundColor: AppColors.white,
+          backgroundColor: AppColors.surface,
           labelStyle: AppText.body(
             size: 14,
-            color: _v.has(g.id, o.key) ? AppColors.white : AppColors.navy,
+            color: _v.has(g.id, o.key) ? AppColors.white : AppColors.heading,
           ),
           iconTheme: IconThemeData(
-            color: _v.has(g.id, o.key) ? AppColors.white : AppColors.navy,
+            color: _v.has(g.id, o.key) ? AppColors.white : AppColors.heading,
           ),
-          side: const BorderSide(color: AppColors.outline),
+          side: BorderSide(color: AppColors.outline),
         ),
     ],
   );
@@ -408,13 +408,13 @@ class _DayTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? AppColors.white : AppColors.navy;
+    final fg = selected ? AppColors.white : AppColors.heading;
     return Semantics(
       button: true,
       selected: selected,
       label: '${option.label} ${option.caption ?? ''}',
       child: Material(
-        color: selected ? AppColors.navy : AppColors.white,
+        color: selected ? AppColors.navy : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -426,7 +426,7 @@ class _DayTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? AppColors.navy : AppColors.outline,
+                color: selected ? AppColors.heading : AppColors.outline,
               ),
             ),
             child: Column(

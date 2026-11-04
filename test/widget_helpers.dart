@@ -4,6 +4,7 @@ import 'package:gymflow/app.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/services/friends/friends_remote.dart';
+import 'package:gymflow/services/theme_controller.dart';
 import 'package:gymflow/widgets/common.dart';
 import 'package:http/http.dart' as http;
 
@@ -20,6 +21,9 @@ Future<Backend> pumpApp(
   FriendsRemote? friendsRemote,
 }) async {
   NetImage.networkEnabled = false;
+  // Clair par défaut, sans fondu circulaire (capture d'écran impossible ici).
+  ThemeController.I.reset();
+  ThemeController.animated = false;
   tester.view.physicalSize = const Size(1080, 2340);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);

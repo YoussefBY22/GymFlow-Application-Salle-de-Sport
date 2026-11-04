@@ -10,21 +10,24 @@ import '../models/user.dart';
 
 /// Widgets réutilisables du design system GymFlow.
 
-/// Carte blanche arrondie avec ombre légère (style Strava).
+/// Carte arrondie (blanche en mode clair, bleu nuit en mode sombre) avec ombre
+/// légère (style Strava).
 class GfCard extends StatelessWidget {
   const GfCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(Gap.m),
     this.onTap,
-    this.color = AppColors.white,
+    this.color,
     this.margin = EdgeInsets.zero,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
-  final Color color;
+
+  /// Fond de la carte ; sans valeur, la surface du mode en cours.
+  final Color? color;
   final EdgeInsetsGeometry margin;
 
   @override
@@ -32,10 +35,16 @@ class GfCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: Material(
-        color: color,
-        elevation: 1.5,
+        color: color ?? AppColors.surface,
+        elevation: AppColors.isDark ? 0 : 1.5,
         shadowColor: const Color(0x22002855),
-        borderRadius: BorderRadius.circular(Gap.radius),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Gap.radius),
+          // Sans ombre en mode sombre : un fin contour sépare la carte du fond.
+          side: AppColors.isDark
+              ? BorderSide(color: AppColors.divider)
+              : BorderSide.none,
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -85,14 +94,15 @@ class SectionHeader extends StatelessWidget {
 
 /// Badge / pastille. Les couleurs de texte suivent la règle `onColor`.
 class Pill extends StatelessWidget {
-  const Pill(this.label, {super.key, this.color = AppColors.cream, this.icon});
+  const Pill(this.label, {super.key, this.color, this.icon});
 
   final String label;
-  final Color color;
+  final Color? color;
   final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? AppColors.cream;
     final fg = onColor(color);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -167,7 +177,7 @@ class NetImage extends StatelessWidget {
     height: height,
     color: AppColors.cream,
     alignment: Alignment.center,
-    child: Icon(fallbackIcon, color: AppColors.navy, size: 36),
+    child: Icon(fallbackIcon, color: AppColors.heading, size: 36),
   );
 
   /// Fond clair posé sous chaque image : une photo importée au format PNG
@@ -288,11 +298,11 @@ class EmptyState extends StatelessWidget {
             Container(
               width: 96,
               height: 96,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.cream,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 44, color: AppColors.navy),
+              child: Icon(icon, size: 44, color: AppColors.heading),
             ),
             const SizedBox(height: Gap.m),
             Text(
@@ -392,12 +402,12 @@ class StatTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (icon != null) Icon(icon, size: 18, color: color),
+        if (icon != null) Icon(icon, size: 18, color: AppColors.fg(color)),
         Text(
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppText.stat(color: color, size: 18),
+          style: AppText.stat(color: AppColors.fg(color), size: 18),
         ),
         Text(label, style: AppText.label(size: 12)),
       ],

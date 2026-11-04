@@ -16,6 +16,7 @@ import '../../widgets/common.dart';
 import '../../widgets/filter_bar.dart';
 import '../../widgets/pickers.dart';
 import '../../widgets/sentiment_widgets.dart';
+import '../../widgets/theme_toggle.dart';
 import '../coach/coach_home.dart';
 import '../shell/main_shell.dart';
 
@@ -30,7 +31,7 @@ class AdminDashboardScreen extends StatelessWidget {
       appBar: AppBar(
         leading: const ShellMenuButton(),
         title: const Text('Tableau de bord'),
-        actions: const [NotificationBell()],
+        actions: const [ThemeToggleButton(), NotificationBell()],
       ),
       body: ListenableBuilder(
         listenable: b.bus,
@@ -96,7 +97,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     icon: Icons.sports,
                     value: s.coaches.toDouble(),
                     label: 'Coachs',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                     onTap: () => MainShell.tab.value = 1,
                   ),
                   KpiCard(
@@ -109,7 +110,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     icon: Icons.event_available,
                     value: s.reservations.toDouble(),
                     label: 'Réservations actives',
-                    color: AppColors.success,
+                    color: AppColors.successText,
                   ),
                   KpiCard(
                     icon: Icons.fitness_center,
@@ -121,7 +122,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     icon: Icons.calendar_view_week,
                     value: s.programs.toDouble(),
                     label: 'Programmes (${s.workouts} workouts)',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                     onTap: () => MainShell.tab.value = 3,
                   ),
                   KpiCard(
@@ -129,14 +130,14 @@ class AdminDashboardScreen extends StatelessWidget {
                     value: s.revenue,
                     label: 'CA total (mois : ${Fmt.money(s.revenueMonth)})',
                     format: (v) => '${v.round()} DT',
-                    color: AppColors.success,
+                    color: AppColors.successText,
                     onTap: () => MainShell.tab.value = 4,
                   ),
                   KpiCard(
                     icon: Icons.inventory_2,
                     value: s.pendingOrders.toDouble(),
                     label: 'Commandes à traiter',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                     onTap: () =>
                         Navigator.pushNamed(context, Routes.adminOrders),
                   ),
@@ -149,7 +150,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     for (final (d, n) in signups)
                       ('${d.day}/${d.month}', n.toDouble()),
                   ],
-                  color: AppColors.red,
+                  color: AppColors.redText,
                 ),
               ),
               const SectionHeader('Taux de remplissage des cours'),
@@ -175,7 +176,7 @@ class AdminDashboardScreen extends StatelessWidget {
                                 value: rate,
                                 color: rate >= 1
                                     ? AppColors.red
-                                    : AppColors.navy,
+                                    : AppColors.heading,
                               ),
                             ),
                             const SizedBox(width: Gap.s),
@@ -198,7 +199,7 @@ class AdminDashboardScreen extends StatelessWidget {
                 child: GfLineChart(
                   points: [for (final (d, v) in revenue) (d, v)],
                   unit: 'TND',
-                  color: AppColors.success,
+                  color: AppColors.successText,
                 ),
               ),
               const SectionHeader('Score de satisfaction IA'),
@@ -213,31 +214,31 @@ class AdminDashboardScreen extends StatelessWidget {
                 runSpacing: Gap.s,
                 children: [
                   ActionChip(
-                    avatar: const Icon(
+                    avatar: Icon(
                       Icons.person_add_alt,
-                      color: AppColors.navy,
+                      color: AppColors.heading,
                     ),
                     label: const Text('Créer un coach'),
                     onPressed: () =>
                         Navigator.pushNamed(context, Routes.newCoach),
                   ),
                   ActionChip(
-                    avatar: const Icon(Icons.add, color: AppColors.navy),
+                    avatar: Icon(Icons.add, color: AppColors.heading),
                     label: const Text('Nouveau cours'),
                     onPressed: () =>
                         Navigator.pushNamed(context, Routes.courseForm),
                   ),
                   ActionChip(
-                    avatar: const Icon(
+                    avatar: Icon(
                       Icons.campaign_outlined,
-                      color: AppColors.navy,
+                      color: AppColors.heading,
                     ),
                     label: const Text('Publier une annonce'),
                     onPressed: () =>
                         Navigator.pushNamed(context, Routes.announcementForm),
                   ),
                   ActionChip(
-                    avatar: const Icon(Icons.history, color: AppColors.navy),
+                    avatar: Icon(Icons.history, color: AppColors.heading),
                     label: const Text('Journal d\'audit'),
                     onPressed: () => Navigator.pushNamed(context, Routes.audit),
                   ),
@@ -276,7 +277,7 @@ class _RankList extends StatelessWidget {
                     backgroundColor: i == 0 ? AppColors.gold : AppColors.cream,
                     child: Text(
                       '${i + 1}',
-                      style: AppText.label(color: AppColors.navy, size: 12),
+                      style: AppText.label(color: AppColors.heading, size: 12),
                     ),
                   ),
                   const SizedBox(width: Gap.s),
@@ -562,7 +563,7 @@ class UserDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Gap.s),
-              const GfCard(
+              GfCard(
                 color: AppColors.cream,
                 child: InfoRow(
                   Icons.lock_outline,
@@ -716,7 +717,7 @@ class UserDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: Gap.s),
                 TextButton.icon(
-                  style: TextButton.styleFrom(foregroundColor: AppColors.red),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.redText),
                   onPressed: () async {
                     final ok = await confirm(
                       context,
@@ -895,9 +896,9 @@ class AuditScreen extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.shield_outlined,
-                            color: AppColors.navy,
+                            color: AppColors.heading,
                           ),
                           const SizedBox(width: Gap.s),
                           Expanded(

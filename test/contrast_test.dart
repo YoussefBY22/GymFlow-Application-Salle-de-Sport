@@ -4,42 +4,71 @@ import 'package:gymflow/core/contrast.dart';
 import 'package:gymflow/core/theme.dart';
 
 /// Règle de lisibilité : toutes les paires texte/fond utilisées dans
-/// l'application respectent WCAG AA (≥ 4,5:1).
+/// l'application respectent WCAG AA (≥ 4,5:1), en mode clair comme en mode
+/// sombre (bleu nuit).
 void main() {
-  // (fond, texte, contexte)
-  const pairs = <(Color, Color, String)>[
+  // Paires de couleurs de marque, identiques dans les deux modes.
+  const brandPairs = <(Color, Color, String)>[
     (AppColors.navy, AppColors.white, 'AppBar, cartes marine'),
-    (AppColors.navy, AppColors.cream, 'sous-titres sur marine'),
+    (AppColors.navy, AppColors.creamText, 'sous-titres sur marine'),
     (AppColors.navy, AppColors.gold, 'chrono, minuteur, action SnackBar'),
     (AppColors.navy, AppColors.navyMuted, 'onglets non sélectionnés'),
     (AppColors.red, AppColors.white, 'boutons principaux, badges'),
     (AppColors.gold, AppColors.navy, 'badges dorés, records'),
-    (AppColors.cream, AppColors.navy, 'cartes crème'),
-    (AppColors.cream, AppColors.ink, 'texte sur crème'),
-    (AppColors.cream, AppColors.inkSoft, 'texte secondaire sur crème'),
-    (AppColors.cream, AppColors.red, 'prix / alertes sur crème'),
-    (AppColors.background, AppColors.navy, 'titres sur fond'),
-    (AppColors.background, AppColors.ink, 'texte sur fond'),
-    (AppColors.background, AppColors.inkSoft, 'texte secondaire sur fond'),
-    (AppColors.white, AppColors.navy, 'titres sur cartes'),
-    (AppColors.white, AppColors.ink, 'texte sur cartes'),
-    (AppColors.white, AppColors.inkSoft, 'hints, labels, onglets inactifs'),
-    (AppColors.white, AppColors.red, 'prix, onglet actif, erreurs'),
-    (AppColors.white, AppColors.success, 'textes de succès'),
     (AppColors.success, AppColors.white, 'pastilles de succès'),
-    (AppColors.successSoft, AppColors.success, 'série validée'),
-    (AppColors.redSoft, AppColors.red, 'bannières d\'erreur'),
-    (AppColors.redSoft, AppColors.ink, 'texte sur bannière d\'erreur'),
-    (AppColors.inkSoft, AppColors.white, 'pastille « archivé »'),
-    (AppColors.outline, AppColors.white, 'texte blanc sur gris'),
   ];
 
-  for (final (bg, fg, label) in pairs) {
+  for (final (bg, fg, label) in brandPairs) {
     test('contraste ≥ 4,5 : $label', () {
       expect(
         contrastRatio(bg, fg),
         greaterThanOrEqualTo(wcagAA),
         reason: label,
+      );
+    });
+  }
+
+  for (final p in [AppPalette.light, AppPalette.night]) {
+    final mode = p.dark ? 'sombre' : 'clair';
+    // (fond, texte, contexte)
+    final pairs = <(Color, Color, String)>[
+      (p.cream, p.heading, 'cartes crème'),
+      (p.cream, p.ink, 'texte sur crème'),
+      (p.cream, p.inkSoft, 'texte secondaire sur crème'),
+      (p.cream, p.redText, 'prix / alertes sur crème'),
+      (p.cream, p.successText, 'succès sur crème'),
+      (p.background, p.heading, 'titres sur fond'),
+      (p.background, p.ink, 'texte sur fond'),
+      (p.background, p.inkSoft, 'texte secondaire sur fond'),
+      (p.background, p.redText, 'alertes sur fond'),
+      (p.surface, p.heading, 'titres sur cartes'),
+      (p.surface, p.ink, 'texte sur cartes'),
+      (p.surface, p.inkSoft, 'hints, labels, onglets inactifs'),
+      (p.surface, p.redText, 'prix, onglet actif, erreurs'),
+      (p.surface, p.successText, 'textes de succès'),
+      (p.successSoft, p.successText, 'série validée'),
+      (p.redSoft, p.redText, 'bannières d\'erreur'),
+      (p.redSoft, p.ink, 'texte sur bannière d\'erreur'),
+      (p.inkSoft, p.surface, 'pastille « archivé »'),
+    ];
+    for (final (bg, fg, label) in pairs) {
+      test('mode $mode, contraste ≥ 4,5 : $label', () {
+        expect(
+          contrastRatio(bg, fg),
+          greaterThanOrEqualTo(wcagAA),
+          reason: label,
+        );
+      });
+    }
+
+    test('mode $mode : éléments graphiques (bordures, icônes) ≥ 3:1', () {
+      expect(
+        contrastRatio(p.surface, p.outline),
+        greaterThanOrEqualTo(wcagAALarge),
+      );
+      expect(
+        contrastRatio(p.background, p.outline),
+        greaterThanOrEqualTo(wcagAALarge),
       );
     });
   }
@@ -54,21 +83,13 @@ void main() {
     expect(onColor(AppColors.navy), AppColors.white);
     expect(onColor(AppColors.red), AppColors.white);
     expect(onColor(AppColors.gold), AppColors.navy);
-    expect(onColor(AppColors.cream), AppColors.navy);
-    expect(onColor(AppColors.white), AppColors.navy);
-    expect(onColor(AppColors.background), AppColors.navy);
+    expect(onColor(AppPalette.light.cream), AppColors.navy);
+    expect(onColor(AppPalette.light.surface), AppColors.navy);
+    expect(onColor(AppPalette.light.background), AppColors.navy);
     expect(onColor(AppColors.success), AppColors.white);
-  });
-
-  test('éléments graphiques (bordures, icônes inactives) ≥ 3:1', () {
-    expect(
-      contrastRatio(AppColors.white, AppColors.outline),
-      greaterThanOrEqualTo(wcagAALarge),
-    );
-    expect(
-      contrastRatio(AppColors.background, AppColors.outline),
-      greaterThanOrEqualTo(wcagAALarge),
-    );
+    // Mode sombre : les surfaces nuit portent du texte blanc.
+    expect(onColor(AppPalette.night.surface), AppColors.white);
+    expect(onColor(AppPalette.night.background), AppColors.white);
   });
 
   test('ratio de référence : noir sur blanc = 21', () {

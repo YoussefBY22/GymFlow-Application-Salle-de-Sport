@@ -74,7 +74,7 @@ class ShopDashboardScreen extends StatelessWidget {
                     value: b.orderService.revenue(),
                     label: 'CA total',
                     format: (v) => '${v.round()} DT',
-                    color: AppColors.success,
+                    color: AppColors.successText,
                   ),
                   KpiCard(
                     icon: Icons.calendar_month,
@@ -86,7 +86,7 @@ class ShopDashboardScreen extends StatelessWidget {
                     icon: Icons.inventory_2,
                     value: pending.toDouble(),
                     label: 'Commandes à traiter',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                     onTap: () =>
                         Navigator.pushNamed(context, Routes.adminOrders),
                   ),
@@ -94,7 +94,7 @@ class ShopDashboardScreen extends StatelessWidget {
                     icon: Icons.warning_amber,
                     value: lowStock.toDouble(),
                     label: 'Stocks faibles (≤ 5)',
-                    color: AppColors.red,
+                    color: AppColors.redText,
                   ),
                 ],
               ),
@@ -179,7 +179,7 @@ class _AdminProductTile extends StatelessWidget {
                         color: AppColors.gold,
                       ),
                     if (!p.active)
-                      const Pill('Archivé', color: AppColors.inkSoft),
+                      Pill('Archivé', color: AppColors.inkSoft),
                   ],
                 ),
               ],
@@ -195,9 +195,9 @@ class _AdminProductTile extends StatelessWidget {
                   () => b.productService.adjustStock(p.id, 5),
                   success: 'Stock +5',
                 ),
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_box_outlined,
-                  color: AppColors.success,
+                  color: AppColors.successText,
                 ),
               ),
               IconButton(
@@ -209,9 +209,9 @@ class _AdminProductTile extends StatelessWidget {
                         context,
                         () => b.productService.adjustStock(p.id, -1),
                       ),
-                icon: const Icon(
+                icon: Icon(
                   Icons.indeterminate_check_box_outlined,
-                  color: AppColors.red,
+                  color: AppColors.redText,
                 ),
               ),
             ],
@@ -511,7 +511,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         // sans perdre le focus pendant la saisie.
         key: ValueKey('nutrition_$_imports'),
         initiallyExpanded: hasData,
-        leading: const Icon(Icons.restaurant_menu, color: AppColors.navy),
+        leading: Icon(Icons.restaurant_menu, color: AppColors.heading),
         title: Text('Nutrition', style: AppText.subtitle(size: 15)),
         subtitle: Text(
           _nutritionSource == null
@@ -704,12 +704,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.outline),
                         ),
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.add_a_photo_outlined,
-                              color: AppColors.navy,
+                              color: AppColors.heading,
                             ),
                             Text('Photo'),
                           ],

@@ -105,7 +105,7 @@ class CoverField extends StatelessWidget {
               IconButton(
                 tooltip: 'Retirer l\'image',
                 onPressed: controller.clear,
-                icon: const Icon(Icons.close, color: AppColors.red),
+                icon: Icon(Icons.close, color: AppColors.redText),
               ),
           ],
         );
@@ -371,7 +371,7 @@ class _WorkoutItemTile extends StatelessWidget {
                 if (item.suggestedLoad.isNotEmpty)
                   Text(
                     'Charge : ${item.suggestedLoad}',
-                    style: AppText.label(size: 12, color: AppColors.navy),
+                    style: AppText.label(size: 12, color: AppColors.heading),
                   ),
                 if (item.notes.isNotEmpty)
                   Text(
@@ -383,7 +383,7 @@ class _WorkoutItemTile extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.inkSoft),
+          Icon(Icons.chevron_right, color: AppColors.inkSoft),
         ],
       ),
     );
@@ -517,7 +517,7 @@ class _WorkoutFormScreenState extends State<WorkoutFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (b.auth.currentUser?.isMember ?? false)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(bottom: Gap.m),
                         child: GfCard(
                           color: AppColors.cream,
@@ -653,9 +653,9 @@ class _WorkoutFormScreenState extends State<WorkoutFormScreen> {
                         ),
                         trailing: IconButton(
                           tooltip: 'Retirer',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
-                            color: AppColors.red,
+                            color: AppColors.redText,
                           ),
                           onPressed: () => setState(() => _items.removeAt(i)),
                         ),
@@ -1072,7 +1072,7 @@ class ProgramDetailScreen extends StatelessWidget {
                             child: GfCard(
                               color: isToday
                                   ? AppColors.cream
-                                  : AppColors.white,
+                                  : AppColors.surface,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: Gap.m,
                                 vertical: Gap.s,
@@ -1093,8 +1093,8 @@ class ProgramDetailScreen extends StatelessWidget {
                                       style: AppText.subtitle(
                                         size: 14,
                                         color: isToday
-                                            ? AppColors.red
-                                            : AppColors.navy,
+                                            ? AppColors.redText
+                                            : AppColors.heading,
                                       ),
                                     ),
                                   ),
@@ -1110,7 +1110,7 @@ class ProgramDetailScreen extends StatelessWidget {
                                     ),
                                   ),
                                   if (w != null)
-                                    const Icon(
+                                    Icon(
                                       Icons.chevron_right,
                                       color: AppColors.inkSoft,
                                     ),
@@ -1279,7 +1279,7 @@ class _ProgramFormScreenState extends State<ProgramFormScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!me.canManageContent)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(bottom: Gap.m),
                   child: GfCard(
                     color: AppColors.cream,
