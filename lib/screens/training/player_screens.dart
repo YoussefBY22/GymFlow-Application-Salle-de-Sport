@@ -1531,14 +1531,10 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           ),
                           Text(
                             'pas',
-<<<<<<< HEAD
-                            style: AppText.label(color: AppColors.creamText, size: 9),
-=======
                             style: AppText.label(
                               color: AppColors.cream,
                               size: 9,
                             ),
->>>>>>> Malek_VF
                           ),
                         ],
                       ),

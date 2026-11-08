@@ -138,7 +138,7 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
                       color: AppColors.navy.withOpacity(0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.bluetooth_searching,
                       color: AppColors.navy,
                     ),
@@ -260,7 +260,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                       color: AppColors.success.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.bluetooth_connected,
                       color: AppColors.success,
                       size: 22,
@@ -291,7 +291,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.battery_std,
                         color: AppColors.gold,
                         size: 18,
@@ -465,7 +465,7 @@ class _ScanDeviceView extends StatelessWidget {
               return GfCard(
                 child: Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.bluetooth_searching,
                       size: 44,
                       color: AppColors.outline,
