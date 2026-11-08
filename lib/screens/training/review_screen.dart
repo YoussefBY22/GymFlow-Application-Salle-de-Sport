@@ -8,8 +8,8 @@ import '../../models/content.dart';
 import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../services/backend.dart';
+import '../../services/ai/cloud_ai_service.dart';
 import '../../services/ai/local_ai_service.dart';
-import '../../services/gemini_client.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/common.dart';
 
@@ -57,9 +57,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
       if (dialogContext.mounted) {
         setStateDialog(
           () => _cloudResult =
-              'Gemini n’est pas configuré. Lancez l’application avec '
-              '--dart-define-from-file=secrets.json. L’analyse locale reste '
-              'disponible sans clé ni connexion.',
+              'La rédaction assistée est momentanément indisponible. '
+              'Vous pouvez saisir le motif manuellement.',
         );
       }
       return;
@@ -70,41 +69,38 @@ class _ReviewScreenState extends State<ReviewScreen> {
       _cloudResult = null;
     });
     try {
-      final reply = await b.gemini.generate(
-        system:
-            'Tu aides un coach à relire des propositions d’exercices sportifs. '
-            'Rédige en français un brouillon poli et concis (maximum 3 phrases) '
-            'demandant des corrections concrètes avant publication. Appuie-toi '
-            'uniquement sur le contenu fourni, ne prétends pas qu’un risque '
-            'médical est prouvé, n’invente aucun défaut et ne décide pas à la '
-            'place du coach. Retourne uniquement le texte du brouillon.',
-        contents: GeminiClient.userMessage(
-          'Type : ${item.kind.label}\n'
-          'Nom : ${item.name}\n'
-          'Contenu à relire :\n${_submissionContext(item, b)}',
-        ),
-        temperature: 0.2,
-        maxOutputTokens: 180,
-      );
+      final generated =
+          await CloudAIService(
+            client: b.httpClient,
+            apiKey: b.gemini.apiKey,
+          ).generateText(
+            system:
+                'Tu aides un coach à relire des propositions d’exercices sportifs. '
+                'Rédige en français un brouillon poli et concis (maximum 3 phrases) '
+                'demandant des corrections concrètes avant publication. Appuie-toi '
+                'uniquement sur le contenu fourni, ne prétends pas qu’un risque '
+                'médical est prouvé, n’invente aucun défaut et ne décide pas à la '
+                'place du coach. Retourne uniquement le texte du brouillon.',
+            prompt:
+                'Type : ${item.kind.label}\n'
+                'Nom : ${item.name}\n'
+                'Contenu à relire :\n${_submissionContext(item, b)}',
+          );
       if (!mounted || !dialogContext.mounted) return;
       setStateDialog(() {
         _isGeneratingReason = false;
-        if (reply.text != null) {
-          final generated = reply.text!.trim();
-          _cloudResult = generated;
-          _reason.text = generated.length > 300
-              ? generated.substring(0, 300)
-              : generated;
-          _reasonError = null;
-        } else {
-          _cloudResult = reply.error ?? 'Gemini n’a pas généré de réponse.';
-        }
+        _cloudResult = generated;
+        _reason.text = generated.length > 300
+            ? generated.substring(0, 300)
+            : generated;
+        _reasonError = null;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted || !dialogContext.mounted) return;
       setStateDialog(() {
         _isGeneratingReason = false;
-        _cloudResult = 'Échec de la génération Gemini : $error';
+        _cloudResult =
+            'Le brouillon n’a pas pu être généré. Vous pouvez saisir le motif manuellement.';
       });
     }
   }
@@ -194,7 +190,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 const SizedBox(width: 8),
                                 const Expanded(
                                   child: Text(
-                                    'Gemini · brouillon de refus',
+                                    'Brouillon de refus',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),

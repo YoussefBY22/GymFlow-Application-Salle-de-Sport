@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
+import '../../models/enums.dart';
 import '../../models/session_log.dart';
 import '../../services/backend.dart';
 import '../../services/outdoor_route_service.dart';
+import '../../services/training_progress_ai_service.dart';
 import '../../services/training_toolkit_service.dart';
 
 class TrainingToolsScreen extends StatefulWidget {
@@ -18,15 +20,21 @@ class TrainingToolsScreen extends StatefulWidget {
 
 class _TrainingToolsScreenState extends State<TrainingToolsScreen>
     with SingleTickerProviderStateMixin {
-  late final _tabs = TabController(length: 3, vsync: this);
+  late final _tabs = TabController(length: 4, vsync: this);
   late final _store = TrainingToolkitStore(Backend.I.requireUser().id);
   final _routes = OutdoorRouteService();
+  final _progressAi = TrainingProgressAiService();
   final _latitude = TextEditingController(text: '36.8347');
   final _longitude = TextEditingController(text: '10.2407');
   final _distance = TextEditingController(text: '5');
   bool _loading = true;
   bool _findingPlaces = false;
+  bool _generatingProgress = false;
   String? _error;
+  String? _progressReport;
+  String? _progressError;
+  String? _suggestionError;
+  List<SuggestedExercise> _suggestedExercises = [];
   TrainingPlan? _plan;
   List<TrainingCheckIn> _checkIns = [];
   List<OutdoorPlace> _places = [];
@@ -43,6 +51,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
   void dispose() {
     _tabs.dispose();
     _routes.dispose();
+    _progressAi.dispose();
     _latitude.dispose();
     _longitude.dispose();
     _distance.dispose();
@@ -62,7 +71,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = 'Impossible de lire les données locales : $error';
+        _error = 'Certaines données n’ont pas pu être chargées. Réessayez.';
         _loading = false;
       });
     }
@@ -118,7 +127,9 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
       if (!mounted) return;
       setState(() {
         _findingPlaces = false;
-        _error = 'Recherche OpenStreetMap impossible : $error';
+        _error = error is OutdoorRouteException
+            ? error.message
+            : 'La recherche a échoué. Vérifiez votre connexion puis réessayez.';
       });
     }
   }
@@ -151,7 +162,11 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
       setState(() => _route = route);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'Calcul du parcours impossible : $error');
+      setState(
+        () => _error = error is OutdoorRouteException
+            ? error.message
+            : 'Le trajet détaillé est indisponible. Vous pouvez l’ouvrir dans Maps.',
+      );
     }
   }
 
@@ -169,11 +184,97 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
           mounted) {
         setState(() => _error = 'Impossible d’ouvrir l’application de cartes.');
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Ouverture de Maps impossible : $error');
+        setState(() => _error = 'Impossible d’ouvrir l’application de cartes.');
       }
     }
+  }
+
+  Muscle? _latestTrainedMuscle(List<SessionLog> sessions) {
+    final ordered = [...sessions]
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    for (final session in ordered) {
+      for (final set in session.sets.reversed) {
+        final exercise = Backend.I.exerciseService.byId(set.exerciseId);
+        if (exercise != null &&
+            exercise.primaryMuscle != Muscle.fullBody &&
+            exercise.primaryMuscle != Muscle.cardio) {
+          return exercise.primaryMuscle;
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<void> _generateProgressReport() async {
+    final backend = Backend.I;
+    final user = backend.requireUser();
+    final sessions = backend.trainingLog.historyOf(user.id);
+    final summary = TrainingProgressSummary.fromSessions(
+      sessions,
+      backend.now(),
+    );
+    if (!summary.hasRecentSessions) {
+      setState(() {
+        _progressReport = null;
+        _progressError =
+            'Terminez une séance pour obtenir un bilan de progression.';
+        _suggestedExercises = [];
+        _suggestionError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _generatingProgress = true;
+      _progressReport = null;
+      _progressError = null;
+      _suggestionError = null;
+      _suggestedExercises = [];
+    });
+
+    try {
+      final report = await _progressAi.createProgressReport(
+        summary: summary,
+        goal: user.goal.label,
+      );
+      if (!mounted) return;
+      setState(() => _progressReport = report);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _progressError = error is TrainingProgressApiException
+            ? error.message
+            : 'Le bilan n’a pas pu être généré. Réessayez dans quelques instants.',
+      );
+    }
+
+    final muscle = _latestTrainedMuscle(sessions);
+    if (muscle == null) {
+      if (mounted) {
+        setState(
+          () => _suggestionError =
+              'Aucun groupe musculaire identifiable dans vos séances récentes.',
+        );
+      }
+    } else {
+      try {
+        final suggestions = await _progressAi.suggestExercises(muscle);
+        if (mounted) {
+          setState(() => _suggestedExercises = suggestions);
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(
+            () => _suggestionError = error is TrainingProgressApiException
+                ? error.message
+                : 'Les suggestions ne sont pas disponibles pour le moment.',
+          );
+        }
+      }
+    }
+    if (mounted) setState(() => _generatingProgress = false);
   }
 
   Future<void> _savePlan({
@@ -192,7 +293,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
       if (mounted) setState(() => _plan = plan);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = 'Impossible d’enregistrer le cycle : $error');
+        setState(() => _error = 'Le cycle n’a pas pu être enregistré.');
       }
     }
   }
@@ -336,9 +437,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
       if (mounted) setState(() => _checkIns = updated);
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = 'Impossible d’enregistrer le ressenti : $error',
-        );
+        setState(() => _error = 'Le ressenti n’a pas pu être enregistré.');
       }
     }
   }
@@ -356,6 +455,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
             Tab(icon: Icon(Icons.directions_walk), text: 'Parcours'),
             Tab(icon: Icon(Icons.calendar_month), text: 'Planification'),
             Tab(icon: Icon(Icons.monitor_heart_outlined), text: 'Récupération'),
+            Tab(icon: Icon(Icons.auto_awesome), text: 'Bilan IA'),
           ],
         ),
       ),
@@ -377,7 +477,12 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
                 Expanded(
                   child: TabBarView(
                     controller: _tabs,
-                    children: [_buildRoutes(), _buildPlan(), _buildRecovery()],
+                    children: [
+                      _buildRoutes(),
+                      _buildPlan(),
+                      _buildRecovery(),
+                      _buildProgressAnalysis(),
+                    ],
                   ),
                 ),
               ],
@@ -438,7 +543,10 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
       ),
       if (_places.isNotEmpty) ...[
         const SizedBox(height: Gap.l),
-        Text('Espaces trouvés (${_places.length})', style: AppText.title(size: 17)),
+        Text(
+          'Espaces trouvés (${_places.length})',
+          style: AppText.title(size: 17),
+        ),
         const SizedBox(height: Gap.s),
         for (final place in _places)
           ListTile(
@@ -470,7 +578,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
         ListTile(
           leading: const Icon(Icons.timer_outlined),
           title: Text(_formatDuration(route.durationSeconds)),
-          subtitle: const Text('Durée estimée par l’API'),
+          subtitle: const Text('Durée estimée du parcours'),
         ),
         ListTile(
           leading: const Icon(Icons.terrain),
@@ -504,11 +612,16 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
           label: const Text('Ouvrir le trajet dans Maps'),
         ),
       ],
+      if (_selectedPlace != null && _route == null)
+        OutlinedButton.icon(
+          onPressed: _openMap,
+          icon: const Icon(Icons.map_outlined),
+          label: const Text('Ouvrir l’itinéraire dans Maps'),
+        ),
       const SizedBox(height: Gap.m),
       Text(
-        'Les lieux viennent d’OpenStreetMap. Le calcul piéton et le dénivelé '
-        'utilisent OpenRouteService. Vérifiez le parcours et les conditions '
-        'sur place avant de partir.',
+        'Données cartographiques © OpenStreetMap contributors. '
+        'Vérifiez le parcours et les conditions sur place avant de partir.',
         style: AppText.body(size: 12, color: AppColors.inkSoft),
       ),
     ],
@@ -598,10 +711,7 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  assessment.label,
-                  style: AppText.title(size: 17),
-                ),
+                Text(assessment.label, style: AppText.title(size: 17)),
                 const SizedBox(height: Gap.xs),
                 Text(assessment.advice),
                 if (assessment.ratio != null) ...[
@@ -660,6 +770,185 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
     );
   }
 
+  Widget _buildProgressAnalysis() {
+    final backend = Backend.I;
+    final user = backend.requireUser();
+    final sessions = backend.trainingLog.historyOf(user.id);
+    final summary = TrainingProgressSummary.fromSessions(
+      sessions,
+      backend.now(),
+    );
+    final muscle = _latestTrainedMuscle(sessions);
+    return ListView(
+      key: const Key('training_ai_progress'),
+      padding: const EdgeInsets.all(Gap.m),
+      children: [
+        Text('Votre progression récente', style: AppText.title(size: 20)),
+        const SizedBox(height: Gap.xs),
+        Text(
+          'Comparaison des 28 derniers jours avec les 28 jours précédents.',
+          style: AppText.body(size: 14),
+        ),
+        const SizedBox(height: Gap.m),
+        if (!summary.hasRecentSessions)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.fitness_center),
+              title: Text('Pas encore de séance récente'),
+              subtitle: Text(
+                'Terminez une séance enregistrée pour pouvoir générer votre bilan.',
+              ),
+            ),
+          )
+        else ...[
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: Gap.s,
+            crossAxisSpacing: Gap.s,
+            childAspectRatio: 1.65,
+            children: [
+              _ProgressMetric(
+                icon: Icons.event_available,
+                label: 'Séances',
+                recent: summary.recentSessions,
+                previous: summary.previousSessions,
+              ),
+              _ProgressMetric(
+                icon: Icons.timer_outlined,
+                label: 'Minutes actives',
+                recent: summary.recentMinutes,
+                previous: summary.previousMinutes,
+              ),
+              _ProgressMetric(
+                icon: Icons.fitness_center,
+                label: 'Volume (kg × reps)',
+                recent: summary.recentVolumeKg,
+                previous: summary.previousVolumeKg,
+                decimals: 0,
+              ),
+              _ProgressMetric(
+                icon: Icons.emoji_events_outlined,
+                label: 'Records',
+                recent: summary.recentPersonalRecords,
+                previous: summary.previousPersonalRecords,
+              ),
+            ],
+          ),
+          if (summary.exerciseProgress.isNotEmpty) ...[
+            const SizedBox(height: Gap.m),
+            Text('Charges par exercice', style: AppText.title(size: 17)),
+            for (final exercise in summary.exerciseProgress.take(4))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.fitness_center),
+                title: Text(exercise.name),
+                subtitle: Text(
+                  'Meilleure charge : ${exercise.bestLoadKg.toStringAsFixed(1)} kg · '
+                  '1RM estimé : ${exercise.estimatedOneRmKg.toStringAsFixed(1)} kg'
+                  '${exercise.changePercent == null ? '' : ' · ${exercise.changePercent! >= 0 ? '+' : ''}${exercise.changePercent!.toStringAsFixed(1)} % vs période précédente'}',
+                ),
+              ),
+          ],
+        ],
+        const SizedBox(height: Gap.m),
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(Gap.m),
+            child: Text(
+              'Confidentialité : la génération du bilan et des suggestions '
+              'transmet uniquement les données d’entraînement nécessaires à '
+              'des services externes. Aucun nom de compte ni e-mail n’est envoyé.',
+            ),
+          ),
+        ),
+        const SizedBox(height: Gap.s),
+        FilledButton.icon(
+          key: const Key('generate_training_ai_report'),
+          onPressed: _generatingProgress || !summary.hasRecentSessions
+              ? null
+              : _generateProgressReport,
+          icon: _generatingProgress
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_awesome),
+          label: Text(
+            _generatingProgress ? 'Analyse en cours…' : 'Générer mon bilan IA',
+          ),
+        ),
+        if (_progressError != null) ...[
+          const SizedBox(height: Gap.s),
+          Card(
+            color: AppColors.redSoft,
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.m),
+              child: Text(_progressError!),
+            ),
+          ),
+        ],
+        if (_progressReport != null) ...[
+          const SizedBox(height: Gap.m),
+          Text('Bilan IA', style: AppText.title(size: 18)),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(Gap.m),
+              child: SelectableText(_progressReport!),
+            ),
+          ),
+        ],
+        if (_generatingProgress) ...[
+          const SizedBox(height: Gap.s),
+          const LinearProgressIndicator(),
+          const SizedBox(height: Gap.xs),
+          const Text('Analyse de vos tendances et recherche d’exercices…'),
+        ],
+        if (muscle != null) ...[
+          const SizedBox(height: Gap.m),
+          Text(
+            'Exercices suggérés pour ${muscle.label.toLowerCase()}',
+            style: AppText.title(size: 18),
+          ),
+          if (_suggestionError != null) ...[
+            const SizedBox(height: Gap.xs),
+            Text(
+              _suggestionError!,
+              style: AppText.body(size: 13, color: AppColors.inkSoft),
+            ),
+          ],
+          for (final exercise in _suggestedExercises)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.sports_gymnastics),
+                title: Text(exercise.name),
+                subtitle: Text(
+                  [
+                    if (exercise.equipment.isNotEmpty) exercise.equipment,
+                    if (exercise.difficulty.isNotEmpty) exercise.difficulty,
+                    if (exercise.instructions.isNotEmpty) exercise.instructions,
+                  ].join(' · '),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          if (_suggestedExercises.isEmpty &&
+              _suggestionError == null &&
+              !_generatingProgress)
+            const Text('Générez le bilan pour voir des exercices suggérés.'),
+        ],
+        const SizedBox(height: Gap.m),
+        Text(
+          'Bilan indicatif basé sur les séances enregistrées. Les estimations '
+          'ne remplacent pas un avis médical ou celui d’un coach.',
+          style: AppText.body(size: 12, color: AppColors.inkSoft),
+        ),
+      ],
+    );
+  }
+
   Widget _dailyLoadBar(int dayOffset, int maximum) {
     final day = DateUtils.dateOnly(
       DateTime.now().subtract(Duration(days: dayOffset)),
@@ -700,4 +989,60 @@ class _TrainingToolsScreenState extends State<TrainingToolsScreen>
     final minutes = (seconds / 60).round();
     return '${minutes ~/ 60} h ${minutes % 60} min';
   }
+}
+
+class _ProgressMetric extends StatelessWidget {
+  const _ProgressMetric({
+    required this.icon,
+    required this.label,
+    required this.recent,
+    required this.previous,
+    this.decimals = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final num recent;
+  final num previous;
+  final int decimals;
+
+  String _format(num value) => decimals == 0
+      ? value.round().toString()
+      : value.toStringAsFixed(decimals);
+
+  String get _change {
+    if (previous == 0) {
+      return recent == 0 ? 'Stable' : 'Pas de référence précédente';
+    }
+    final delta = (recent - previous) / previous * 100;
+    return '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(0)} %';
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(Gap.s),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.navy, size: 20),
+          const SizedBox(height: 4),
+          Text(_format(recent), style: AppText.title(size: 18)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.label(size: 11),
+          ),
+          Text(
+            '$_change vs période précédente (${_format(previous)})',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.label(size: 10, color: AppColors.inkSoft),
+          ),
+        ],
+      ),
+    ),
+  );
 }

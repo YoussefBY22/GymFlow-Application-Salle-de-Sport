@@ -1,8 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
 import '../core/config.dart';
+
+class OutdoorRouteException implements Exception {
+  const OutdoorRouteException(this.message, {this.statusCode});
+
+  final String message;
+  final int? statusCode;
+}
 
 class OutdoorPlace {
   const OutdoorPlace({
@@ -96,6 +105,9 @@ class OutdoorRouteService {
   final http.Client _client;
   final bool _ownsClient;
 
+  static const _placeCacheTtl = Duration(minutes: 5);
+  static final Map<String, (List<OutdoorPlace>, DateTime)> _placeCache = {};
+
   bool get enabled => AppConfig.openRouteServiceApiKey.trim().isNotEmpty;
 
   Future<List<OutdoorPlace>> findPlaces({
@@ -103,30 +115,215 @@ class OutdoorRouteService {
     required double longitude,
     required double radiusMeters,
   }) async {
+    final cacheKey =
+        '${latitude.toStringAsFixed(4)}:${longitude.toStringAsFixed(4)}:'
+        '${radiusMeters.round()}';
+    final cached = _placeCache[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.$2) < _placeCacheTtl) {
+      return cached.$1;
+    }
+
+    try {
+      final places = await _findPlacesWithNominatim(
+        latitude: latitude,
+        longitude: longitude,
+        radiusMeters: radiusMeters,
+      );
+      if (places.isNotEmpty) {
+        _placeCache[cacheKey] = (places, DateTime.now());
+        return places;
+      }
+    } on Exception {
+      // Try another public map-data endpoint if this search is unavailable.
+    }
+
+    try {
+      final places = await _findPlacesWithOverpass(
+        latitude: latitude,
+        longitude: longitude,
+        radiusMeters: radiusMeters,
+      );
+      _placeCache[cacheKey] = (places, DateTime.now());
+      return places;
+    } on Exception {
+      throw const OutdoorRouteException(
+        'La recherche est temporairement indisponible. Réessayez dans quelques instants.',
+      );
+    }
+  }
+
+  Future<List<OutdoorPlace>> _findPlacesWithNominatim({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+  }) async {
+    final latDelta = radiusMeters / 111320;
+    final lonDelta =
+        radiusMeters /
+        (111320 * math.cos(latitude * math.pi / 180).abs().clamp(0.01, 1));
+    final viewbox = [
+      longitude - lonDelta,
+      latitude + latDelta,
+      longitude + lonDelta,
+      latitude - latDelta,
+    ].join(',');
+
+    final parks = await _nominatimSearch(
+      {
+        'q': 'park',
+        'viewbox': viewbox,
+        'bounded': '1',
+        'format': 'jsonv2',
+        'limit': '30',
+      },
+      latitude,
+      longitude,
+      radiusMeters,
+    );
+    if (parks.isNotEmpty) return parks;
+
+    await Future<void>.delayed(const Duration(seconds: 1));
+    return _nominatimSearch(
+      {
+        'amenity': 'sports_centre',
+        'viewbox': viewbox,
+        'bounded': '1',
+        'format': 'jsonv2',
+        'limit': '30',
+      },
+      latitude,
+      longitude,
+      radiusMeters,
+    );
+  }
+
+  Future<List<OutdoorPlace>> _nominatimSearch(
+    Map<String, String> parameters,
+    double latitude,
+    double longitude,
+    double radiusMeters,
+  ) async {
+    final response = await _client
+        .get(
+          Uri.https('nominatim.openstreetmap.org', '/search', parameters),
+          headers: const {
+            'User-Agent': 'GymFlow/2.0 (mobile fitness application)',
+            'Accept-Language': 'fr',
+          },
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw OutdoorRouteException(
+        'La recherche est temporairement indisponible.',
+        statusCode: response.statusCode,
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! List) {
+      throw const OutdoorRouteException(
+        'La recherche est temporairement indisponible.',
+      );
+    }
+    final places = <OutdoorPlace>[];
+    for (final item in decoded.whereType<Map>()) {
+      final lat = double.tryParse('${item['lat']}');
+      final lon = double.tryParse('${item['lon']}');
+      final id = item['place_id'];
+      if (lat == null || lon == null || id is! num) continue;
+      if (_distanceMeters(latitude, longitude, lat, lon) > radiusMeters) {
+        continue;
+      }
+      final category = item['category'] as String? ?? '';
+      final type = item['type'] as String? ?? '';
+      places.add(
+        OutdoorPlace(
+          id: id.toInt(),
+          name: (item['name'] as String?)?.trim().isNotEmpty == true
+              ? (item['name'] as String).trim()
+              : 'Espace sportif',
+          latitude: lat,
+          longitude: lon,
+          type: category == 'leisure' && type == 'park' ? 'park' : type,
+        ),
+      );
+    }
+    places.sort(
+      (a, b) => _distanceMeters(latitude, longitude, a.latitude, a.longitude)
+          .compareTo(
+            _distanceMeters(latitude, longitude, b.latitude, b.longitude),
+          ),
+    );
+    return places;
+  }
+
+  double _distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    const earthRadiusMeters = 6371000.0;
+    final latDelta = (lat2 - lat1) * math.pi / 180;
+    final lonDelta = (lon2 - lon1) * math.pi / 180;
+    final a =
+        math.pow(math.sin(latDelta / 2), 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.pow(math.sin(lonDelta / 2), 2);
+    return earthRadiusMeters * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  Future<List<OutdoorPlace>> _findPlacesWithOverpass({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+  }) async {
     final query =
-        '[out:json][timeout:20];'
+        '[out:json][timeout:8];'
         '(node["leisure"="park"](around:$radiusMeters,$latitude,$longitude);'
         'way["leisure"="park"](around:$radiusMeters,$latitude,$longitude);'
         'relation["leisure"="park"](around:$radiusMeters,$latitude,$longitude);'
         'node["leisure"="pitch"](around:$radiusMeters,$latitude,$longitude);'
         'way["leisure"="pitch"](around:$radiusMeters,$latitude,$longitude););'
         'out center tags 30;';
-    final response = await _client
-        .post(
-          Uri.https('overpass-api.de', '/api/interpreter'),
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'GymFlow/1.0 training route search',
-          },
-          body: {'data': query},
-        )
-        .timeout(const Duration(seconds: 25));
-    if (response.statusCode != 200) {
-      throw Exception('OpenStreetMap Overpass (${response.statusCode}).');
+    Object? lastError;
+    for (final host in ['overpass-api.de', 'overpass.kumi.systems']) {
+      try {
+        final response = await _client
+            .post(
+              Uri.https(host, '/api/interpreter'),
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'GymFlow/2.0',
+              },
+              body: {'data': query},
+            )
+            .timeout(const Duration(seconds: 6));
+        if (response.statusCode != 200) {
+          lastError = OutdoorRouteException(
+            'Recherche temporairement indisponible.',
+            statusCode: response.statusCode,
+          );
+          continue;
+        }
+        return _parsePlaces(response);
+      } on OutdoorRouteException catch (error) {
+        lastError = error;
+      } on Exception catch (error) {
+        lastError = error;
+      }
     }
+    if (lastError is OutdoorRouteException && lastError.statusCode == 429) {
+      throw const OutdoorRouteException(
+        'La recherche est très sollicitée. Réessayez dans quelques instants.',
+        statusCode: 429,
+      );
+    }
+    throw const OutdoorRouteException('La recherche a échoué.');
+  }
+
+  List<OutdoorPlace> _parsePlaces(http.Response response) {
     final body = jsonDecode(utf8.decode(response.bodyBytes));
     if (body is! Map || body['elements'] is! List) {
-      throw const FormatException('Réponse OpenStreetMap illisible.');
+      throw const OutdoorRouteException(
+        'La recherche est momentanément indisponible.',
+      );
     }
     final places = <OutdoorPlace>[];
     for (final element in (body['elements'] as List).whereType<Map>()) {
@@ -158,9 +355,8 @@ class OutdoorRouteService {
     required double endLongitude,
   }) async {
     if (!enabled) {
-      throw StateError(
-        'Ajoutez OPENROUTESERVICE_API_KEY dans secrets.json puis relancez '
-        'l’application.',
+      throw const OutdoorRouteException(
+        'Le calcul détaillé du trajet est momentanément indisponible.',
       );
     }
     final response = await _client
@@ -186,11 +382,18 @@ class OutdoorRouteService {
         )
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
-      throw Exception('OpenRouteService (${response.statusCode}).');
+      throw OutdoorRouteException(
+        response.statusCode == 429
+            ? 'Le calcul du trajet est très sollicité. Réessayez plus tard.'
+            : 'Le calcul détaillé du trajet est momentanément indisponible.',
+        statusCode: response.statusCode,
+      );
     }
     final body = jsonDecode(utf8.decode(response.bodyBytes));
     if (body is! Map<String, dynamic>) {
-      throw const FormatException('Réponse OpenRouteService illisible.');
+      throw const OutdoorRouteException(
+        'Le calcul détaillé du trajet est momentanément indisponible.',
+      );
     }
     return WalkingRoute.fromOpenRouteService(body);
   }

@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:gymflow/services/outdoor_route_service.dart';
 import 'package:gymflow/services/training_toolkit_service.dart';
 
@@ -97,4 +101,85 @@ void main() {
     expect(route.elevationLossMeters, 4);
     expect(route.instructions, ['Continuer tout droit', 'Tourner à gauche']);
   });
+
+  test(
+    'recherche les lieux sur un serveur de secours si le premier échoue',
+    () async {
+      final hosts = <String>[];
+      final service = OutdoorRouteService(
+        client: MockClient((request) async {
+          hosts.add(request.url.host);
+          if (request.url.host != 'overpass.kumi.systems') {
+            return http.Response('', 503);
+          }
+          return http.Response(
+            jsonEncode({
+              'elements': [
+                {
+                  'id': 42,
+                  'lat': 36.8,
+                  'lon': 10.2,
+                  'tags': {'name': 'Parc de test', 'leisure': 'park'},
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final places = await service.findPlaces(
+        latitude: 36.8,
+        longitude: 10.2,
+        radiusMeters: 2500,
+      );
+
+      expect(hosts, [
+        'nominatim.openstreetmap.org',
+        'overpass-api.de',
+        'overpass.kumi.systems',
+      ]);
+      expect(places.single.name, 'Parc de test');
+      service.dispose();
+    },
+  );
+
+  test(
+    'recherche les parcs autour du départ avec les données cartographiques',
+    () async {
+      http.Request? request;
+      final service = OutdoorRouteService(
+        client: MockClient((r) async {
+          request = r;
+          return http.Response(
+            jsonEncode([
+              {
+                'place_id': 123,
+                'lat': '36.8350',
+                'lon': '10.2410',
+                'category': 'leisure',
+                'type': 'park',
+                'name': 'Parc proche',
+              },
+            ]),
+            200,
+          );
+        }),
+      );
+
+      final places = await service.findPlaces(
+        latitude: 36.8347,
+        longitude: 10.2407,
+        radiusMeters: 1000,
+      );
+
+      expect(request!.url.host, 'nominatim.openstreetmap.org');
+      expect(request!.url.queryParameters['q'], 'park');
+      expect(request!.url.queryParameters['bounded'], '1');
+      expect(request!.headers['User-Agent'], contains('GymFlow'));
+      expect(places.single.name, 'Parc proche');
+      expect(places.single.type, 'park');
+      service.dispose();
+    },
+  );
 }

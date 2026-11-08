@@ -72,6 +72,20 @@ class AppConfig {
 
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 
+  /// Clé RapidAPI utilisée pour récupérer les GIFs ExerciseDB.
+  static const String exerciseDbApiKey = String.fromEnvironment(
+    'EXERCISE_DB_API_KEY',
+  );
+
+  /// IA Groq (distincte de Gemini) pour le bilan de progression sportive.
+  static const String groqApiKey = String.fromEnvironment('GROQ_API_KEY');
+  static const String _groqModel = String.fromEnvironment('GROQ_MODEL');
+  static String get groqModel =>
+      _groqModel.trim().isEmpty ? 'openai/gpt-oss-120b' : _groqModel.trim();
+
+  /// API Ninjas pour les suggestions d'exercices ciblées.
+  static const String apiNinjasKey = String.fromEnvironment('API_NINJAS_KEY');
+
   /// Clé OpenRouteService (API distincte, réservée aux nouveaux parcours).
   static const String openRouteServiceApiKey = String.fromEnvironment(
     'OPENROUTESERVICE_API_KEY',
