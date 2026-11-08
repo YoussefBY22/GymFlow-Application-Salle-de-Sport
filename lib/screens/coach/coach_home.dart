@@ -8,6 +8,7 @@ import '../../services/backend.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
+import '../../widgets/library_widgets.dart';
 import '../../widgets/sentiment_widgets.dart';
 import '../../widgets/theme_toggle.dart';
 import '../shell/main_shell.dart';
@@ -24,7 +25,10 @@ class CoachHomeScreen extends StatelessWidget {
       appBar: AppBar(
         leading: const ShellMenuButton(),
         title: const Text('Espace coach'),
-        actions: const [ThemeToggleButton(), NotificationBell()],
+        //actions: const [ThemeToggleButton(), NotificationBell()],
+       // actions: const [ReviewQueueButton(), NotificationBell()],
+        // ✅ CE QUE VOUS DEVEZ AVOIR :
+       actions: const [ThemeToggleButton(), ReviewQueueButton(), NotificationBell()],
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge([b.bus, b.auth]),
@@ -36,6 +40,17 @@ class CoachHomeScreen extends StatelessWidget {
             children: [
               Text('Bonjour ${me.firstName} !', style: AppText.title(size: 22)),
               Text(me.specialty ?? 'Coach GymFlow', style: AppText.label()),
+              if (b.library.pendingCount > 0) ...[
+                const SizedBox(height: Gap.m),
+                _PendingReviewBanner(
+                  count: b.library.pendingCount,
+                  examples: b.library
+                      .reviewQueue()
+                      .take(2)
+                      .map((item) => item.name)
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: Gap.m),
               GridView.count(
                 crossAxisCount: isWide(context) ? 4 : 2,
@@ -43,7 +58,7 @@ class CoachHomeScreen extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: Gap.s,
                 crossAxisSpacing: Gap.s,
-                childAspectRatio: 1.45,
+                childAspectRatio: 1.35,
                 children: [
                   _KpiCard(
                     icon: Icons.event,
@@ -202,6 +217,48 @@ class CoachHomeScreen extends StatelessWidget {
         ),
     ];
   }
+}
+
+class _PendingReviewBanner extends StatelessWidget {
+  const _PendingReviewBanner({required this.count, required this.examples});
+
+  final int count;
+  final List<String> examples;
+
+  @override
+  Widget build(BuildContext context) => GfCard(
+    key: const Key('coach_pending_review'),
+    color: AppColors.cream,
+    onTap: () => Navigator.pushNamed(context, Routes.review),
+    child: Row(
+      children: [
+        const Icon(Icons.fact_check_outlined, color: AppColors.navy, size: 28),
+        const SizedBox(width: Gap.s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$count proposition${count == 1 ? '' : 's'} à valider',
+                style: AppText.subtitle(),
+              ),
+              Text(
+                examples.join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.label(size: 12),
+              ),
+              Text(
+                'Touchez ici pour examiner, accepter ou refuser.',
+                style: AppText.label(size: 12),
+              ),
+            ],
+          ),
+        ),
+        const Icon(Icons.chevron_right, color: AppColors.navy),
+      ],
+    ),
+  );
 }
 
 class _KpiCard extends StatelessWidget {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/responsive.dart';
@@ -9,8 +11,10 @@ import '../../models/content.dart';
 import '../../models/enums.dart';
 import '../../models/exercise.dart';
 import '../../services/backend.dart';
+import '../../services/nutrition_recovery_service.dart';
 import '../../services/wger_api.dart';
 import '../../widgets/animations.dart';
+import '../../widgets/animated_exercise_avatar.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
@@ -120,7 +124,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                       Text(e.nameIn(lang), style: AppText.title(size: 24)),
                       AuthorLine(
                         item: e,
-                        extra: e.wgerId != null ? 'données wger.de' : null,
+                        extra: e.wgerId != null ? 'Exercice importé' : null,
                       ),
                       const SizedBox(height: Gap.s),
                       Wrap(
@@ -142,14 +146,24 @@ class ExerciseDetailScreen extends StatelessWidget {
                       PublicationPanel(item: e),
                       const SizedBox(height: Gap.m),
                       Text(e.descriptionIn(lang), style: AppText.body()),
+                      _ExerciseExtraSections(
+                        key: ValueKey(
+                          '${e.id}_${e.name}_${e.altName}_'
+                          '${e.aliases.join('|')}_${e.primaryMuscle.name}',
+                        ),
+                        exercise: e,
+                      ),
                       if (videos.isNotEmpty) ...[
                         const SizedBox(height: Gap.l),
                         Text('Vidéos', style: AppText.title(size: 18)),
-                        for (final v in videos) ...[
+                        for (final video in videos) ...[
                           const SizedBox(height: Gap.s),
-                          MediaView(v),
-                          if (v.caption != null)
-                            Text(v.caption!, style: AppText.label(size: 12)),
+                          MediaView(video),
+                          if (video.caption != null)
+                            Text(
+                              video.caption!,
+                              style: AppText.label(size: 12),
+                            ),
                         ],
                       ],
                       if (e.images.length > 1) ...[
@@ -286,6 +300,212 @@ class ExerciseDetailScreen extends StatelessWidget {
       },
     );
   }
+}
+
+class _ExerciseExtraSections extends StatefulWidget {
+  const _ExerciseExtraSections({super.key, required this.exercise});
+
+  final Exercise exercise;
+
+  @override
+  State<_ExerciseExtraSections> createState() => _ExerciseExtraSectionsState();
+}
+
+class _ExerciseExtraSectionsState extends State<_ExerciseExtraSections> {
+  late final NutritionRecoveryService _nutrition = NutritionRecoveryService();
+  late Future<List<RecoveryProduct>> _products;
+
+  @override
+  void initState() {
+    super.initState();
+    _products = _nutrition.searchRecoveryFoods(widget.exercise.primaryMuscle);
+  }
+
+  void _retryNutrition() {
+    setState(
+      () => _products = _nutrition.searchRecoveryFoods(
+        widget.exercise.primaryMuscle,
+      ),
+    );
+  }
+
+  String _nutritionErrorMessage(Object? error) {
+    if (error is TimeoutException) {
+      return 'Les suggestions ont pris trop de temps à charger. Réessayez.';
+    }
+    return 'Les suggestions sont momentanément indisponibles.';
+  }
+
+  @override
+  void dispose() {
+    _nutrition.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: Gap.l),
+      Text('Démonstration animée', style: AppText.title(size: 18)),
+      const SizedBox(height: Gap.s),
+      AnimatedExerciseAvatar(
+        name: widget.exercise.nameIn(Backend.I.library.contentLang),
+        muscle: widget.exercise.primaryMuscle,
+      ),
+      const SizedBox(height: Gap.l),
+      Text('Nutrition post-entraînement', style: AppText.title(size: 18)),
+      const SizedBox(height: Gap.xs),
+      Text(
+        'Suggestions pour ${widget.exercise.primaryMuscle.label.toLowerCase()}',
+        style: AppText.label(size: 13),
+      ),
+      const SizedBox(height: Gap.s),
+      GfCard(
+        color: AppColors.cream,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.info_outline, color: AppColors.navy),
+            const SizedBox(width: Gap.s),
+            Expanded(
+              child: Text(
+                _nutrition.recoveryTip(widget.exercise.primaryMuscle),
+                style: AppText.body(size: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: Gap.s),
+      FutureBuilder<List<RecoveryProduct>>(
+        future: _products,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const _SectionLoading(
+              label: 'Recherche de produits de récupération…',
+            );
+          }
+          if (snapshot.hasError) {
+            return _SectionNotice(
+              icon: Icons.cloud_off_outlined,
+              message: _nutritionErrorMessage(snapshot.error),
+              actionLabel: 'Réessayer',
+              onAction: _retryNutrition,
+            );
+          }
+          final products = snapshot.data ?? const <RecoveryProduct>[];
+          if (products.isEmpty) {
+            return const _SectionNotice(
+              icon: Icons.search_off,
+              message: 'Aucun produit de récupération trouvé pour le moment.',
+            );
+          }
+          return Column(
+            children: [
+              for (final product in products)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Gap.s),
+                  child: GfCard(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (product.imageUrl.startsWith('https://'))
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: NetImage(
+                              product.imageUrl,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.contain,
+                              fallbackIcon: Icons.restaurant,
+                            ),
+                          )
+                        else
+                          const SizedBox(
+                            width: 64,
+                            height: 64,
+                            child: Icon(Icons.restaurant, size: 32),
+                          ),
+                        const SizedBox(width: Gap.s),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(product.name, style: AppText.subtitle()),
+                              const SizedBox(height: 4),
+                              Text(
+                                [
+                                  if (product.proteins != null)
+                                    '${product.proteins!.toStringAsFixed(1)} g protéines / 100 g',
+                                  if (product.kcal != null)
+                                    '${product.kcal!.toStringAsFixed(0)} kcal / 100 g',
+                                  if (product.nutriscore.isNotEmpty)
+                                    'Nutri-Score ${product.nutriscore.toUpperCase()}',
+                                ].join(' · '),
+                                style: AppText.label(size: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    ],
+  );
+}
+
+class _SectionLoading extends StatelessWidget {
+  const _SectionLoading({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => GfCard(
+    child: Row(
+      children: [
+        const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: Gap.s),
+        Expanded(child: Text(label, style: AppText.label(size: 13))),
+      ],
+    ),
+  );
+}
+
+class _SectionNotice extends StatelessWidget {
+  const _SectionNotice({
+    required this.icon,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) => GfCard(
+    child: Row(
+      children: [
+        Icon(icon, color: AppColors.navy),
+        const SizedBox(width: Gap.s),
+        Expanded(child: Text(message, style: AppText.label(size: 13))),
+        if (actionLabel != null && onAction != null)
+          TextButton(onPressed: onAction, child: Text(actionLabel!)),
+      ],
+    ),
+  );
 }
 
 /// Création / modification d'un exercice : publié directement pour le
@@ -773,7 +993,7 @@ class _WgerImportScreenState extends State<WgerImportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Importer depuis wger')),
+      appBar: AppBar(title: const Text('Importer des exercices')),
       body: Column(
         children: [
           const SizedBox(height: Gap.s),

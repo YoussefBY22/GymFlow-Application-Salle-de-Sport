@@ -181,7 +181,7 @@ class WgerApi {
       final cached = cache[url];
       if (cached == null) {
         throw const NetworkException(
-          'API wger injoignable et aucune donnée en cache. Vérifiez votre connexion.',
+          'Les exercices sont momentanément indisponibles. Vérifiez votre connexion.',
         );
       }
       body = cached;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/responsive.dart';
@@ -19,6 +21,7 @@ import '../../widgets/flip.dart';
 import '../../widgets/library_widgets.dart';
 import '../../widgets/search_tracker.dart';
 import '../shell/main_shell.dart';
+import 'training_coach_chat.dart';
 import 'smartwatch_dialog.dart';
 import 'training_tools_screen.dart';
 import 'workout_generator_dialog.dart';
@@ -51,6 +54,12 @@ class _TrainingScreenState extends State<TrainingScreen>
   ];
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(Backend.I.trainingLog.scheduleInactivityReminder());
+  }
+
+  @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
@@ -70,6 +79,11 @@ class _TrainingScreenState extends State<TrainingScreen>
     final user = Backend.I.auth.currentUser!;
     final kind = _kinds[_tabs.index];
     final staff = user.canManageContent;
+    final canUseTrainingChat =
+        user.active &&
+        (user.isCoach ||
+            (user.role == UserRole.member &&
+                user.subscription.isActiveAt(Backend.I.now())));
     return Scaffold(
       appBar: AppBar(
         leading: const ShellMenuButton(),
@@ -95,7 +109,7 @@ class _TrainingScreenState extends State<TrainingScreen>
           ),
           if (staff)
             IconButton(
-              tooltip: 'Importer depuis wger',
+              tooltip: 'Importer des exercices',
               icon: const Icon(Icons.cloud_download_outlined),
               onPressed: () => Navigator.pushNamed(context, Routes.wgerImport),
             ),
@@ -125,9 +139,38 @@ class _TrainingScreenState extends State<TrainingScreen>
                 },
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: [for (final k in _kinds) LibraryTab(kind: k)],
+      body: Column(
+        children: [
+          if (!widget.contentMode && canUseTrainingChat)
+            Card(
+              color: AppColors.white,
+              margin: const EdgeInsets.fromLTRB(Gap.m, Gap.m, Gap.m, Gap.s),
+              child: ListTile(
+                key: const Key('training_coach_chat'),
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.red,
+                  foregroundColor: AppColors.white,
+                  child: Icon(Icons.chat_bubble_outline),
+                ),
+                title: Text(
+                  'Coach sport et bien-être',
+                  style: AppText.subtitle(size: 15),
+                ),
+                subtitle: Text(
+                  'Questions sur le sport, les exercices et l’alimentation',
+                  style: AppText.label(size: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showTrainingCoachChat(context),
+              ),
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [for (final k in _kinds) LibraryTab(kind: k)],
+            ),
+          ),
+        ],
       ),
     );
   }

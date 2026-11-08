@@ -21,6 +21,10 @@ class TrainingLogService {
   TrainingLogService(this._b);
   final Backend _b;
 
+  static int inactivityReminderId(String userId) =>
+      userId.codeUnits.fold(5381, (hash, unit) => ((hash << 5) + hash) ^ unit) &
+      0x7fffffff;
+
   /// Enregistre une séance terminée depuis le lecteur de séance (privée).
   Future<SessionResult> finishSession({
     required Workout workout,
@@ -62,9 +66,53 @@ class TrainingLogService {
       smartwatchDevice: smartwatchDevice,
     );
     await _b.sessions.save(log);
-    _b.analytics.workoutComplete(workout.name);
+    await scheduleInactivityReminder();
     _b.bus.emit();
     return SessionResult(log, records);
+  }
+
+  /// Planifie un rappel de reprise selon l’objectif hebdomadaire du membre.
+  Future<void> scheduleInactivityReminder() async {
+    final current = _b.auth.currentUser;
+    if (current == null) return;
+
+    final user = _b.users.byId(current.id) ?? current;
+    final reminderId = inactivityReminderId(user.id);
+    final now = _b.now();
+    if (!user.active ||
+        user.role != UserRole.member ||
+        !user.subscription.isActiveAt(now)) {
+      await _b.notifier.cancel(reminderId);
+      return;
+    }
+
+    final sessions = _b.sessions.where(
+      (session) => session.userId == user.id && !session.startedAt.isAfter(now),
+    )..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    final baseline = sessions.isNotEmpty
+        ? sessions.first.endedAt
+        : (user.subscription.start ?? user.createdAt);
+    final intervalDays = (7 / user.weeklyGoal.clamp(1, 7)).ceil();
+    final interval = Duration(days: intervalDays);
+    final elapsed = now.difference(baseline);
+    final elapsedIntervals = elapsed.isNegative
+        ? 0
+        : elapsed.inMicroseconds ~/ interval.inMicroseconds;
+    final reminderAt = baseline.add(interval * (elapsedIntervals + 1));
+
+    if (user.subscription.end != null &&
+        !reminderAt.isBefore(user.subscription.end!)) {
+      await _b.notifier.cancel(reminderId);
+      return;
+    }
+
+    await _b.notifier.schedule(
+      reminderId,
+      'Petit rappel d’entraînement',
+      'Il est temps de reprendre votre entraînement. '
+          'Votre objectif est de ${user.weeklyGoal} séance(s) par semaine.',
+      reminderAt,
+    );
   }
 
   /// Publie ou retire une séance du fil du club (auteur uniquement).
