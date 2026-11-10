@@ -904,9 +904,9 @@ class SessionSummaryScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.watch,
-                              color: AppColors.navy,
+                              color: AppColors.heading,
                               size: 20,
                             ),
                             const SizedBox(width: Gap.s),
@@ -1125,9 +1125,9 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.caloriesBurned != null)
                         Column(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.local_fire_department,
-                              color: AppColors.red,
+                              color: AppColors.redText,
                               size: 22,
                             ),
                             const SizedBox(height: 2),
@@ -1160,9 +1160,9 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.stepCount != null && s.stepCount! > 0)
                         Column(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.directions_walk,
-                              color: AppColors.success,
+                              color: AppColors.successText,
                               size: 22,
                             ),
                             const SizedBox(height: 2),
@@ -1449,7 +1449,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           Text(
                             'BPM',
                             style: AppText.label(
-                              color: AppColors.cream,
+                              color: AppColors.creamText,
                               size: 10,
                             ),
                           ),
@@ -1495,7 +1495,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           Text(
                             'kcal',
                             style: AppText.label(
-                              color: AppColors.cream,
+                              color: AppColors.creamText,
                               size: 9,
                             ),
                           ),
@@ -1532,7 +1532,7 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                           Text(
                             'pas',
                             style: AppText.label(
-                              color: AppColors.cream,
+                              color: AppColors.creamText,
                               size: 9,
                             ),
                           ),

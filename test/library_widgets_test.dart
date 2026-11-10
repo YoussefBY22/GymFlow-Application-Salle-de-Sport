@@ -105,6 +105,8 @@ void main() {
       loginEmail: 'nour@gymflow.tn',
     );
     await b.privacy.completeIntro();
+    // Écran plus haut : la carte « Coach sport » pousse la liste vers le bas.
+    tester.view.physicalSize = const Size(1080, 3600);
     await openWorkouts(tester);
     final third = b.library.workouts()[2];
     final card = find.ancestor(

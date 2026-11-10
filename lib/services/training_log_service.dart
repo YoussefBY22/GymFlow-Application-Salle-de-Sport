@@ -66,6 +66,7 @@ class TrainingLogService {
       smartwatchDevice: smartwatchDevice,
     );
     await _b.sessions.save(log);
+    _b.analytics.workoutComplete(workout.name);
     await scheduleInactivityReminder();
     _b.bus.emit();
     return SessionResult(log, records);

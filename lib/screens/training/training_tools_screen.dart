@@ -1026,7 +1026,7 @@ class _ProgressMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.navy, size: 20),
+          Icon(icon, color: AppColors.heading, size: 20),
           const SizedBox(height: 4),
           Text(_format(recent), style: AppText.title(size: 18)),
           Text(

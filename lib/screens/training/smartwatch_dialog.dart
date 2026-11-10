@@ -140,7 +140,7 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
                     ),
                     child: Icon(
                       Icons.bluetooth_searching,
-                      color: AppColors.navy,
+                      color: AppColors.heading,
                     ),
                   ),
                   const SizedBox(width: Gap.s),
@@ -262,7 +262,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                     ),
                     child: Icon(
                       Icons.bluetooth_connected,
-                      color: AppColors.success,
+                      color: AppColors.successText,
                       size: 22,
                     ),
                   ),
@@ -281,7 +281,7 @@ class _ConnectedDeviceView extends StatelessWidget {
                         Text(
                           '${device.brand} · ${device.macAddress}',
                           style: AppText.label(
-                            color: AppColors.cream,
+                            color: AppColors.creamText,
                             size: 11,
                           ),
                         ),

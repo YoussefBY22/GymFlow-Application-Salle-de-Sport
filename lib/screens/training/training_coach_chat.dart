@@ -81,7 +81,7 @@ class _TrainingCoachChatSheetState extends State<_TrainingCoachChatSheet> {
               padding: const EdgeInsets.fromLTRB(Gap.m, 0, Gap.m, Gap.s),
               child: Row(
                 children: [
-                  const Icon(Icons.fitness_center, color: AppColors.red),
+                  Icon(Icons.fitness_center, color: AppColors.redText),
                   const SizedBox(width: Gap.s),
                   Expanded(
                     child: Text(
@@ -111,7 +111,7 @@ class _TrainingCoachChatSheetState extends State<_TrainingCoachChatSheet> {
                             'Le coach sport et bien-être est temporairement '
                             'indisponible.',
                             key: const Key('training_chat_unavailable'),
-                            style: AppText.body(color: AppColors.red),
+                            style: AppText.body(color: AppColors.redText),
                           ),
                         ] else ...[
                           const SizedBox(height: Gap.m),
@@ -166,7 +166,7 @@ class _TrainingCoachChatSheetState extends State<_TrainingCoachChatSheet> {
                             decoration: BoxDecoration(
                               color: message.fromUser
                                   ? AppColors.navy
-                                  : AppColors.white,
+                                  : AppColors.surface,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: SelectableText(

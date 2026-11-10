@@ -143,7 +143,7 @@ class _TrainingScreenState extends State<TrainingScreen>
         children: [
           if (!widget.contentMode && canUseTrainingChat)
             Card(
-              color: AppColors.white,
+              color: AppColors.surface,
               margin: const EdgeInsets.fromLTRB(Gap.m, Gap.m, Gap.m, Gap.s),
               child: ListTile(
                 key: const Key('training_coach_chat'),

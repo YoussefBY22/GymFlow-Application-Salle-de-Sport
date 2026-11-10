@@ -265,10 +265,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.timer_outlined,
                                   size: 14,
-                                  color: AppColors.navy,
+                                  color: AppColors.heading,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -276,10 +276,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                                   style: AppText.label(size: 11),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(
+                                Icon(
                                   Icons.local_fire_department,
                                   size: 14,
-                                  color: AppColors.red,
+                                  color: AppColors.redText,
                                 ),
                                 const SizedBox(width: 2),
                                 Text(
@@ -353,10 +353,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
           backgroundColor: AppColors.navy.withOpacity(0.08),
           child: Text(
             '$index',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: AppColors.navy,
+              color: AppColors.heading,
             ),
           ),
         ),

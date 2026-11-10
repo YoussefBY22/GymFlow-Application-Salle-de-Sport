@@ -366,7 +366,7 @@ class _ExerciseExtraSectionsState extends State<_ExerciseExtraSections> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: AppColors.navy),
+            Icon(Icons.info_outline, color: AppColors.heading),
             const SizedBox(width: Gap.s),
             Expanded(
               child: Text(
@@ -498,7 +498,7 @@ class _SectionNotice extends StatelessWidget {
   Widget build(BuildContext context) => GfCard(
     child: Row(
       children: [
-        Icon(icon, color: AppColors.navy),
+        Icon(icon, color: AppColors.heading),
         const SizedBox(width: Gap.s),
         Expanded(child: Text(message, style: AppText.label(size: 13))),
         if (actionLabel != null && onAction != null)

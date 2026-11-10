@@ -232,7 +232,7 @@ class _PendingReviewBanner extends StatelessWidget {
     onTap: () => Navigator.pushNamed(context, Routes.review),
     child: Row(
       children: [
-        const Icon(Icons.fact_check_outlined, color: AppColors.navy, size: 28),
+        Icon(Icons.fact_check_outlined, color: AppColors.heading, size: 28),
         const SizedBox(width: Gap.s),
         Expanded(
           child: Column(
@@ -255,7 +255,7 @@ class _PendingReviewBanner extends StatelessWidget {
             ],
           ),
         ),
-        const Icon(Icons.chevron_right, color: AppColors.navy),
+        Icon(Icons.chevron_right, color: AppColors.heading),
       ],
     ),
   );
