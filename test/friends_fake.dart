@@ -149,6 +149,12 @@ class FakeFriendsServer {
   String passwordOf(String email) =>
       _byEmail[email.trim().toLowerCase()]!.password;
 
+  /// Compte créé par l'ancien système (mot de passe GymFlow côté serveur).
+  void seedLegacyAccount(String email, String password, String name) {
+    final key = email.trim().toLowerCase();
+    _byEmail[key] = _Account('sb_${++_n}', key, password, name);
+  }
+
   FakeFriendsRemote phone() => FakeFriendsRemote(this);
 
   _Account _acct(String id) => _byEmail.values.firstWhere((a) => a.id == id);
@@ -244,24 +250,27 @@ class FakeFriendsRemote implements FriendsRemote {
   }
 
   @override
-  Future<void> signIn({
+  Future<RemoteSignIn> signIn({
     required String email,
     required String password,
     required String displayName,
+    bool create = false,
   }) async {
     _count('signIn');
     final key = email.trim().toLowerCase();
     var a = server._byEmail[key];
+    var created = false;
     if (a == null) {
+      if (!create) return RemoteSignIn.refused;
       a = _Account('sb_${++server._n}', key, password, displayName);
       server._byEmail[key] = a;
+      created = true;
     } else if (a.password != password) {
-      throw const BusinessRuleException(
-        'Mot de passe refusé par le service Amis.',
-      );
+      return RemoteSignIn.refused;
     }
     _uid = a.id;
     server._remotes[a.id] = this;
+    return created ? RemoteSignIn.created : RemoteSignIn.signedIn;
   }
 
   @override
@@ -611,6 +620,15 @@ class FakeFriendsRemote implements FriendsRemote {
     for (final o in others) {
       server._push(o, const RelationsChanged());
     }
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    _count('deleteAccount');
+    final me = _me;
+    await leave();
+    server._byEmail.remove(me.email);
+    await signOut();
   }
 
   // ------------------------------------------------------------ Messagerie

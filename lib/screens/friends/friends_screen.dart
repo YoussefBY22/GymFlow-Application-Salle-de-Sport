@@ -52,68 +52,15 @@ class _FriendsScreenState extends State<FriendsScreen> {
     super.dispose();
   }
 
-  Future<String?> _askPassword(String message) {
-    final ctrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmez votre mot de passe'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(message, style: AppText.body(size: 14)),
-            const SizedBox(height: Gap.m),
-            TextField(
-              key: const Key('friends_password'),
-              controller: ctrl,
-              obscureText: true,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Mot de passe GymFlow',
-              ),
-              onSubmitted: (v) => Navigator.pop(ctx, v),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            key: const Key('friends_password_ok'),
-            onPressed: () => Navigator.pop(ctx, ctrl.text),
-            child: const Text('Continuer'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _run(Future<void> Function() action, {String? success}) async {
     setState(() => _busy = true);
     await runAction(context, action, success: success);
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _enable() async {
-    final pwd = await _askPassword(
-      'Votre compte sera relié à un service en ligne (Supabase) pour retrouver '
-      'vos amis d\'un téléphone à l\'autre. Utilisez votre mot de passe '
-      'GymFlow : il doit rester le même des deux côtés.',
-    );
-    if (pwd == null || pwd.isEmpty) return;
-    await _run(() => _s.enable(pwd), success: 'Fonction Amis activée.');
-  }
+  Future<void> _enable() => _run(_s.enable, success: 'Fonction Amis activée.');
 
-  Future<void> _reconnect() async {
-    final pwd = await _askPassword(
-      'Pour vous reconnecter au service Amis, ressaisissez votre mot de passe.',
-    );
-    if (pwd == null || pwd.isEmpty) return;
-    await _run(() => _s.reconnect(pwd), success: 'Connecté.');
-  }
+  Future<void> _reconnect() => _run(_s.reconnect, success: 'Connecté.');
 
   Future<void> _disable() async {
     final ok = await confirm(
@@ -235,8 +182,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
           const InfoRow(
             Icons.cloud_outlined,
             'Un compte est créé sur un service en ligne (Supabase) avec votre '
-            'e-mail et votre mot de passe. Désactiver la fonction efface vos '
-            'données de ce service.',
+            'e-mail, sans mot de passe à retenir. Désactiver la fonction '
+            'supprime ce compte et vos données.',
           ),
           const SizedBox(height: Gap.m),
           ElevatedButton.icon(
@@ -269,17 +216,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ],
             ),
           ] else ...[
-            Text(
-              status == FriendsStatus.needsPassword
-                  ? 'Reconnexion nécessaire'
-                  : 'Service Amis injoignable',
-              style: AppText.title(size: 17),
-            ),
+            Text('Service Amis injoignable', style: AppText.title(size: 17)),
             const SizedBox(height: Gap.xs),
             Text(
               _s.error != null
                   ? friendlyError(_s.error!)
-                  : 'Ressaisissez votre mot de passe pour retrouver vos amis.',
+                  : 'Touchez « Se reconnecter » pour retrouver vos amis.',
               style: AppText.body(size: 14, color: AppColors.inkSoft),
             ),
             const SizedBox(height: Gap.m),

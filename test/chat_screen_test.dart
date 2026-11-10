@@ -37,12 +37,13 @@ Future<_Setup> _setup(WidgetTester tester) async {
     email: 'nour@gymflow.tn',
     password: 'x',
     displayName: 'Nour Test',
+    create: true,
   );
   await other.updateProfile(displayName: 'Nour Test', enabled: true);
   await other.heartbeat();
   await other.subscribe();
 
-  await b.friends.enable('Membre2026!');
+  await b.friends.enable();
   await other.sendRequest('ahmed@gymflow.tn');
   await settle(tester, 300);
   await b.friends.respond(b.friends.requests.single, true);
@@ -376,9 +377,19 @@ void main() {
     // Un signalement existe déjà sur le serveur.
     final a = server.phone();
     final n = server.phone();
-    await a.signIn(email: 'a@x.tn', password: 'x', displayName: 'Alice');
+    await a.signIn(
+      email: 'a@x.tn',
+      password: 'x',
+      displayName: 'Alice',
+      create: true,
+    );
     await a.updateProfile(displayName: 'Alice', enabled: true);
-    await n.signIn(email: 'b@x.tn', password: 'x', displayName: 'Bob');
+    await n.signIn(
+      email: 'b@x.tn',
+      password: 'x',
+      displayName: 'Bob',
+      create: true,
+    );
     await n.updateProfile(displayName: 'Bob', enabled: true);
     await a.sendRequest('b@x.tn');
     final req = (await n.loadRequests()).single;

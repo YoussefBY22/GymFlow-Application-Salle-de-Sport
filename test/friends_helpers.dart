@@ -38,7 +38,7 @@ Future<Phone> phone(
 
 /// Active la fonction et attend que tout soit en place.
 Future<void> enable(Phone p) async {
-  await p.b.friends.enable(kPwd);
+  await p.b.friends.enable();
   await flush();
 }
 

@@ -68,11 +68,17 @@ class ModerationService extends ChangeNotifier {
     }
     _error = null;
     try {
-      await _r.signIn(
+      final result = await _r.signIn(
         email: me.email,
         password: password,
         displayName: me.fullName,
+        create: true,
       );
+      if (result == RemoteSignIn.refused) {
+        throw const BusinessRuleException(
+          'Mot de passe refusé par le service de messagerie.',
+        );
+      }
       await _verifyAdmin();
     } catch (e) {
       _connected = false;

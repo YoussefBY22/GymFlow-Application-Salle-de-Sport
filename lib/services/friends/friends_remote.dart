@@ -99,16 +99,18 @@ abstract class FriendsRemote {
   /// Reprend une session déjà ouverte sur ce téléphone. `true` si elle existe.
   Future<bool> restore();
 
-  /// Ouvre la session du serveur ; crée le compte au premier passage.
-  Future<void> signIn({
+  /// Ouvre la session du serveur. Avec [create], le compte est créé s'il
+  /// n'existe pas encore ; sans [create], un compte inconnu est « refusé ».
+  Future<RemoteSignIn> signIn({
     required String email,
     required String password,
     required String displayName,
+    bool create = false,
   });
 
   Future<void> signOut();
 
-  /// Change le mot de passe du compte du serveur (après un changement local).
+  /// Change le mot de passe du compte du serveur (le secret de l'appareil).
   Future<void> updatePassword(String password);
 
   Future<void> updateProfile({
@@ -168,6 +170,10 @@ abstract class FriendsRemote {
 
   /// Efface mes amitiés, demandes et messages sur le serveur.
   Future<void> leave();
+
+  /// Supprime mon compte du serveur (données comprises) et ferme la session :
+  /// désactiver la fonction Amis, c'est partir.
+  Future<void> deleteAccount();
 
   // ------------------------------------------------------------ Messagerie
 
@@ -239,4 +245,17 @@ abstract class FriendsRemote {
   Future<void> subscribe();
 
   Future<void> unsubscribe();
+}
+
+/// Résultat d'une tentative de connexion au serveur.
+enum RemoteSignIn {
+  /// Session ouverte sur un compte existant.
+  signedIn,
+
+  /// Compte créé (premier passage) et session ouverte.
+  created,
+
+  /// Mot de passe refusé, compte inconnu sans création demandée, ou compte
+  /// déjà existant avec un autre mot de passe.
+  refused,
 }

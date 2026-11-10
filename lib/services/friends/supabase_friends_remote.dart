@@ -147,10 +147,11 @@ class SupabaseFriendsRemote implements FriendsRemote {
   });
 
   @override
-  Future<void> signIn({
+  Future<RemoteSignIn> signIn({
     required String email,
     required String password,
     required String displayName,
+    bool create = false,
   }) => _run(() async {
     final c = await _c();
     final current = c.auth.currentUser;
@@ -160,24 +161,29 @@ class SupabaseFriendsRemote implements FriendsRemote {
     }
     try {
       await c.auth.signInWithPassword(email: email, password: password);
+      return RemoteSignIn.signedIn;
     } on AuthException catch (e) {
       if (e.code != 'invalid_credentials') rethrow;
-      // Compte inconnu du serveur : on le crée. (Supabase répond de la même
-      // façon pour un mot de passe faux ; on le distingue juste après.)
+      // Compte inconnu ou mot de passe faux : Supabase répond pareil.
+      if (!create) return RemoteSignIn.refused;
+    }
+    // Compte inconnu du serveur : on le crée. S'il existe déjà avec un autre
+    // mot de passe, la création est refusée.
+    try {
       final res = await c.auth.signUp(
         email: email,
         password: password,
         data: {'display_name': displayName},
       );
-      if (res.session != null) return;
-      final alreadyExists = res.user?.identities?.isEmpty ?? false;
-      throw BusinessRuleException(
-        alreadyExists
-            ? 'Un compte Amis existe déjà pour cette adresse avec un autre '
-                  'mot de passe. Utilisez celui de la première connexion.'
-            : 'Le service Amis exige la confirmation de l\'e-mail '
-                  '(désactivez « Confirm email » dans Supabase).',
+      if (res.session != null) return RemoteSignIn.created;
+      if (res.user?.identities?.isEmpty ?? false) return RemoteSignIn.refused;
+      throw const BusinessRuleException(
+        "Le service Amis exige la confirmation de l'e-mail "
+        '(désactivez « Confirm email » dans Supabase).',
       );
+    } on AuthException catch (e) {
+      if (e.code == 'user_already_exists') return RemoteSignIn.refused;
+      rethrow;
     }
   });
 
@@ -379,6 +385,19 @@ class SupabaseFriendsRemote implements FriendsRemote {
     final c = _client;
     if (c == null || c.auth.currentUser == null) return;
     await c.rpc('leave_friends');
+  });
+
+  @override
+  Future<void> deleteAccount() => _run(() async {
+    final c = _client;
+    if (c == null || c.auth.currentUser == null) return;
+    await _unsubscribe(c);
+    await c.rpc('delete_my_account');
+    try {
+      await c.auth.signOut();
+    } catch (_) {
+      // Le compte n'existe plus : la session locale est déjà invalide.
+    }
   });
 
   // -------------------------------------------------------------- Pokes

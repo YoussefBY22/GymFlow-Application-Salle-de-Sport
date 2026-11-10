@@ -115,8 +115,10 @@ class Legal {
       'Fonction Amis (facultative)',
       'Désactivée par défaut et indisponible pour les mineurs. Si vous '
           'l\'activez, un compte est créé sur un service en ligne (Supabase, '
-          'hébergé dans la région choisie par la salle) avec votre e-mail et votre mot de passe (stocké '
-          'sous forme chiffrée irréversible par le service). Vos amis voient '
+          'hébergé dans la région choisie par la salle) avec votre e-mail ; ce compte '
+          'est protégé par un secret aléatoire gardé dans le coffre de votre '
+          'téléphone (jamais votre mot de passe GymFlow) et supprimé quand vous '
+          'désactivez la fonction. Vos amis voient '
           'votre nom, votre photo et si vous êtes en ligne ; vous pouvez leur '
           'envoyer et recevoir des messages d\'encouragement et des messages '
           'écrits (texte et emojis). Les messages sont stockés chiffrés dans '

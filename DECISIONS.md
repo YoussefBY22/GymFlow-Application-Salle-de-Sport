@@ -361,3 +361,12 @@ Demande : ajouter une **deuxième base de données**, en ligne et partagée entr
 - **Changement de mode** : le thème est reconstruit et tout l'arbre de widgets est marqué « à reconstruire » (sans perte d'état), car certains écrans lisent les couleurs directement.
 - **Limites** : le bouton « Continuer avec Google » reste blanc (charte de Google) ; les photos d'exercices gardent leur fond blanc.
 - **Tests** : `test/theme_test.dart` (10 tests : contrôleur, persistance, thèmes, bouton, Paramètres).
+
+### Version 3.1 : fonction Amis en un seul bouton, sans mot de passe
+- **Problème** : activer les Amis demandait le mot de passe GymFlow, qui servait aussi de mot de passe du compte Supabase. Il fallait le ressaisir à chaque activation (le web oublie tout au rechargement) et il devait rester identique des deux côtés.
+- **Décision** : un seul bouton « Activer la fonction Amis ». Le compte Supabase a un **secret aléatoire de 256 bits, propre à l'appareil**, créé automatiquement et gardé dans le coffre du téléphone (`flutter_secure_storage`, clé `friends_secret_<e-mail>`). Le mot de passe GymFlow n'est plus jamais envoyé à Supabase et le changer ne touche plus le compte Amis.
+- **Ordre de connexion** (`FriendsService._link`) : 1) le secret de l'appareil ; 2) sinon le mot de passe saisi à la connexion de cette session (gardé en mémoire seulement), pour un **ancien compte** créé avec le mot de passe GymFlow : il est relié puis aussitôt remplacé par un secret d'appareil (migration silencieuse) ; 3) sinon création du compte avec un nouveau secret.
+- **Désactiver, c'est partir** : la désactivation **supprime le compte du serveur** (`delete_my_account`, script `supabase/006_supprimer_compte.sql`, cascade sur profil, amis, messages) et le secret local. On peut réactiver depuis n'importe quel téléphone. Sans le script SQL, la désactivation efface les données Amis et garde le secret pour se reconnecter.
+- **Limite assumée** : un compte Amis est lié à **un téléphone à la fois**. S'il existe déjà avec un secret inconnu de l'appareil (activé ailleurs), l'application l'explique : désactiver là-bas, puis réactiver ici.
+- **Administrateur (Signalements)** : inchangé, il se relie encore avec son mot de passe.
+- **Tests** : secret d'appareil, migration d'un ancien compte, compte activé ailleurs, secret stable, mot de passe changé sans effet, écran sans saisie de mot de passe.

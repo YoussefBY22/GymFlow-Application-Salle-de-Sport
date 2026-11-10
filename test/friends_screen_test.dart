@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/services/backend.dart';
+import 'package:gymflow/services/friends_service.dart';
 
 import 'friends_fake.dart';
 import 'widget_helpers.dart';
@@ -22,6 +23,7 @@ Future<FakeFriendsRemote> _otherPhone(FakeFriendsServer server) async {
     email: 'nour@gymflow.tn',
     password: 'x',
     displayName: 'Nour Test',
+    create: true,
   );
   await r.updateProfile(displayName: 'Nour Test', enabled: true);
   await r.heartbeat();
@@ -47,13 +49,8 @@ Future<void> _see(WidgetTester tester, Finder f) async {
 }
 
 Future<void> _activate(WidgetTester tester) async {
+  // Un seul bouton : aucun mot de passe à saisir.
   await tester.tap(find.byKey(const Key('friends_enable')));
-  await settle(tester, 600);
-  await tester.enterText(
-    find.byKey(const Key('friends_password')),
-    'Membre2026!',
-  );
-  await tester.tap(find.byKey(const Key('friends_password_ok')));
   await settle(tester, 1500);
 }
 
@@ -121,9 +118,7 @@ void main() {
     await _done(tester, b);
   });
 
-  testWidgets('mauvais mot de passe : message d\'erreur, rien d\'activé', (
-    tester,
-  ) async {
+  testWidgets('un seul bouton : aucune saisie de mot de passe', (tester) async {
     final server = FakeFriendsServer();
     final b = await pumpApp(
       tester,
@@ -133,14 +128,14 @@ void main() {
     );
     await go(tester, Routes.friends);
     await tester.tap(find.byKey(const Key('friends_enable')));
-    await settle(tester, 600);
-    await tester.enterText(find.byKey(const Key('friends_password')), 'faux');
-    await tester.tap(find.byKey(const Key('friends_password_ok')));
-    await settle(tester, 1200);
+    await settle(tester, 300);
+    expect(find.byKey(const Key('friends_password')), findsNothing);
+    expect(find.byType(TextField), findsWidgets);
+    await settle(tester, 1500);
 
-    expect(find.text('Mot de passe incorrect.'), findsOneWidget);
-    expect(server.accountCount, 0);
-    expect(find.byKey(const Key('friends_enable')), findsOneWidget);
+    expect(server.accountCount, 1);
+    expect(b.friends.status, FriendsStatus.connected);
+    expect(find.byKey(const Key('friends_enable')), findsNothing);
     await _done(tester, b);
   });
 

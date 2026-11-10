@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
@@ -7,6 +9,7 @@ import '../core/validators.dart';
 import '../models/chat.dart';
 import '../models/enums.dart';
 import '../models/friends.dart';
+import '../models/user.dart';
 import 'backend.dart';
 import 'friends/friends_remote.dart';
 
@@ -23,10 +26,6 @@ enum FriendsStatus {
 
   /// Connectée : amis, présence et messages en direct.
   connected,
-
-  /// Activée, mais il faut ressaisir le mot de passe (session du serveur
-  /// absente, par exemple après une entrée avec Google).
-  needsPassword,
 
   /// Activée, mais le serveur est injoignable ou a refusé ([error]).
   error,
@@ -71,7 +70,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   Duration _serverOffset = Duration.zero;
   bool _connecting = false;
   bool _connected = false;
-  bool _needsPassword = false;
+  /// Mot de passe GymFlow saisi à la connexion de cette session (mémoire
+  /// seulement, jamais enregistré) : sert à relier un ancien compte Amis.
+  String? _loginPassword;
   bool _observing = false;
   Object? _error;
   Timer? _timer;
@@ -114,7 +115,6 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     if (!_enabledForMe) return FriendsStatus.off;
     if (_connected) return FriendsStatus.connected;
     if (_connecting) return FriendsStatus.connecting;
-    if (_needsPassword) return FriendsStatus.needsPassword;
     if (_error != null) return FriendsStatus.error;
     return FriendsStatus.connecting;
   }
@@ -142,25 +142,23 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _setConnecting();
     try {
       final hasSession = await _r.restore();
-      if (hasSession && _sameAccount(me.email)) {
-        await _goOnline();
-      } else {
-        _needsPassword = true;
-        _connecting = false;
-        notifyListeners();
-      }
+      if (!hasSession || !_sameAccount(me.email)) await _link(me);
+      await _goOnline();
     } catch (e) {
       _fail(e);
     }
   }
 
-  /// Après une connexion par mot de passe : le mot de passe est connu, donc
-  /// la connexion au serveur est automatique.
+  /// Après une connexion : la connexion au serveur est automatique si la
+  /// fonction est activée. Le mot de passe saisi (connexion par mot de passe)
+  /// reste en mémoire pour cette session : il ne sert qu'à relier un compte
+  /// Amis créé avant que l'appareil ait son propre secret.
   Future<void> onLogin(String? password) async {
+    _loginPassword = password;
     if (!available || !_enabledForMe) return;
     if (password == null) return resume();
     try {
-      await _connect(password);
+      await _connect();
     } catch (_) {
       // L'erreur est conservée dans l'état ; l'écran Amis l'affiche.
     }
@@ -170,6 +168,7 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
   /// session du serveur (le téléphone suivant ne doit pas en hériter).
   Future<void> onLogout() async {
     final remote = _remote;
+    _loginPassword = null;
     // Ce téléphone ne doit plus recevoir les notifications de ce compte.
     await _b.push.stop(forget: _connected);
     _stop();
@@ -181,7 +180,6 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _b.chat.reset();
     _b.moderation.reset();
     _handled.clear();
-    _needsPassword = false;
     _error = null;
     notifyListeners();
     if (remote == null) return;
@@ -194,23 +192,18 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Le mot de passe GymFlow a changé : le compte du serveur suit.
-  Future<void> onPasswordChanged(String newPassword) async {
-    if (!_connected) return;
-    try {
-      await _r.updatePassword(newPassword);
-    } catch (_) {
-      // Rattrapé à la prochaine connexion (message explicatif).
-    }
+  /// Le mot de passe GymFlow a changé : le compte du serveur n'est pas
+  /// concerné (il a son propre secret, propre à l'appareil).
+  void onPasswordChanged(String newPassword) {
+    if (_loginPassword != null) _loginPassword = newPassword;
   }
 
   // ------------------------------------------------------------ Activation
 
   /// Active la fonction (consentement explicite) et crée / relie le compte
-  /// du serveur. [password] est le mot de passe GymFlow : il est vérifié
-  /// localement avant d'être envoyé, pour que les deux comptes restent
-  /// identiques.
-  Future<void> enable(String password) async {
+  /// du serveur. Aucun mot de passe à saisir : l'appareil garde un secret
+  /// propre à ce compte (voir [_link]).
+  Future<void> enable() async {
     final me = _b.requireRole({UserRole.member});
     if (!available) {
       throw const BusinessRuleException(
@@ -222,10 +215,9 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
         'Les comptes de mineurs ne peuvent pas activer la fonction Amis.',
       );
     }
-    _checkPassword(password);
     await _b.privacy.updateSettings(me.privacy.copyWith(friends: true));
     try {
-      await _connect(password);
+      await _connect();
       // Android 13+ : autorisation d'afficher les notifications d'amis.
       await _b.notifier.requestPermission();
     } catch (e) {
@@ -240,11 +232,10 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Ressaisie du mot de passe quand la fonction est activée mais pas connectée.
-  Future<void> reconnect(String password) async {
+  /// Nouvelle tentative quand la fonction est activée mais pas connectée.
+  Future<void> reconnect() async {
     _b.requireRole({UserRole.member});
-    _checkPassword(password);
-    await _connect(password);
+    await _connect();
   }
 
   /// Désactive la fonction et **efface** ses données sur le serveur (amis,
@@ -255,16 +246,22 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     await _b.push.stop(forget: true);
     _stop();
     if (remote != null && remote.userId != null) {
+      var deleted = false;
       try {
-        await remote.leave();
+        // Désactiver, c'est partir : le compte du serveur est supprimé.
+        await remote.deleteAccount();
+        deleted = true;
       } catch (_) {
-        // Hors connexion : la désactivation locale s'applique quand même ;
-        // les données restantes sont invisibles (profil marqué inactif à la
-        // prochaine connexion).
+        // Fonction SQL absente ou hors connexion : on efface au moins les
+        // données ; le secret de l'appareil est gardé pour se reconnecter.
+        try {
+          await remote.leave();
+        } catch (_) {}
+        try {
+          await remote.signOut();
+        } catch (_) {}
       }
-      try {
-        await remote.signOut();
-      } catch (_) {}
+      if (deleted) await _b.sessionStorage.delete(_secretKey(me.email));
     }
     _friends = const [];
     _requests = const [];
@@ -274,7 +271,6 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _b.chat.reset();
     _b.moderation.reset();
     _handled.clear();
-    _needsPassword = false;
     _error = null;
     await _b.privacy.updateSettings(me.privacy.copyWith(friends: false));
     notifyListeners();
@@ -291,10 +287,56 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     _stop();
   }
 
-  void _checkPassword(String password) {
-    if (!_b.auth.checkPassword(password)) {
-      throw const ValidationException('Mot de passe incorrect.');
+  static String _secretKey(String email) =>
+      'friends_secret_${email.trim().toLowerCase()}';
+
+  /// Secret du compte du serveur : 256 bits aléatoires, propres à l'appareil.
+  static String _newSecret() {
+    final random = Random.secure();
+    return base64UrlEncode(List<int>.generate(32, (_) => random.nextInt(256)));
+  }
+
+  /// Ouvre la session du serveur **sans mot de passe à saisir**.
+  ///
+  /// Le compte du serveur n'a pas le mot de passe GymFlow : il a un secret
+  /// aléatoire gardé dans le coffre de l'appareil. Dans l'ordre :
+  /// 1. le secret de l'appareil, s'il existe ;
+  /// 2. sinon, le mot de passe saisi à la connexion, pour un compte créé par
+  ///    l'ancien système : il est aussitôt remplacé par un secret d'appareil ;
+  /// 3. sinon, création du compte avec un nouveau secret.
+  /// Un compte qui existe déjà sur le serveur avec un secret inconnu de cet
+  /// appareil (activé sur un autre téléphone) est refusé avec un message.
+  Future<void> _link(AppUser me) async {
+    final key = _secretKey(me.email);
+    final storage = _b.sessionStorage;
+    Future<RemoteSignIn> attempt(String password, {bool create = false}) =>
+        _r.signIn(
+          email: me.email,
+          password: password,
+          displayName: me.fullName,
+          create: create,
+        );
+
+    final stored = await storage.read(key);
+    if (stored != null && await attempt(stored) == RemoteSignIn.signedIn) {
+      return;
     }
+    final legacy = _loginPassword;
+    if (legacy != null && await attempt(legacy) == RemoteSignIn.signedIn) {
+      final secret = _newSecret();
+      await _r.updatePassword(secret);
+      await storage.write(key, secret);
+      return;
+    }
+    final secret = _newSecret();
+    final result = await attempt(secret, create: true);
+    if (result == RemoteSignIn.refused) {
+      throw const BusinessRuleException(
+        'Un compte Amis existe déjà pour cette adresse, activé sur un autre '
+        'téléphone. Désactivez la fonction Amis là-bas, puis réactivez-la ici.',
+      );
+    }
+    await storage.write(key, secret);
   }
 
   bool _sameAccount(String email) =>
@@ -306,15 +348,11 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> _connect(String password) async {
+  Future<void> _connect() async {
     final me = _b.requireRole({UserRole.member});
     _setConnecting();
     try {
-      await _r.signIn(
-        email: me.email,
-        password: password,
-        displayName: me.fullName,
-      );
+      await _link(me);
       await _goOnline();
     } catch (e) {
       _fail(e);
@@ -364,7 +402,6 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     }
     _connecting = false;
     _connected = true;
-    _needsPassword = false;
     _error = null;
     _startTimer();
     _observe();

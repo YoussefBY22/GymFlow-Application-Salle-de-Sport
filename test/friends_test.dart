@@ -49,7 +49,7 @@ void main() {
       await p.b.users.save(nour.copyWith(age: 16));
       p.b.auth.refreshCurrent();
       await expectLater(
-        p.b.friends.enable(kPwd),
+        p.b.friends.enable(),
         throwsA(isA<BusinessRuleException>()),
       );
       expect(server.accountCount, 0);
@@ -62,7 +62,7 @@ void main() {
       final b = await makeBackend(friendsRemote: r);
       await b.auth.login('admin@gymflow.tn', 'Admin2026!');
       await expectLater(
-        b.friends.enable('Admin2026!'),
+        b.friends.enable(),
         throwsA(isA<PermissionDeniedException>()),
       );
       expect(server.accountCount, 0);
@@ -70,17 +70,6 @@ void main() {
   });
 
   group('Activation', () {
-    test('un mauvais mot de passe est refusé avant tout envoi', () async {
-      final server = FakeFriendsServer();
-      final p = await phone(server, kAhmed);
-      await expectLater(
-        p.b.friends.enable('pas-le-bon'),
-        throwsA(isA<ValidationException>()),
-      );
-      expect(server.accountCount, 0);
-      expect(p.b.auth.currentUser!.privacy.friends, isFalse);
-    });
-
     test(
       'activation : compte créé sur le serveur, consentement tracé',
       () async {
@@ -101,18 +90,69 @@ void main() {
       },
     );
 
-    test('le mot de passe envoyé est celui de GymFlow', () async {
+    test('aucun mot de passe : secret propre à l\'appareil', () async {
       final server = FakeFriendsServer();
       final p = await phone(server, kAhmed);
       await enable(p);
-      expect(server.passwordOf(kAhmed), kPwd);
+      final secret = await p.b.sessionStorage.read('friends_secret_$kAhmed');
+      expect(secret, isNotNull);
+      expect(secret!.length, greaterThanOrEqualTo(32));
+      expect(server.passwordOf(kAhmed), secret);
+      expect(server.passwordOf(kAhmed), isNot(kPwd));
+    });
+
+    test('ancien compte (mot de passe GymFlow) : relié puis protégé par '
+        'un secret d\'appareil', () async {
+      final server = FakeFriendsServer()
+        ..seedLegacyAccount(kAhmed, kPwd, 'Ahmed Gharbi');
+      final p = await phone(server, kAhmed);
+      await p.b.friends.onLogin(kPwd);
+      await enable(p);
+
+      expect(p.b.friends.status, FriendsStatus.connected);
+      expect(server.accountCount, 1);
+      expect(server.passwordOf(kAhmed), isNot(kPwd));
+      expect(
+        await p.b.sessionStorage.read('friends_secret_$kAhmed'),
+        server.passwordOf(kAhmed),
+      );
+    });
+
+    test('compte déjà activé sur un autre téléphone : message clair', () async {
+      final server = FakeFriendsServer()
+        ..seedLegacyAccount(kAhmed, 'secret-inconnu', 'Ahmed Gharbi');
+      final p = await phone(server, kAhmed);
+      await expectLater(
+        p.b.friends.enable(),
+        throwsA(
+          isA<BusinessRuleException>().having(
+            (e) => e.message,
+            'message',
+            contains('autre téléphone'),
+          ),
+        ),
+      );
+      expect(p.b.auth.currentUser!.privacy.friends, isFalse);
+      expect(p.b.friends.status, FriendsStatus.off);
+    });
+
+    test('le secret ne change pas d\'une connexion à l\'autre', () async {
+      final server = FakeFriendsServer();
+      final p = await phone(server, kAhmed);
+      await enable(p);
+      final secret = server.passwordOf(kAhmed);
+      await p.b.auth.logout();
+      await loginAs(p.b, kAhmed);
+      await flush();
+      expect(p.b.friends.status, FriendsStatus.connected);
+      expect(server.passwordOf(kAhmed), secret);
     });
 
     test('si le serveur échoue, rien n\'est activé à moitié', () async {
       final server = FakeFriendsServer()..failWith = 'panne';
       final p = await phone(server, kAhmed);
       await expectLater(
-        p.b.friends.enable(kPwd),
+        p.b.friends.enable(),
         throwsA(isA<BusinessRuleException>()),
       );
       expect(p.b.auth.currentUser!.privacy.friends, isFalse);
@@ -658,7 +698,7 @@ void main() {
     );
 
     test(
-      'session du serveur d\'un autre compte : mot de passe demandé',
+      'session du serveur d\'un autre compte : reprise avec le secret',
       () async {
         final server = FakeFriendsServer();
         final n = await phone(server, kNour);
@@ -668,23 +708,20 @@ void main() {
         a.r.keepSessionFor(kNour); // reste d'un autre compte sur ce téléphone
         a.b.friends.stop();
         await a.b.friends.resume();
-        expect(a.b.friends.status, FriendsStatus.needsPassword);
-        await expectLater(
-          a.b.friends.reconnect('faux'),
-          throwsA(isA<ValidationException>()),
-        );
-        await a.b.friends.reconnect(kPwd);
         expect(a.b.friends.status, FriendsStatus.connected);
+        expect(a.r.userEmail, kAhmed);
       },
     );
 
-    test('changer de mot de passe met le compte du serveur à jour', () async {
+    test('changer de mot de passe ne touche pas le compte du serveur', () async {
       final server = FakeFriendsServer();
       final p = await phone(server, kAhmed);
       await enable(p);
+      final secret = server.passwordOf(kAhmed);
       await p.b.auth.changePassword(kPwd, 'NouveauPass2026!');
       await flush();
-      expect(server.passwordOf(kAhmed), 'NouveauPass2026!');
+      expect(server.passwordOf(kAhmed), secret);
+      expect(p.b.friends.status, FriendsStatus.connected);
     });
 
     test('supprimer son compte efface aussi les données du serveur', () async {

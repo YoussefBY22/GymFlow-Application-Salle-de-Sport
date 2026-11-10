@@ -462,8 +462,8 @@ class AuthService extends ChangeNotifier {
         iterations: hasher.iterations,
       ),
     );
-    // Le compte du serveur Amis garde le même mot de passe.
-    unawaited(_b.friends.onPasswordChanged(newPassword));
+    // Le compte du serveur Amis a son propre secret : il n'est pas touché.
+    _b.friends.onPasswordChanged(newPassword);
   }
 
   /// Le mot de passe saisi est-il celui du compte connecté ? (Sert à
