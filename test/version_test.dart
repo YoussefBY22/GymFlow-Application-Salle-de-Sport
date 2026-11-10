@@ -15,7 +15,7 @@ void main() {
       final ligne = File('pubspec.yaml')
           .readAsLinesSync()
           .firstWhere((l) => l.startsWith('version:'));
-      // « version: 2.9.0+11 » → « 2.9.0 »
+      // « version: 3.0.0+12 » → « 3.0.0 »
       pubspecVersion = ligne.split(':')[1].trim().split('+').first;
     });
 
