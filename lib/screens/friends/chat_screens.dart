@@ -12,6 +12,7 @@ import '../../core/routes.dart';
 import '../../core/theme.dart';
 import '../../models/chat.dart';
 import '../../models/friends.dart';
+import '../../models/user.dart';
 import '../../services/backend.dart';
 import '../../services/chat_service.dart';
 import '../../widgets/common.dart';
@@ -444,10 +445,80 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Profil de la personne avec qui l'on discute : le même écran que
+  /// « Membres de la salle » (nom, séances partagées, ce qu'elle a accepté de
+  /// montrer), si cette personne est connue de ce téléphone.
+  Future<void> _openProfile() async {
+    final friend = _friend;
+    if (friend == null) return;
+    AppUser? local;
+    try {
+      local = await Backend.I.friends.localUserOf(friend.id);
+    } catch (_) {
+      local = null;
+    }
+    if (!mounted) return;
+    if (local != null) {
+      await Navigator.pushNamed(context, Routes.member, arguments: local.id);
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(Gap.l),
+        child: Column(
+          key: const Key('friend_card'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FriendAvatar(
+              name: friend.name,
+              url: friend.avatarUrl,
+              size: 72,
+              online: friend.isOnline(Backend.I.friends.serverNow()),
+            ),
+            const SizedBox(height: Gap.s),
+            Text(friend.name, style: AppText.title()),
+            Text(
+              friend.presenceLabel(Backend.I.friends.serverNow()),
+              style: AppText.label(),
+            ),
+            const SizedBox(height: Gap.m),
+            Text(
+              "Le profil détaillé de ce membre n'est pas disponible sur ce "
+              'téléphone.',
+              textAlign: TextAlign.center,
+              style: AppText.body(size: 14, color: AppColors.inkSoft),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _headerMenu(String action) async {
     final id = widget.friendId;
     final name = _friend?.name ?? 'cette personne';
     switch (action) {
+      case 'profile':
+        await _openProfile();
+      case 'typing':
+        final hidden = _chat.thread(id).info.hideTyping;
+        await runAction(
+          context,
+          () => _chat.setPrivacy(id, hideTyping: !hidden),
+          success: hidden
+              ? "« En train d'écrire » de nouveau visible avec $name."
+              : "« En train d'écrire » masqué pour $name.",
+        );
+      case 'receipts':
+        final hidden = _chat.thread(id).info.hideReceipts;
+        await runAction(
+          context,
+          () => _chat.setPrivacy(id, hideReceipts: !hidden),
+          success: hidden
+              ? 'Les « Vu » sont de nouveau visibles avec $name.'
+              : 'Les « Vu » sont masqués pour $name (et les siens pour vous).',
+        );
       case 'mute':
         final muted = _chat.thread(id).info.muted;
         await runAction(
@@ -511,7 +582,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             titleSpacing: 0,
             title: friend == null
                 ? const Text('Discussion')
-                : Row(
+                : InkWell(
+                    key: const Key('chat_profile'),
+                    onTap: _openProfile,
+                    child: Row(
                     children: [
                       FriendAvatar(
                         name: friend.name,
@@ -548,12 +622,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
+                  ),
             actions: [
               if (friend != null)
                 PopupMenuButton<String>(
                   key: const Key('chat_menu'),
                   onSelected: _headerMenu,
                   itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'profile',
+                      child: Text('Voir le profil'),
+                    ),
+                    const PopupMenuDivider(),
+                    CheckedPopupMenuItem(
+                      value: 'typing',
+                      checked: thread.info.hideTyping,
+                      child: const Text("Masquer « en train d'écrire »"),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: 'receipts',
+                      checked: thread.info.hideReceipts,
+                      child: const Text('Masquer les « Vu »'),
+                    ),
+                    const PopupMenuDivider(),
                     PopupMenuItem(
                       value: 'mute',
                       child: Text(
@@ -675,6 +766,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     return _Bubble(
                       message: m,
                       status: m.id == lastMineId ? _statusOf(m, seen) : null,
+                      seenBy:
+                          m.id == lastMineId &&
+                              seen &&
+                              m.state == SendState.sent
+                          ? friend
+                          : null,
                       onLongPress: () => _messageMenu(m),
                       onRetry: m.state == SendState.failed
                           ? () => runAction(
@@ -891,11 +988,16 @@ class _Bubble extends StatelessWidget {
     required this.message,
     required this.onLongPress,
     this.status,
+    this.seenBy,
     this.onRetry,
   });
 
   final ChatMessage message;
   final String? status;
+
+  /// Quand le dernier message a été vu : la personne qui l'a vu (son cercle
+  /// s'affiche à la place du mot « Vu »).
+  final Friend? seenBy;
   final VoidCallback onLongPress;
   final VoidCallback? onRetry;
 
@@ -984,7 +1086,20 @@ class _Bubble extends StatelessWidget {
               ),
             ),
           ),
-          if (status != null)
+          if (status != null && seenBy != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, right: 4),
+              child: Tooltip(
+                message: 'Vu',
+                child: FriendAvatar(
+                  key: const Key('msg_seen_avatar'),
+                  name: seenBy!.name,
+                  url: seenBy!.avatarUrl,
+                  size: 16,
+                ),
+              ),
+            )
+          else if (status != null)
             Padding(
               padding: const EdgeInsets.only(top: 2, right: 4),
               child: Text(

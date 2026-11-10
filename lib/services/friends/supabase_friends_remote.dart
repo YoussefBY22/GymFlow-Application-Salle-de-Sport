@@ -537,7 +537,37 @@ class SupabaseFriendsRemote implements FriendsRemote {
       peerReadAt: DateTime.tryParse('${r['peer_read_at']}'),
       muted: r['muted'] == true,
       archived: r['archived'] == true,
+      hideReceipts: r['hide_receipts'] == true,
+      hideTyping: r['hide_typing'] == true,
     );
+  });
+
+  @override
+  Future<void> setChatPrivacy(
+    String friendId, {
+    required bool hideReceipts,
+    required bool hideTyping,
+  }) => _run(() async {
+    final c = await _c();
+    await c.rpc(
+      'set_chat_privacy',
+      params: {
+        'p_friend': friendId,
+        'p_hide_receipts': hideReceipts,
+        'p_hide_typing': hideTyping,
+      },
+    );
+  });
+
+  @override
+  Future<Map<String, String>> friendEmailHashes() => _run(() async {
+    final c = await _c();
+    final rows = (await c.from('profiles').select('id, email_hash') as List)
+        .cast<Map>();
+    return {
+      for (final r in rows)
+        if (r['email_hash'] != null) '${r['id']}': '${r['email_hash']}',
+    };
   });
 
   @override

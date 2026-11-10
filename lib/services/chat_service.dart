@@ -301,6 +301,7 @@ class ChatService extends ChangeNotifier {
   void userTyping(String friendId, bool hasText) {
     _b.friends.noteActivity();
     if (_b.friends.settings.hideTyping) return;
+    if (thread(friendId).info.hideTyping) return;
     if (!hasText) {
       stopTyping(friendId);
       return;
@@ -375,23 +376,38 @@ class ChatService extends ChangeNotifier {
   Future<void> setArchived(String friendId, bool value) async {
     await _r.setArchived(friendId, value);
     final t = thread(friendId);
-    t.info = ChatInfo(
-      peerReadAt: t.info.peerReadAt,
-      muted: t.info.muted,
-      archived: value,
-    );
+    t.info = t.info.copyWith(archived: value);
     t.changed();
     await refreshConversations();
+  }
+
+  /// Règle « Vu » et « en train d'écrire » pour **cette** discussion
+  /// seulement (menu de la discussion). Même règle de réciprocité que les
+  /// réglages généraux de Mes amis.
+  Future<void> setPrivacy(
+    String friendId, {
+    bool? hideReceipts,
+    bool? hideTyping,
+  }) async {
+    final t = thread(friendId);
+    final receipts = hideReceipts ?? t.info.hideReceipts;
+    final typing = hideTyping ?? t.info.hideTyping;
+    await _r.setChatPrivacy(
+      friendId,
+      hideReceipts: receipts,
+      hideTyping: typing,
+    );
+    if (typing) stopTyping(friendId);
+    t.info = t.info.copyWith(hideReceipts: receipts, hideTyping: typing);
+    // Le « Vu » de l'autre apparaît ou disparaît selon ce réglage.
+    t.info = await _r.conversationInfo(friendId);
+    t.changed();
   }
 
   Future<void> setMuted(String friendId, bool value) async {
     await _r.setMuted(friendId, value);
     final t = thread(friendId);
-    t.info = ChatInfo(
-      peerReadAt: t.info.peerReadAt,
-      muted: value,
-      archived: t.info.archived,
-    );
+    t.info = t.info.copyWith(muted: value);
     t.changed();
     await refreshConversations();
   }
@@ -460,11 +476,7 @@ class ChatService extends ChangeNotifier {
         if (t == null) return;
         final current = t.info.peerReadAt;
         if (current == null || e.readAt.isAfter(current)) {
-          t.info = ChatInfo(
-            peerReadAt: e.readAt,
-            muted: t.info.muted,
-            archived: t.info.archived,
-          );
+          t.info = t.info.copyWith(peerReadAt: e.readAt);
           t.changed();
         }
       case TypingChanged():

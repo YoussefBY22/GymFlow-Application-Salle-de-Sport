@@ -169,12 +169,37 @@ class Conversation {
 
 /// Informations d'une discussion.
 class ChatInfo {
-  const ChatInfo({this.peerReadAt, this.muted = false, this.archived = false});
+  const ChatInfo({
+    this.peerReadAt,
+    this.muted = false,
+    this.archived = false,
+    this.hideReceipts = false,
+    this.hideTyping = false,
+  });
 
   /// Dernier « vu » de l'autre (`null` : pas de « vu » visible).
   final DateTime? peerReadAt;
   final bool muted;
   final bool archived;
+
+  /// Réglages propres à cette discussion : masquer mes « Vu » (et ne plus voir
+  /// ceux de l'autre) et masquer « en train d'écrire » pour cette personne.
+  final bool hideReceipts;
+  final bool hideTyping;
+
+  ChatInfo copyWith({
+    DateTime? peerReadAt,
+    bool? muted,
+    bool? archived,
+    bool? hideReceipts,
+    bool? hideTyping,
+  }) => ChatInfo(
+    peerReadAt: peerReadAt ?? this.peerReadAt,
+    muted: muted ?? this.muted,
+    archived: archived ?? this.archived,
+    hideReceipts: hideReceipts ?? this.hideReceipts,
+    hideTyping: hideTyping ?? this.hideTyping,
+  );
 }
 
 /// Réglages de la messagerie et de la présence (privés).

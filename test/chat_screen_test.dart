@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/models/chat.dart';
+import 'package:gymflow/screens/community/community_screens.dart';
 import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/widgets/emoji_widgets.dart';
 
@@ -110,7 +111,7 @@ void main() {
     await _done(tester, s.b);
   });
 
-  testWidgets('envoyer un message : bulle, « Envoyé », puis « Vu »', (
+  testWidgets('envoyer un message : bulle, « Envoyé », puis le cercle « Vu »', (
     tester,
   ) async {
     final s = await _setup(tester);
@@ -128,7 +129,68 @@ void main() {
     // Nour lit la discussion : « Vu » apparaît chez Ahmed.
     await s.other.markRead(s.myId);
     await settle(tester, 600);
-    expect(find.text('Vu'), findsOneWidget);
+    // Le mot « Vu » est remplacé par le cercle de la personne.
+    expect(find.text('Vu'), findsNothing);
+    expect(find.byKey(const Key('msg_seen_avatar')), findsOneWidget);
+    expect(find.text('Envoyé'), findsNothing);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('menu : masquer « en train d\'écrire » pour cette personne', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    await tester.tap(find.byKey(const Key('chat_menu')));
+    await settle(tester, 400);
+    await tester.tap(find.textContaining('Masquer « en train'));
+    await settle(tester, 800);
+    expect(s.b.chat.thread(s.otherId).info.hideTyping, isTrue);
+
+    // Nour tape : rien ne s'affiche pour cette personne.
+    await s.other.setTyping(s.myId, true);
+    await settle(tester, 400);
+    expect(find.text('est en train d\'écrire…'), findsNothing);
+
+    // Et Ahmed n'envoie plus rien non plus (réciprocité).
+    s.mine.calls.remove('setTyping');
+    s.b.chat.userTyping(s.otherId, true);
+    expect(s.mine.calls['setTyping'], isNull);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('menu : masquer les « Vu » pour cette personne seulement', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    await _type(tester, 'Salut');
+    await tester.tap(find.byKey(const Key('chat_send')));
+    await settle(tester, 600);
+
+    await tester.tap(find.byKey(const Key('chat_menu')));
+    await settle(tester, 400);
+    await tester.tap(find.text('Masquer les « Vu »'));
+    await settle(tester, 800);
+    expect(s.b.chat.thread(s.otherId).info.hideReceipts, isTrue);
+
+    await s.other.markRead(s.myId);
+    await settle(tester, 600);
+    expect(find.byKey(const Key('msg_seen_avatar')), findsNothing);
+    expect(find.text('Envoyé'), findsOneWidget);
+    await _done(tester, s.b);
+  });
+
+  testWidgets('en-tête : « Voir le profil » ouvre la fiche du membre', (
+    tester,
+  ) async {
+    final s = await _setup(tester);
+    await go(tester, Routes.chat, s.otherId);
+    // Nour est connue de ce téléphone (compte de démonstration) : on ouvre
+    // la même fiche que dans « Membres de la salle ».
+    await tester.tap(find.byKey(const Key('chat_profile')));
+    await settle(tester, 1200);
+    expect(find.byType(MemberProfileScreen), findsOneWidget);
     await _done(tester, s.b);
   });
 

@@ -7,7 +7,10 @@ import '../../core/routes.dart';
 import '../../core/theme.dart';
 import '../../core/validators.dart';
 import '../../services/backend.dart';
+import '../../core/errors.dart';
+import '../../models/friends.dart';
 import '../../services/community_service.dart';
+import '../../services/friends_service.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cards.dart';
@@ -206,6 +209,43 @@ class MemberProfileScreen extends StatelessWidget {
     );
   }
 
+  /// Envoie une invitation d'ami à ce membre (son adresse e-mail est connue
+  /// de ce téléphone : elle n'est jamais affichée).
+  Future<void> _addFriend(BuildContext context, PublicProfile p) async {
+    final b = Backend.I;
+    final user = b.users.byId(p.userId);
+    if (user == null) return;
+    if (b.friends.status != FriendsStatus.connected) {
+      final go = await confirm(
+        context,
+        title: 'Activez la fonction Amis',
+        message:
+            "Pour ajouter ${p.firstName} comme ami, activez d'abord la fonction "
+            'Amis.',
+        confirmLabel: 'Ouvrir Mes amis',
+      );
+      if (go && context.mounted) Navigator.pushNamed(context, Routes.friends);
+      return;
+    }
+    try {
+      final result = await b.friends.sendRequest(user.email);
+      if (!context.mounted) return;
+      showSnack(
+        context,
+        switch (result) {
+          SendResult.sent => 'Invitation envoyée à ${p.firstName}.',
+          SendResult.accepted =>
+            'Vous êtes maintenant amis avec ${p.firstName}.',
+          SendResult.alreadyFriends => 'Vous êtes déjà amis avec ${p.firstName}.',
+          SendResult.alreadyPending =>
+            'Une invitation est déjà en attente avec ${p.firstName}.',
+        },
+      );
+    } catch (e) {
+      if (context.mounted) showSnack(context, friendlyError(e), error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final b = Backend.I;
@@ -266,9 +306,16 @@ class MemberProfileScreen extends StatelessWidget {
             actions: [
               if (!mine)
                 PopupMenuButton<String>(
+                  key: const Key('member_menu'),
                   tooltip: 'Options',
-                  onSelected: (_) => _report(context, profile),
+                  onSelected: (v) => v == 'friend'
+                      ? _addFriend(context, profile)
+                      : _report(context, profile),
                   itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'friend',
+                      child: Text('Ajouter comme ami'),
+                    ),
                     PopupMenuItem(
                       value: 'report',
                       child: Text('Signaler ce profil'),

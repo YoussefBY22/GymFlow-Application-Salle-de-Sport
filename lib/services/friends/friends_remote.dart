@@ -207,6 +207,17 @@ abstract class FriendsRemote {
 
   Future<void> setMuted(String friendId, bool muted);
 
+  /// Masquer mes « Vu » et/ou « en train d'écrire » pour cette personne.
+  Future<void> setChatPrivacy(
+    String friendId, {
+    required bool hideReceipts,
+    required bool hideTyping,
+  });
+
+  /// Empreinte (SHA-256 de l'adresse e-mail) de chaque profil visible : sert
+  /// à retrouver, sur ce téléphone, le membre qui correspond à un ami.
+  Future<Map<String, String>> friendEmailHashes();
+
   // ----------------------------------------------- Blocage et signalements
 
   Future<void> blockUser(String userId);

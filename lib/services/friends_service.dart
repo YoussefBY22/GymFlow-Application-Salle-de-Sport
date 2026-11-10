@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:flutter/widgets.dart';
 
 import '../core/errors.dart';
@@ -339,6 +341,25 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     await storage.write(key, secret);
+  }
+
+  Map<String, String>? _emailHashes;
+
+  /// Membre de ce téléphone qui correspond à un ami (même adresse e-mail),
+  /// pour ouvrir son profil de la salle. `null` si cette personne n'est pas
+  /// connue de ce téléphone.
+  Future<AppUser?> localUserOf(String friendId) async {
+    var hashes = _emailHashes;
+    if (hashes == null || !hashes.containsKey(friendId)) {
+      hashes = _emailHashes = await _r.friendEmailHashes();
+    }
+    final wanted = hashes[friendId];
+    if (wanted == null) return null;
+    for (final u in _b.users.all) {
+      final digest = sha256.convert(utf8.encode(u.email.trim().toLowerCase()));
+      if (digest.toString() == wanted) return u;
+    }
+    return null;
   }
 
   bool _sameAccount(String email) =>

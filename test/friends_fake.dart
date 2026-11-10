@@ -9,6 +9,9 @@
 // Plusieurs « téléphones » (un `FakeFriendsRemote` chacun) se parlent à
 // travers le même serveur.
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import 'package:gymflow/core/errors.dart';
 import 'package:gymflow/models/chat.dart';
@@ -66,6 +69,8 @@ class _Msg {
 class _Conv {
   bool archived = false;
   bool muted = false;
+  bool hideReceipts = false;
+  bool hideTyping = false;
   DateTime cleared = DateTime.utc(1970);
   DateTime lastRead = DateTime.utc(1970);
 }
@@ -756,14 +761,20 @@ class FakeFriendsRemote implements FriendsRemote {
     final me = _me;
     final other = server._acct(friendId);
     final conv = server._conv(me.id, friendId);
+    final otherConv = server._conv(friendId, me.id);
     DateTime? read;
-    if (!me.hideReceipts && !other.hideReceipts) {
+    if (!me.hideReceipts &&
+        !other.hideReceipts &&
+        !conv.hideReceipts &&
+        !otherConv.hideReceipts) {
       read = server._reads[server._key(friendId, me.id)];
     }
     return ChatInfo(
       peerReadAt: read,
       muted: conv.muted,
       archived: conv.archived,
+      hideReceipts: conv.hideReceipts,
+      hideTyping: conv.hideTyping,
     );
   }
 
@@ -778,10 +789,11 @@ class FakeFriendsRemote implements FriendsRemote {
     }
     final now = server.stamp();
     server._conv(me.id, friendId).lastRead = now;
-    if (!me.hideReceipts) {
+    if (!me.hideReceipts && !server._conv(me.id, friendId).hideReceipts) {
       server._reads[server._key(me.id, friendId)] = now;
       final other = server._acct(friendId);
-      if (!other.hideReceipts) {
+      if (!other.hideReceipts &&
+          !server._conv(friendId, me.id).hideReceipts) {
         server._push(friendId, ReadMarkChanged(me.id, now));
       }
     }
@@ -792,8 +804,9 @@ class FakeFriendsRemote implements FriendsRemote {
     _count('setTyping');
     final me = _me;
     if (me.hideTyping || !server.areFriends(me.id, friendId)) return;
+    if (server._conv(me.id, friendId).hideTyping) return;
     final other = server._acct(friendId);
-    if (!other.hideTyping) {
+    if (!other.hideTyping && !server._conv(friendId, me.id).hideTyping) {
       server._push(friendId, TypingChanged(me.id, typing));
     }
   }
@@ -844,6 +857,29 @@ class FakeFriendsRemote implements FriendsRemote {
   Future<void> setMuted(String friendId, bool muted) async {
     _count('setMuted');
     server._conv(_me.id, friendId).muted = muted;
+  }
+
+  @override
+  Future<void> setChatPrivacy(
+    String friendId, {
+    required bool hideReceipts,
+    required bool hideTyping,
+  }) async {
+    _count('setChatPrivacy');
+    final conv = server._conv(_me.id, friendId);
+    conv.hideReceipts = hideReceipts;
+    conv.hideTyping = hideTyping;
+  }
+
+  @override
+  Future<Map<String, String>> friendEmailHashes() async {
+    _count('friendEmailHashes');
+    final me = _me;
+    return {
+      for (final a in server._byEmail.values)
+        if (a.id == me.id || server.areFriends(me.id, a.id))
+          a.id: sha256.convert(utf8.encode(a.email)).toString(),
+    };
   }
 
   // ------------------------------------------- Blocage et signalements
