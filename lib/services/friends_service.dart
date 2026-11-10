@@ -332,8 +332,10 @@ class FriendsService extends ChangeNotifier with WidgetsBindingObserver {
     final result = await attempt(secret, create: true);
     if (result == RemoteSignIn.refused) {
       throw const BusinessRuleException(
-        'Un compte Amis existe déjà pour cette adresse, activé sur un autre '
-        'téléphone. Désactivez la fonction Amis là-bas, puis réactivez-la ici.',
+        'Un compte Amis existe déjà pour cette adresse. Déconnectez-vous puis '
+        'reconnectez-vous à GymFlow avec votre mot de passe pour le relier à ce '
+        "téléphone. S'il est activé sur un autre téléphone, désactivez-le "
+        "d'abord là-bas.",
       );
     }
     await storage.write(key, secret);
