@@ -232,6 +232,9 @@ class ProductAiService {
     final t = v.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (t.length < min || t.length > max) return null;
     if (RegExp(r'<[^>]+>|https?://|```').hasMatch(t)) return null;
+    // Accents abîmés (« protÃ©ines », caractère de remplacement) : texte refusé,
+    // l'appelant retombe sur son texte calculé, toujours correct.
+    if (RegExp('[ÃÂ�]').hasMatch(t)) return null;
     return t;
   }
 }

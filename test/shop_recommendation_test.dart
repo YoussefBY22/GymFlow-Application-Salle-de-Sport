@@ -255,6 +255,14 @@ void main() {
         ShopRecommendationService.parsePhrase('pas du JSON', reason),
         isNull,
       );
+      // Accents abîmés : refusé, le texte calculé est utilisé à la place.
+      expect(
+        ShopRecommendationService.parsePhrase(
+          '{"phrase": "Choisi dans 45 % des commandes, idÃ©al pour vous."}',
+          reason,
+        ),
+        isNull,
+      );
     });
 
     test('sans clé, en erreur ou réponse invalide : texte calculé', () async {

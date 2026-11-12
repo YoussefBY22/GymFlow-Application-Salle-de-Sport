@@ -17,7 +17,7 @@ class AppConfig {
   /// Elle est visible sur l'écran de connexion et dans « À propos », pour
   /// qu'on sache d'un coup d'œil quelle version est installée.
   static const String appVersion = '3.3';
-  static const String appVersionFull = '3.3.0';
+  static const String appVersionFull = '3.3.1';
   static const String gymName = 'GymFlow Club Lac 2';
   static const String gymAddress =
       'Rue du Lac Windermere, Les Berges du Lac 2, Tunis';
