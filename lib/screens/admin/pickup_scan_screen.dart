@@ -77,7 +77,7 @@ class _PickupScanScreenState extends State<PickupScanScreen> {
     builder: (_) => AlertDialog(
       icon: Icon(
         ok ? Icons.check_circle : Icons.error_outline,
-        color: ok ? AppColors.success : AppColors.red,
+        color: ok ? AppColors.successText : AppColors.redText,
         size: 48,
       ),
       title: Text(title, key: const Key('scan_result')),

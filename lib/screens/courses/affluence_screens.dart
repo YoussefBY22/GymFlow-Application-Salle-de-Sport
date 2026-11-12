@@ -109,7 +109,7 @@ class _AffluenceScreenState extends State<AffluenceScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.groups, color: AppColors.navy),
+                        Icon(Icons.groups, color: AppColors.heading),
                         const SizedBox(width: Gap.s),
                         Expanded(
                           child: Text(
@@ -132,8 +132,8 @@ class _AffluenceScreenState extends State<AffluenceScreen> {
                       child: LinearProgressIndicator(
                         value: cur.rate.clamp(0, 1),
                         minHeight: 8,
-                        color: AppColors.navy,
-                        backgroundColor: AppColors.white,
+                        color: AppColors.heading,
+                        backgroundColor: AppColors.surface,
                       ),
                     ),
                     const SizedBox(height: Gap.xs),
@@ -543,7 +543,7 @@ class _CheckInScanScreenState extends State<CheckInScanScreen> {
     builder: (_) => AlertDialog(
       icon: Icon(
         ok ? Icons.check_circle : Icons.error_outline,
-        color: ok ? AppColors.success : AppColors.red,
+        color: ok ? AppColors.successText : AppColors.redText,
         size: 48,
       ),
       title: Text(title, key: const Key('checkin_result')),

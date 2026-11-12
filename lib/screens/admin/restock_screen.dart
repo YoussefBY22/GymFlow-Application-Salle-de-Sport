@@ -83,7 +83,7 @@ class RestockScreen extends StatelessWidget {
                           Pill(
                             '${st.label} : ${count(st)}',
                             color: count(st) == 0
-                                ? AppColors.white
+                                ? AppColors.surface
                                 : _statusColor(st),
                           ),
                       ],
@@ -175,7 +175,7 @@ class _ForecastTile extends StatelessWidget {
                 if (f.suggestedQuantity > 0)
                   Text(
                     'Commander ${f.suggestedQuantity} unité(s)',
-                    style: AppText.label(color: AppColors.red, size: 12),
+                    style: AppText.label(color: AppColors.redText, size: 12),
                   ),
               ],
             ),

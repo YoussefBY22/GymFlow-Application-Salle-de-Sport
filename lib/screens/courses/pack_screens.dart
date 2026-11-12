@@ -170,7 +170,7 @@ class PackCard extends StatelessWidget {
             key: Key('pack_balance_${p.id}'),
             style: AppText.stat(
               size: 20,
-              color: expired ? AppColors.inkSoft : AppColors.navy,
+              color: expired ? AppColors.inkSoft : AppColors.heading,
             ),
           ),
           Text(
@@ -184,7 +184,7 @@ class PackCard extends StatelessWidget {
                       '(${Fmt.plural(p.expiresAt.difference(now).inDays, 'jour')})',
             style: AppText.label(
               color: !expired && p.expiresAt.difference(now).inDays < 7
-                  ? AppColors.red
+                  ? AppColors.redText
                   : AppColors.inkSoft,
             ),
           ),
@@ -236,7 +236,7 @@ class _MovementRow extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      leading: Icon(_icon(m.kind), color: AppColors.navy),
+      leading: Icon(_icon(m.kind), color: AppColors.heading),
       title: Text(
         '${m.kind.label}'
         '${m.kind != PackMoveKind.expired && m.count > 1 ? ' (${m.count} séances)' : ''}'
@@ -277,7 +277,7 @@ class _OfferCard extends StatelessWidget {
                 ),
                 Text(
                   Fmt.money(o.price),
-                  style: AppText.stat(size: 18, color: AppColors.red),
+                  style: AppText.stat(size: 18, color: AppColors.redText),
                 ),
               ],
             ),
@@ -420,7 +420,7 @@ class _PackCheckoutScreenState extends State<PackCheckoutScreen> {
                       Text(
                         Fmt.money(q.total),
                         key: const Key('pack_total'),
-                        style: AppText.stat(color: AppColors.red),
+                        style: AppText.stat(color: AppColors.redText),
                       ),
                     ],
                   ),
@@ -430,7 +430,7 @@ class _PackCheckoutScreenState extends State<PackCheckoutScreen> {
             const SizedBox(height: Gap.m),
             Row(
               children: [
-                const Icon(Icons.lock, color: AppColors.success, size: 18),
+                Icon(Icons.lock, color: AppColors.successText, size: 18),
                 const SizedBox(width: Gap.xs),
                 Expanded(
                   child: Text(

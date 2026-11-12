@@ -134,7 +134,7 @@ class GfHeatmap extends StatelessWidget {
               color: colorFor(t),
               borderRadius: BorderRadius.circular(4),
               border: current
-                  ? Border.all(color: AppColors.navy, width: 2)
+                  ? Border.all(color: AppColors.heading, width: 2)
                   : null,
             ),
           ),

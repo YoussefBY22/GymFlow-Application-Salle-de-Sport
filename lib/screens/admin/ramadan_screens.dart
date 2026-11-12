@@ -400,7 +400,7 @@ class ConflictCard extends StatelessWidget {
             c.proposal == null
                 ? 'Aucun créneau libre proposé : à replanifier.'
                 : 'Proposé : ${Fmt.dateTime(c.proposal!)}',
-            style: AppText.subtitle(size: 14, color: AppColors.success),
+            style: AppText.subtitle(size: 14, color: AppColors.successText),
           ),
           if (onShift != null || onKeep != null) ...[
             const SizedBox(height: Gap.xs),
@@ -483,14 +483,14 @@ class _RamadanPreviewScreenState extends State<RamadanPreviewScreen> {
               padding: const EdgeInsets.fromLTRB(Gap.m, Gap.s, Gap.s, Gap.s),
               child: Row(
                 children: [
-                  const Icon(Icons.visibility, color: AppColors.navy),
+                  Icon(Icons.visibility, color: AppColors.heading),
                   const SizedBox(width: Gap.s),
                   Expanded(
                     child: Text(
                       'APERÇU : Ramadan simulé du ${Fmt.date(period.start)} '
                       'au ${Fmt.date(period.end)}. Rien n\'est enregistré, '
                       'aucune notification ni aucun e-mail.',
-                      style: AppText.label(size: 12, color: AppColors.navy),
+                      style: AppText.label(size: 12, color: AppColors.heading),
                     ),
                   ),
                   TextButton(
@@ -555,7 +555,7 @@ class _RamadanPreviewScreenState extends State<RamadanPreviewScreen> {
                 for (final c in courses)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(c.category.icon, color: AppColors.red),
+                    leading: Icon(c.category.icon, color: AppColors.redText),
                     title: Text('${Fmt.time(c.startAt!)} · ${c.title}'),
                     subtitle: r.reducedIntensity(c, ramadan: true)
                         ? const Text('Intensité conseillée réduite (à jeun)')

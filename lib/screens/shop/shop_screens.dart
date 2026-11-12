@@ -521,7 +521,7 @@ class _RecommendationCardState extends State<_RecommendationCard> {
                     ),
                     Text(
                       Fmt.money(p.effectivePrice),
-                      style: AppText.stat(color: AppColors.red, size: 14),
+                      style: AppText.stat(color: AppColors.redText, size: 14),
                     ),
                     const SizedBox(height: 4),
                     Expanded(
@@ -1460,7 +1460,7 @@ class _AmountRow extends StatelessWidget {
           amount < 0 ? '-${Fmt.money(-amount)}' : Fmt.money(amount),
           style: AppText.subtitle(
             size: 14,
-            color: amount < 0 ? AppColors.success : AppColors.navy,
+            color: amount < 0 ? AppColors.successText : AppColors.heading,
           ),
         ),
       ],
@@ -1622,7 +1622,7 @@ class _DiscountPanelState extends State<DiscountPanel> {
             ),
           if (error != null) ...[
             const SizedBox(height: Gap.xs),
-            Text(error, style: AppText.label(color: AppColors.red, size: 12)),
+            Text(error, style: AppText.label(color: AppColors.redText, size: 12)),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
@@ -1634,7 +1634,7 @@ class _DiscountPanelState extends State<DiscountPanel> {
           const Divider(height: Gap.l),
           Row(
             children: [
-              const Icon(Icons.stars, color: AppColors.navy),
+              Icon(Icons.stars, color: AppColors.heading),
               const SizedBox(width: Gap.s),
               Expanded(
                 child: Text(
@@ -1707,7 +1707,7 @@ class QuoteSummary extends StatelessWidget {
             '${minus ? '-' : ''}${Fmt.money(amount)}',
             style: AppText.subtitle(
               size: 14,
-              color: minus ? AppColors.success : AppColors.navy,
+              color: minus ? AppColors.successText : AppColors.heading,
             ),
           ),
         ],

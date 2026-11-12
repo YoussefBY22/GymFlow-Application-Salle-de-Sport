@@ -374,9 +374,9 @@ class _FactorRow extends StatelessWidget {
                   style: AppText.subtitle(
                     size: 14,
                     color: f.points > 0
-                        ? AppColors.red
+                        ? AppColors.redText
                         : f.points < 0
-                        ? AppColors.success
+                        ? AppColors.successText
                         : AppColors.inkSoft,
                   ),
                 ),
@@ -413,7 +413,7 @@ class _ActionRow extends StatelessWidget {
     return ListTile(
       key: Key('action_${x.id}'),
       contentPadding: EdgeInsets.zero,
-      leading: Icon(riskActionIcon(x.kind), color: AppColors.navy),
+      leading: Icon(riskActionIcon(x.kind), color: AppColors.heading),
       title: Text(
         '${x.kind.label} · ${Fmt.date(x.at)}',
         style: AppText.body(size: 14),
