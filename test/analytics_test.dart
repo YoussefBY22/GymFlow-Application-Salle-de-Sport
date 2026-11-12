@@ -209,17 +209,17 @@ void main() {
         final lines = b.cart.lines;
         final order = await b.orderService.placeOrder(
           lines,
-          await _pay(b, b.orderService.totalOf(lines)),
+          await _pay(b, b.couponLoyalty.quote(lines).total),
         );
         await b.analytics.idle();
 
         final s = b.analytics.summary();
         expect(s.orders, 1);
-        expect(s.revenue, closeTo(order.total, 0.001));
+        expect(s.revenue, closeTo(order.netSales, 0.001));
         expect(s.purchasedUnits, 2);
         final p = s.products.firstWhere((p) => p.id == 'pr_shaker');
         expect(p.purchased, 2);
-        expect(p.revenue, closeTo(order.total, 0.001));
+        expect(p.revenue, closeTo(order.netSales, 0.001));
       },
     );
 
@@ -435,7 +435,7 @@ void main() {
       final lines = b.cart.lines;
       await b.orderService.placeOrder(
         lines,
-        await _pay(b, b.orderService.totalOf(lines)),
+        await _pay(b, b.couponLoyalty.quote(lines).total),
       );
       await b.reservationService.book('c_s1');
       await b.auth.logout();
@@ -464,7 +464,7 @@ void main() {
       final lines = b.cart.lines;
       final order = await b.orderService.placeOrder(
         lines,
-        await _pay(b, b.orderService.totalOf(lines)),
+        await _pay(b, b.couponLoyalty.quote(lines).total),
       );
       await b.analytics.idle();
 
@@ -476,7 +476,7 @@ void main() {
           events.firstWhere((e) => e['name'] == 'purchase')['params'] as Map;
       expect(purchase['transaction_id'], order.number);
       expect(purchase['currency'], 'TND');
-      expect(purchase['value'], closeTo(order.total, 0.001));
+      expect(purchase['value'], closeTo(order.netSales, 0.001));
       expect((purchase['items'] as List).single['quantity'], 2);
     });
 

@@ -192,6 +192,16 @@ class PrivacyService {
         for (final r in reservations)
           {...r.toJson(), 'cours': _b.courses.byId(r.courseId)?.title},
       ],
+      'carnets': [
+        for (final p in _b.sessionPacks.where((p) => p.userId == me.id))
+          p.toJson(),
+      ],
+      // Indicateur d'assiduité (droit d'accès) : score, facteurs et date du
+      // calcul, ainsi que les actions d'accompagnement menées.
+      'indicateur_assiduite': _riskExport(me),
+      'entrees_salle': [
+        for (final c in _b.checkIns.where((c) => c.userId == me.id)) c.toJson(),
+      ],
       'commandes': [
         for (final o in _b.orders.where((o) => o.userId == me.id)) o.toJson(),
       ],
@@ -295,8 +305,45 @@ class PrivacyService {
     for (final o in _b.orders.where((o) => o.userId == u.id)) {
       await _b.orders.save(o.anonymized(_anonymousId(u.id)));
     }
+    for (final c in _b.checkIns.where((c) => c.userId == u.id)) {
+      await _b.checkIns.delete(c.id);
+    }
+    for (final a in _b.riskActions.where((a) => a.memberId == u.id)) {
+      await _b.riskActions.delete(a.id);
+    }
+    // Carnets : trace comptable conservée, mais anonymisée.
+    for (final p in _b.sessionPacks.where((p) => p.userId == u.id)) {
+      await _b.sessionPacks.save(p.copyWith(userId: _anonymousId(u.id)));
+    }
     await _b.credentials.delete(u.id);
     await _b.users.delete(u.id);
+  }
+
+  Map<String, Object?> _riskExport(AppUser me) {
+    final a = _b.churnRisk.compute(me);
+    return {
+      'calcule_le': a.computedAt.toIso8601String(),
+      'score': a.score,
+      'niveau': a.level.label,
+      'facteurs': [
+        for (final f in a.factors)
+          {
+            'facteur': f.label,
+            'points': double.parse(f.points.toStringAsFixed(1)),
+            'maximum': f.weight,
+            'explication': f.detail,
+          },
+      ],
+      'actions': [
+        for (final x in _b.riskActions.where((x) => x.memberId == me.id))
+          {
+            'date': x.at.toIso8601String(),
+            'action': x.kind.label,
+            'texte': x.text,
+            'resultat': _b.churnRisk.outcomeOf(x).label,
+          },
+      ],
+    };
   }
 
   /// Identifiant non réversible pour les commandes conservées.

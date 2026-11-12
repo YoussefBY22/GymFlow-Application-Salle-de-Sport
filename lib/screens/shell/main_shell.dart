@@ -419,6 +419,29 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
                 _item(
+                  Icons.groups_2_outlined,
+                  'Affluence',
+                  () => go(Routes.affluence),
+                ),
+                if (user.isMember)
+                  _item(
+                    Icons.qr_code_2,
+                    'Mon QR d\'entrée',
+                    () => go(Routes.entryQr),
+                  ),
+                if (user.canManageContent)
+                  _item(
+                    Icons.qr_code_scanner,
+                    'Scanner les entrées',
+                    () => go(Routes.checkinScan),
+                  ),
+                if (user.isMember)
+                  _item(
+                    Icons.confirmation_number_outlined,
+                    'Mes carnets',
+                    () => go(Routes.myPacks),
+                  ),
+                _item(
                   Icons.receipt_long_outlined,
                   'Mes commandes',
                   () => go(Routes.orders),
@@ -449,6 +472,12 @@ class AppDrawer extends StatelessWidget {
                   () => go(Routes.calculator),
                 ),
                 if (user.canManageContent)
+                  _item(
+                    Icons.trending_down,
+                    'Abonnés à risque',
+                    () => go(Routes.risk),
+                  ),
+                if (user.canManageContent)
                   ListenableBuilder(
                     listenable: b.bus,
                     builder: (context, _) => _item(
@@ -470,6 +499,16 @@ class AppDrawer extends StatelessWidget {
                     Icons.person_add_alt,
                     'Créer un coach',
                     () => go(Routes.newCoach),
+                  ),
+                  _item(
+                    Icons.confirmation_number_outlined,
+                    'Formules de cours',
+                    () => go(Routes.packOffers),
+                  ),
+                  _item(
+                    Icons.nightlight_round,
+                    'Mode Ramadan',
+                    () => go(Routes.ramadanAdmin),
                   ),
                   _item(
                     Icons.inventory_2_outlined,

@@ -174,7 +174,10 @@ enum NotificationType {
   kudos(Icons.thumb_up),
   announcement(Icons.campaign),
   system(Icons.info),
-  friend(Icons.people);
+  friend(Icons.people),
+  stock(Icons.inventory),
+  pack(Icons.confirmation_number),
+  coach(Icons.support_agent);
 
   const NotificationType(this.icon);
   final IconData icon;

@@ -86,11 +86,14 @@ class AnalyticsService {
       AnalyticsEvents.purchase,
       key: '',
       label: 'Commandes',
-      value: o.total,
+      // Chiffre d'affaires hors timbre fiscal (taxe reversée à l'État),
+      // comme le tableau de bord ; le timbre part à Google dans `tax`.
+      value: o.netSales,
       google: {
         'transaction_id': o.number,
         'currency': 'TND',
-        'value': _money(o.total),
+        'value': _money(o.netSales),
+        if (o.stamp > 0) 'tax': _money(o.stamp),
         'items': [
           for (final l in o.lines)
             {

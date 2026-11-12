@@ -7,16 +7,23 @@ import '../core/config.dart';
 import '../core/errors.dart';
 import '../core/security.dart';
 import '../models/analytics.dart';
+import '../models/checkin.dart';
 import '../models/course.dart';
 import '../models/enums.dart';
 import '../models/exercise.dart';
+import '../models/loyalty.dart';
 import '../models/misc.dart';
+import '../models/ramadan.dart';
+import '../models/risk.dart';
 import '../models/session_log.dart';
+import '../models/session_pack.dart';
 import '../models/shop.dart';
 import '../models/user.dart';
 import '../models/workout.dart';
 import '../repositories/data_store.dart';
 import '../repositories/repository.dart';
+import 'affluence_service.dart';
+import 'aladhan_api.dart';
 import 'ai_assistant_service.dart';
 import 'analytics_service.dart';
 import 'friends/friends_remote.dart';
@@ -30,7 +37,9 @@ import 'audit_service.dart';
 import 'auth_service.dart';
 import 'cart_service.dart';
 import 'checkin_service.dart';
+import 'churn_risk_service.dart';
 import 'community_service.dart';
+import 'coupon_loyalty_service.dart';
 import 'course_service.dart';
 import 'dashboard_service.dart';
 import 'email_service.dart';
@@ -38,23 +47,30 @@ import 'exercise_service.dart';
 import 'gemini_client.dart';
 import 'google_auth_service.dart';
 import 'gravatar_service.dart';
+import 'gym_entry_service.dart';
+import 'inventory_forecast_service.dart';
 import 'library_service.dart';
 import 'media_storage.dart';
 import 'notification_service.dart';
 import 'open_food_facts_api.dart';
 import 'order_service.dart';
 import 'payment/payment_gateway.dart';
+import 'pickup_qr_service.dart';
+import 'invoice_service.dart';
 import 'privacy_service.dart';
 import 'platform/platform_services.dart';
 import 'product_ai_service.dart';
 import 'product_service.dart';
+import 'ramadan_service.dart';
 import 'progress_service.dart';
 import 'reservation_service.dart';
+import 'shop_recommendation_service.dart';
 import 'seed/seed_service.dart';
 import 'push/push_gateway.dart';
 import 'push_service.dart';
 import 'sentiment_service.dart';
 import 'share_service.dart';
+import 'session_pack_service.dart';
 import 'training_log_service.dart';
 import 'user_service.dart';
 import 'calorie_service.dart';
@@ -166,6 +182,60 @@ class Backend {
       (o) => o.toJson(),
       (o) => o.id,
     );
+    inventorySettings = _repo(
+      Collections.settings,
+      InventorySettings.fromJson,
+      (s) => s.toJson(),
+      (_) => InventorySettings.id,
+    );
+    coupons = _repo(
+      Collections.coupons,
+      Coupon.fromJson,
+      (c) => c.toJson(),
+      (c) => c.id,
+    );
+    loyalty = _repo(
+      Collections.loyalty,
+      LoyaltyAccount.fromJson,
+      (a) => a.toJson(),
+      (a) => a.userId,
+    );
+    packOffers = _repo(
+      Collections.packOffers,
+      PackOffer.fromJson,
+      (o) => o.toJson(),
+      (o) => o.id,
+    );
+    sessionPacks = _repo(
+      Collections.sessionPacks,
+      SessionPack.fromJson,
+      (p) => p.toJson(),
+      (p) => p.id,
+    );
+    gymSettings = _repo(
+      Collections.gymSettings,
+      GymSettings.fromJson,
+      (s) => s.toJson(),
+      (_) => GymSettings.id,
+    );
+    riskActions = _repo(
+      Collections.riskActions,
+      RiskAction.fromJson,
+      (a) => a.toJson(),
+      (a) => a.id,
+    );
+    checkIns = _repo(
+      Collections.checkIns,
+      CheckIn.fromJson,
+      (c) => c.toJson(),
+      (c) => c.id,
+    );
+    prayerTimes = _repo(
+      Collections.prayerTimes,
+      PrayerDay.fromJson,
+      (p) => p.toJson(),
+      (p) => p.id,
+    );
     auditRepo = _repo(
       Collections.audit,
       AuditEntry.fromJson,
@@ -196,6 +266,12 @@ class Backend {
     progress = ProgressService(this);
     courseService = CourseService(this);
     reservationService = ReservationService(this);
+    packs = SessionPackService(this);
+    churnRisk = ChurnRiskService(this);
+    gymEntry = GymEntryService(this);
+    affluence = AffluenceService(this);
+    aladhan = AladhanApi(this);
+    ramadan = RamadanService(this);
     productService = ProductService(this);
     cart = CartService(this);
     orderService = OrderService(this);
@@ -230,6 +306,11 @@ class Backend {
     assistant = AiAssistantService(this);
     openFoodFacts = OpenFoodFactsApi(this);
     productAi = ProductAiService(this);
+    recommendations = ShopRecommendationService(this);
+    inventory = InventoryForecastService(this);
+    couponLoyalty = CouponLoyaltyService(this);
+    pickup = PickupQrService(this);
+    invoices = InvoiceService(this);
     community = CommunityService(this);
     sentiment = SentimentService(
       this,
@@ -307,10 +388,12 @@ class Backend {
     _instance = b;
     await store.open();
     await b.reload();
+    await b.pickup.loadKey();
     if (seed) {
       await SeedService(b).seedIfEmpty();
       await SeedService(b).upgrade();
     }
+    await b.reservationService.closeStartedWaitlists();
     await b.auth.restoreSession();
     // Fonction Amis : reprend la connexion au serveur si elle était activée.
     unawaited(b.friends.resume());
@@ -344,6 +427,15 @@ class Backend {
   late final Repository<AppNotification> notificationsRepo;
   late final Repository<Product> products;
   late final Repository<ShopOrder> orders;
+  late final Repository<InventorySettings> inventorySettings;
+  late final Repository<Coupon> coupons;
+  late final Repository<LoyaltyAccount> loyalty;
+  late final Repository<PackOffer> packOffers;
+  late final Repository<SessionPack> sessionPacks;
+  late final Repository<GymSettings> gymSettings;
+  late final Repository<RiskAction> riskActions;
+  late final Repository<CheckIn> checkIns;
+  late final Repository<PrayerDay> prayerTimes;
   late final Repository<AuditEntry> auditRepo;
   late final Repository<Announcement> announcementsRepo;
   late final Repository<AnalyticsCounter> analyticsRepo;
@@ -359,6 +451,12 @@ class Backend {
   late final ProgressService progress;
   late final CourseService courseService;
   late final ReservationService reservationService;
+  late final SessionPackService packs;
+  late final ChurnRiskService churnRisk;
+  late final GymEntryService gymEntry;
+  late final AffluenceService affluence;
+  late final AladhanApi aladhan;
+  late final RamadanService ramadan;
   late final ProductService productService;
   late final CartService cart;
   late final OrderService orderService;
@@ -379,6 +477,11 @@ class Backend {
   late final AiAssistantService assistant;
   late final OpenFoodFactsApi openFoodFacts;
   late final ProductAiService productAi;
+  late final ShopRecommendationService recommendations;
+  late final InventoryForecastService inventory;
+  late final CouponLoyaltyService couponLoyalty;
+  late final PickupQrService pickup;
+  late final InvoiceService invoices;
   late final CommunityService community;
   late final SentimentService sentiment;
   late final GoogleAuthService googleAuth;

@@ -195,46 +195,70 @@ class ShopOrder {
     required this.paymentMethod,
     required this.paymentRef,
     required this.createdAt,
+    this.discount = 0,
+    this.discountLabel,
+    this.couponCode,
+    this.pointsUsed = 0,
+    this.pointsEarned = 0,
+    this.stamp = 0,
   });
 
   final String id;
 
-  /// Numéro lisible « GF-2026-0007 ».
+  /// Numéro lisible « GF-2026-0007 » (aussi numéro de facture).
   final String number;
   final String userId;
   final List<OrderLine> lines;
   final OrderStatus status;
 
-  /// « stripe_test » ou « simulated ».
+  /// « stripe_test », « konnect_sandbox » ou « simulated ».
   final String paymentMethod;
   final String paymentRef;
   final DateTime createdAt;
 
-  double get total => lines.fold(0, (s, l) => s + l.total);
+  /// Réduction totale (code promo + points), jamais appliquée au timbre.
+  final double discount;
+
+  /// « Code BIENVENUE10 (-10 %) · 200 points ».
+  final String? discountLabel;
+  final String? couponCode;
+  final int pointsUsed;
+  final int pointsEarned;
+
+  /// Timbre fiscal (0 pour les commandes antérieures à son ajout).
+  final double stamp;
+
+  /// Somme des lignes, avant réduction.
+  double get subtotal => lines.fold(0, (s, l) => s + l.total);
+
+  /// Ventes nettes (chiffre d'affaires TTC, hors timbre).
+  double get netSales => subtotal - discount;
+
+  /// Montant payé = total de la facture.
+  double get total => netSales + stamp;
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);
 
-  /// Commande conservée pour la comptabilité mais détachée de la personne.
-  ShopOrder anonymized(String anonymousId) => ShopOrder(
+  ShopOrder _copy({String? userId, OrderStatus? status}) => ShopOrder(
     id: id,
     number: number,
-    userId: anonymousId,
-    lines: lines,
-    status: status,
-    paymentMethod: paymentMethod,
-    paymentRef: paymentRef,
-    createdAt: createdAt,
-  );
-
-  ShopOrder copyWith({OrderStatus? status}) => ShopOrder(
-    id: id,
-    number: number,
-    userId: userId,
+    userId: userId ?? this.userId,
     lines: lines,
     status: status ?? this.status,
     paymentMethod: paymentMethod,
     paymentRef: paymentRef,
     createdAt: createdAt,
+    discount: discount,
+    discountLabel: discountLabel,
+    couponCode: couponCode,
+    pointsUsed: pointsUsed,
+    pointsEarned: pointsEarned,
+    stamp: stamp,
   );
+
+  /// Commande conservée pour la comptabilité mais détachée de la personne.
+  ShopOrder anonymized(String anonymousId) => _copy(userId: anonymousId);
+
+  ShopOrder copyWith({OrderStatus? status}) => _copy(status: status);
 
   Json toJson() => {
     'id': id,
@@ -245,8 +269,16 @@ class ShopOrder {
     'paymentMethod': paymentMethod,
     'paymentRef': paymentRef,
     'createdAt': dateToJson(createdAt),
+    'discount': discount,
+    'discountLabel': discountLabel,
+    'couponCode': couponCode,
+    'pointsUsed': pointsUsed,
+    'pointsEarned': pointsEarned,
+    'stamp': stamp,
   };
 
+  /// Réduction, points et timbre sont facultatifs : les commandes déjà
+  /// enregistrées se chargent sans migration (avec les mêmes totaux).
   factory ShopOrder.fromJson(Json j) => ShopOrder(
     id: j['id'] as String,
     number: j['number'] as String,
@@ -256,5 +288,44 @@ class ShopOrder {
     paymentMethod: j['paymentMethod'] as String? ?? 'simulated',
     paymentRef: j['paymentRef'] as String? ?? '',
     createdAt: dateOr(j['createdAt'], DateTime(2026)),
+    discount: toDouble(j['discount']),
+    discountLabel: j['discountLabel'] as String?,
+    couponCode: j['couponCode'] as String?,
+    pointsUsed: toInt(j['pointsUsed']),
+    pointsEarned: toInt(j['pointsEarned']),
+    stamp: toDouble(j['stamp']),
+  );
+}
+
+/// Réglages du réapprovisionnement (super admin), un seul document.
+class InventorySettings {
+  const InventorySettings({
+    this.leadTimeDays = 7,
+    this.coverageDays = 14,
+    this.serviceLevel = 0.95,
+  });
+
+  static const id = 'inventory';
+
+  /// Délai de livraison du fournisseur, en jours.
+  final int leadTimeDays;
+
+  /// Nombre de jours de ventes qu'une commande fournisseur doit couvrir.
+  final int coverageDays;
+
+  /// Probabilité visée de ne pas tomber en rupture pendant le délai.
+  final double serviceLevel;
+
+  Json toJson() => {
+    'id': id,
+    'leadTimeDays': leadTimeDays,
+    'coverageDays': coverageDays,
+    'serviceLevel': serviceLevel,
+  };
+
+  factory InventorySettings.fromJson(Json j) => InventorySettings(
+    leadTimeDays: toInt(j['leadTimeDays'], 7),
+    coverageDays: toInt(j['coverageDays'], 14),
+    serviceLevel: toDoubleOrNull(j['serviceLevel']) ?? 0.95,
   );
 }

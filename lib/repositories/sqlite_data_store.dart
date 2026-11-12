@@ -17,10 +17,16 @@ class SqliteDataStore implements DataStore {
   /// Fabrique injectable (sqflite_common_ffi dans les tests sur PC).
   final DatabaseFactory? factory;
 
-  /// Version du schéma. 2 : ajout de la collection `analytics`. Une base
-  /// déjà installée (un téléphone, par exemple) passe de 1 à 2 sans perdre
-  /// la moindre donnée : voir `onUpgrade`.
-  static const int schemaVersion = 2;
+  /// Version du schéma. Une base déjà installée passe à la dernière version
+  /// sans perdre la moindre donnée : voir `onUpgrade`.
+  /// 2 (Gymflow 2.x) : statistiques `analytics`.
+  /// 2 à 6 (branche cours et boutique) : réglages, codes promo, fidélité,
+  /// carnets de séances, actions d'accompagnement, entrées à la salle,
+  /// horaires de prière.
+  /// 7 : fusion des deux branches (3.3). Les deux numérotations ayant
+  /// utilisé la version 2, on passe à 7 : toute base existante, de l'une
+  /// ou de l'autre branche, reçoit les tables qui lui manquent.
+  static const int schemaVersion = 7;
 
   Database? _db;
 
@@ -32,10 +38,6 @@ class SqliteDataStore implements DataStore {
     return db;
   }
 
-  static String _createTable(String name, {bool ifNotExists = false}) =>
-      'CREATE TABLE ${ifNotExists ? 'IF NOT EXISTS ' : ''}$name '
-      '(id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)';
-
   @override
   Future<void> open() async {
     final f = factory ?? databaseFactory;
@@ -46,27 +48,27 @@ class SqliteDataStore implements DataStore {
       path,
       options: OpenDatabaseOptions(
         version: schemaVersion,
-        onCreate: (db, version) async {
-          final batch = db.batch();
-          for (final c in Collections.all) {
-            batch.execute(_createTable(c));
-          }
-          batch.execute(
-            'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
-          );
-          await batch.commit(noResult: true);
-        },
-        // Montée de version : on ne crée que les tables qui manquent
-        // (`IF NOT EXISTS`), les données existantes ne sont jamais touchées.
-        onUpgrade: (db, oldVersion, newVersion) async {
-          final batch = db.batch();
-          for (final c in Collections.all) {
-            batch.execute(_createTable(c, ifNotExists: true));
-          }
-          await batch.commit(noResult: true);
-        },
+        onCreate: (db, _) => _createTables(db),
+        // Mise à jour : seules les tables manquantes sont créées, les
+        // données existantes ne sont pas touchées.
+        onUpgrade: (db, _, _) => _createTables(db),
       ),
     );
+  }
+
+  static Future<void> _createTables(Database db) async {
+    final batch = db.batch();
+    for (final c in Collections.all) {
+      batch.execute(
+        'CREATE TABLE IF NOT EXISTS $c (id TEXT PRIMARY KEY, '
+        'data TEXT NOT NULL, updated_at INTEGER NOT NULL)',
+      );
+    }
+    batch.execute(
+      'CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, '
+      'value TEXT NOT NULL)',
+    );
+    await batch.commit(noResult: true);
   }
 
   @override

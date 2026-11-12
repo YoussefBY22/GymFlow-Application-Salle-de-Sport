@@ -30,6 +30,14 @@ class AppConfig {
   /// fixe pour le mode test uniquement (1 EUR ≈ 3,40 TND).
   static const double tndPerEur = 3.40;
 
+  /// Konnect (passerelle tunisienne, en dinars), environnement de test
+  /// (sandbox) uniquement : clé API et identifiant du portefeuille
+  /// receveur, créés sur dashboard.sandbox.konnect.network.
+  static const String konnectApiKey = String.fromEnvironment('KONNECT_API_KEY');
+  static const String konnectWalletId = String.fromEnvironment(
+    'KONNECT_WALLET_ID',
+  );
+
   /// Seule une clé de TEST est acceptée (refus des clés live).
   static bool get stripeEnabled => stripeTestSecretKey.startsWith('sk_test_');
 
@@ -126,6 +134,23 @@ class AppConfig {
       firebaseAppId.trim().isNotEmpty &&
       firebaseSenderId.trim().isNotEmpty &&
       firebaseProjectId.trim().isNotEmpty;
+  /// Modèle EmailJS de la facture (facultatif : sans lui, pas d'envoi).
+  static const String emailJsInvoiceTemplateId = String.fromEnvironment(
+    'EMAILJS_INVOICE_TEMPLATE_ID',
+  );
+
+  /// Modèle EmailJS du message d'un coach à un abonné (facultatif : sans
+  /// lui, le message n'est envoyé que dans l'application).
+  static const String emailJsMessageTemplateId = String.fromEnvironment(
+    'EMAILJS_MESSAGE_TEMPLATE_ID',
+  );
+
+  /// Clé HMAC des QR codes de retrait (même clé sur tous les appareils).
+  /// Sans elle, une clé locale est générée (voir PickupQrService).
+  static const String qrHmacKey = String.fromEnvironment('QR_HMAC_KEY');
+
+  /// Matricule fiscal de la salle, imprimé sur les factures s'il est fourni.
+  static const String gymTaxId = String.fromEnvironment('GYM_TAX_ID');
 
   static const String wgerBaseUrl = 'https://wger.de/api/v2';
 
@@ -213,6 +238,12 @@ class AppConfig {
     '3gp',
     'mkv',
   ];
+
+  /// Timbre fiscal ajouté une fois par commande (jamais réduit), en DT.
+  static const double fiscalStamp = 1.0;
+
+  /// TVA incluse dans les prix de la boutique (taux normal tunisien).
+  static const double vatRate = 0.19;
 
   /// Règles métier.
   static const int maxLoginAttempts = 5;

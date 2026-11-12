@@ -85,8 +85,12 @@ void main() {
     },
   );
 
-  test('abonnement expiré : réservation refusée', () async {
+  test('abonnement expiré et aucun carnet : réservation refusée', () async {
     final b = await makeBackend();
+    // Hedi a des carnets dans la démo : on les retire pour ce cas.
+    for (final p in b.sessionPacks.where((p) => p.userId == 'u_hedi')) {
+      await b.sessionPacks.delete(p.id);
+    }
     await loginAs(b, 'hedi@gymflow.tn');
     expect(
       () => b.reservationService.book('c_s1'),
@@ -94,7 +98,7 @@ void main() {
         isA<BusinessRuleException>().having(
           (e) => e.message,
           'm',
-          contains('abonnement'),
+          allOf(contains('abonnement'), contains('Achetez un carnet')),
         ),
       ),
     );

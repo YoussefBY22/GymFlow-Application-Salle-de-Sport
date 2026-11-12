@@ -3,19 +3,26 @@ import 'dart:math';
 import '../../core/booking_code.dart';
 import '../../core/legal.dart';
 
+import '../../models/checkin.dart';
 import '../../models/content.dart';
 import '../../models/course.dart';
 import '../../models/enums.dart';
 import '../../models/exercise.dart';
+import '../../models/loyalty.dart';
 import '../../models/misc.dart';
 import '../../models/nutrition.dart';
 import '../../models/privacy.dart';
+import '../../models/ramadan.dart';
+import '../../models/risk.dart';
 import '../../models/session_log.dart';
+import '../../models/session_pack.dart';
 import '../../models/shop.dart';
 import '../../models/user.dart';
 import '../../models/workout.dart';
+import '../aladhan_api.dart';
 import '../avatar_service.dart';
 import '../backend.dart';
+import '../churn_risk_service.dart';
 import '../sentiment_service.dart';
 import 'seed_exercises.dart';
 import 'seed_translations.dart';
@@ -132,6 +139,13 @@ class SeedService {
 
   Future<void> upgrade() async {
     await _upgradeNutrition();
+    await _upgradeOrderHistory();
+    await _upgradeCoupons();
+    await _upgradeCoursePacks();
+    await _upgradePremiumCourse();
+    await _upgradeCourseHistory();
+    await _upgradeCheckIns();
+    await _upgradeRamadan();
     if (await _b.store.getMeta(_i18nKey) != _i18nVersion) {
       if (_b.users.count > 0) {
         _now = _b.now();
@@ -278,7 +292,7 @@ class SeedService {
   }
 
   static const _nutritionKey = 'shop_nutrition';
-  static const _nutritionVersion = '1';
+  static const _nutritionVersion = '2';
 
   /// Valeurs nutritionnelles des produits de démonstration (saisies par la
   /// salle, cohérentes avec leurs descriptions), pour la carte Nutrition.
@@ -314,6 +328,16 @@ class SeedService {
       servingG: 60,
       netWeightG: 720,
       allergens: ['Lait', 'Arachides', 'Soja'],
+    ),
+    // Pour 100 ml ; pack de 6 bouteilles de 500 ml.
+    'pr_iso': Nutrition(
+      proteins: 0,
+      carbs: 6.4,
+      sugars: 6,
+      fat: 0,
+      kcal: 26,
+      servingG: 500,
+      netWeightG: 3000,
     ),
   };
 
@@ -1784,6 +1808,930 @@ class SeedService {
       _now.subtract(const Duration(days: 3)),
       route: '/orders',
     );
+  }
+
+  static const _couponsKey = 'shop_coupons';
+  static const _couponsVersion = '1';
+
+  /// Codes promo de démonstration (un actif, un ciblé, un expiré).
+  Future<void> _upgradeCoupons() async {
+    if (await _b.store.getMeta(_couponsKey) == _couponsVersion) return;
+    if (_b.users.byId('u_ahmed') != null && _b.coupons.isEmpty) {
+      final now = _b.now();
+      DateTime day(int offset, [int h = 0, int m = 0]) =>
+          DateTime(now.year, now.month, now.day + offset, h, m);
+      await _b.coupons.saveAll([
+        Coupon(
+          id: 'cp_bienvenue',
+          code: 'BIENVENUE10',
+          label: 'Bienvenue à la boutique',
+          type: DiscountType.percent,
+          value: 10,
+          minAmount: 30,
+          createdAt: day(-30),
+          expiresAt: day(60, 23, 59),
+        ),
+        Coupon(
+          id: 'cp_proteine',
+          code: 'PROTEINE15',
+          label: 'Semaine des compléments',
+          type: DiscountType.percent,
+          value: 15,
+          category: ProductCategory.supplements,
+          maxUses: 50,
+          createdAt: day(-7),
+          expiresAt: day(21, 23, 59),
+        ),
+        Coupon(
+          id: 'cp_rentree',
+          code: 'RENTREE5',
+          label: 'Offre de la rentrée',
+          type: DiscountType.fixed,
+          value: 5,
+          minAmount: 40,
+          maxUsesPerUser: null,
+          createdAt: day(-60),
+          expiresAt: day(-10, 23, 59),
+        ),
+      ]);
+    }
+    await _b.store.setMeta(_couponsKey, _couponsVersion);
+  }
+
+  static const _packsKey = 'course_packs';
+  static const _packsVersion = '1';
+
+  /// Formules et carnets de démonstration : Hedi (sans abonnement actif)
+  /// a un carnet presque épuisé et une formule hebdomadaire (FEFO) ;
+  /// Omar a un carnet Zen inutilisé qui expire dans 6 jours ; Ahmed a
+  /// payé la clinique (cours hors abonnement) avec une séance à l'unité.
+  Future<void> _upgradeCoursePacks() async {
+    if (await _b.store.getMeta(_packsKey) == _packsVersion) return;
+    final demo =
+        _b.users.byId('u_hedi') != null &&
+        _b.courses.byId('c_d6') != null &&
+        _b.packOffers.isEmpty;
+    if (demo) await _seedCoursePacks();
+    await _b.store.setMeta(_packsKey, _packsVersion);
+  }
+
+  Future<void> _seedCoursePacks() async {
+    final now = _b.now();
+    DateTime day(int offset, [int h = 0, int m = 0]) =>
+        DateTime(now.year, now.month, now.day + offset, h, m);
+    PackOffer offer(
+      String id,
+      String name,
+      PackKind kind,
+      int quota,
+      int validity,
+      double price, [
+      List<CourseCategory> categories = const [],
+    ]) => PackOffer(
+      id: id,
+      name: name,
+      kind: kind,
+      quota: quota,
+      validityDays: validity,
+      price: price,
+      categories: categories,
+      createdAt: day(-120),
+    );
+    final offers = [
+      offer('po_unit', 'Séance à l\'unité', PackKind.credits, 1, 30, 15),
+      offer('po_5', 'Carnet 5 séances', PackKind.credits, 5, 60, 65),
+      offer('po_10', 'Carnet 10 séances', PackKind.credits, 10, 120, 120),
+      offer('po_zen', 'Carnet Zen 5 séances', PackKind.credits, 5, 60, 55, [
+        CourseCategory.yoga,
+        CourseCategory.pilates,
+        CourseCategory.stretching,
+      ]),
+      offer(
+        'po_week2',
+        'Formule 2 cours par semaine',
+        PackKind.weekly,
+        2,
+        30,
+        69,
+      ),
+    ];
+    await _b.packOffers.saveAll(offers);
+    final byId = {for (final o in offers) o.id: o};
+
+    SessionPack pack(
+      String id,
+      String userId,
+      String offerId,
+      int boughtDaysAgo,
+      String ref,
+    ) {
+      final o = byId[offerId]!;
+      final bought = day(-boughtDaysAgo, 11, 20);
+      return SessionPack(
+        id: id,
+        userId: userId,
+        offerId: o.id,
+        name: o.name,
+        kind: o.kind,
+        quota: o.quota,
+        categories: o.categories,
+        purchasedAt: bought,
+        expiresAt: day(-boughtDaysAgo + o.validityDays + 1),
+        price: o.price + 1,
+        paymentMethod: 'simulated',
+        paymentRef: 'SIM-DEMO-$ref',
+      );
+    }
+
+    // Hedi : 4 séances consommées sur 5 (il en reste 1), carnet acheté il
+    // y a 50 jours (expire dans 11 jours, donc utilisé avant la formule
+    // hebdomadaire achetée il y a 3 jours).
+    var hedi5 = pack('pk_demo_hedi5', 'u_hedi', 'po_5', 50, 'HEDI5');
+    final hediCourses = ['c_d1', 'c_d3', 'c_d5', 'c_d6'];
+    for (var i = 0; i < hediCourses.length; i++) {
+      final c = _b.courses.byId(hediCourses[i]);
+      if (c == null || c.startAt == null) continue;
+      var r = _b.reservations
+          .where((r) => r.userId == 'u_hedi' && r.courseId == c.id)
+          .firstOrNull;
+      r =
+          (r ??
+                  Reservation(
+                    id: 'r_demo_hedi_$i',
+                    courseId: c.id,
+                    userId: 'u_hedi',
+                    status: ReservationStatus.confirmed,
+                    createdAt: c.startAt!.subtract(const Duration(days: 2)),
+                    attended: true,
+                  ))
+              .copyWith(packId: hedi5.id);
+      await _b.reservations.save(r);
+      hedi5 = hedi5
+          .add(
+            PackMovement(
+              kind: PackMoveKind.reserved,
+              at: r.createdAt,
+              reservationId: r.id,
+              courseAt: c.startAt,
+            ),
+          )
+          .add(
+            PackMovement(
+              kind: PackMoveKind.consumed,
+              at: c.endAt!,
+              reservationId: r.id,
+            ),
+          );
+    }
+    final packs = <SessionPack>[
+      hedi5,
+      pack('pk_demo_hedi_week', 'u_hedi', 'po_week2', 3, 'HEDIW'),
+      pack('pk_demo_omar_zen', 'u_omar', 'po_zen', 55, 'OMARZEN'),
+    ];
+    // Ahmed : séance à l'unité réservée pour la clinique (hors abonnement).
+    final clinic = _b.courses.byId('c_s9');
+    final ahmedRes = _b.reservations
+        .where(
+          (r) => r.userId == 'u_ahmed' && r.courseId == 'c_s9' && r.isActive,
+        )
+        .firstOrNull;
+    if (clinic != null && ahmedRes != null) {
+      final unit = pack(
+        'pk_demo_ahmed_unit',
+        'u_ahmed',
+        'po_unit',
+        1,
+        'AHMED1',
+      );
+      packs.add(
+        unit.add(
+          PackMovement(
+            kind: PackMoveKind.reserved,
+            at: unit.purchasedAt,
+            reservationId: ahmedRes.id,
+            courseAt: clinic.startAt,
+          ),
+        ),
+      );
+      await _b.reservations.save(ahmedRes.copyWith(packId: unit.id));
+    }
+    await _b.sessionPacks.saveAll(packs);
+  }
+
+  static const _premiumKey = 'course_premium';
+  static const _premiumVersion = '1';
+
+  /// Cours premium de démonstration : 2 séances de carnet (les cours
+  /// existants restent à 1 séance).
+  Future<void> _upgradePremiumCourse() async {
+    if (await _b.store.getMeta(_premiumKey) == _premiumVersion) return;
+    if (_b.users.byId('u_sarra') != null && _b.courses.byId('c_s12') == null) {
+      final now = _b.now();
+      await _b.courses.save(
+        Course(
+          id: 'c_s12',
+          title: 'Masterclass HIIT & récupération',
+          description:
+              'Séance premium de 75 min en petit groupe : circuit HIIT '
+              'encadré puis récupération guidée (mobilité, respiration).',
+          category: CourseCategory.hiit,
+          level: Level.advanced,
+          coachId: 'u_sarra',
+          room: 'Salle Énergie',
+          capacity: 10,
+          durationMin: 75,
+          startAt: DateTime(now.year, now.month, now.day + 6, 18),
+          createdAt: now.subtract(const Duration(days: 2)),
+          imageUrl: unsplash('photo-1517130038641-a774d04afb3c'),
+          priceIncluded: false,
+          creditCost: 2,
+        ),
+      );
+    }
+    await _b.store.setMeta(_premiumKey, _premiumVersion);
+  }
+
+  static const _courseHistoryKey = 'course_history';
+  static const _courseHistoryVersion = '1';
+
+  /// Historique de 11 semaines de cours (présences, notes, absences,
+  /// annulations tardives) pour le risque d'abandon et l'affluence, avec
+  /// deux abonnés de démonstration : Yassine (décrochage, risque élevé) et
+  /// Mariem (nouvelle et peu active, risque moyen). Ajouté uniquement quand
+  /// le jeu de démonstration est présent.
+  Future<void> _upgradeCourseHistory() async {
+    if (await _b.store.getMeta(_courseHistoryKey) == _courseHistoryVersion) {
+      return;
+    }
+    if (_b.users.byId('u_amira') != null &&
+        _b.users.byId('u_yassine') == null) {
+      _now = _b.now();
+      _today = DateTime(_now.year, _now.month, _now.day);
+      await _seedCourseHistory();
+    }
+    await _b.store.setMeta(_courseHistoryKey, _courseHistoryVersion);
+  }
+
+  /// Créneaux hebdomadaires du planning : (jour, heure, minute, catégorie,
+  /// titre, coach, salle, capacité, durée).
+  static const _timetable = [
+    (
+      1,
+      18,
+      30,
+      CourseCategory.yoga,
+      'Yoga Vinyasa',
+      'u_amira',
+      'Studio Zen',
+      15,
+      60,
+    ),
+    (
+      2,
+      19,
+      0,
+      CourseCategory.hiit,
+      'HIIT 45',
+      'u_sarra',
+      'Salle Énergie',
+      20,
+      45,
+    ),
+    (
+      3,
+      7,
+      30,
+      CourseCategory.spinning,
+      'Spinning Sunrise',
+      'u_sarra',
+      'Studio Vélo',
+      12,
+      45,
+    ),
+    (
+      3,
+      18,
+      30,
+      CourseCategory.strength,
+      'Technique squat & soulevé',
+      'u_mehdi',
+      'Plateau musculation',
+      10,
+      60,
+    ),
+    (
+      4,
+      12,
+      30,
+      CourseCategory.hiit,
+      'HIIT Express',
+      'u_sarra',
+      'Salle Énergie',
+      20,
+      30,
+    ),
+    (5, 19, 0, CourseCategory.boxing, 'Boxe cardio', 'u_sarra', 'Ring', 16, 60),
+    (
+      6,
+      10,
+      0,
+      CourseCategory.pilates,
+      'Pilates',
+      'u_amira',
+      'Studio Zen',
+      12,
+      50,
+    ),
+    (
+      7,
+      10,
+      30,
+      CourseCategory.stretching,
+      'Stretching',
+      'u_amira',
+      'Studio Zen',
+      15,
+      45,
+    ),
+  ];
+
+  Future<void> _seedCourseHistory() async {
+    final rnd = Random(47);
+    AppUser member(
+      String key,
+      String name,
+      Gender gender,
+      int age,
+      Goal goal,
+      int createdDaysAgo,
+      int subStartDaysAgo,
+      SubscriptionType sub,
+    ) {
+      final start = _day(-subStartDaysAgo);
+      return _withPrivacy(
+        key,
+        AppUser(
+          id: 'u_$key',
+          email: '$key@gymflow.tn',
+          fullName: name,
+          role: UserRole.member,
+          gender: gender,
+          age: age,
+          goal: goal,
+          createdAt: _day(-createdDaysAgo, 9),
+          subscription: Subscription(
+            type: sub,
+            start: start,
+            end: DateTime(start.year, start.month + sub.months, start.day),
+          ),
+        ),
+      );
+    }
+
+    // Yassine : abonnement trimestriel qui se termine dans 5 jours.
+    final yassine = member(
+      'yassine',
+      'Yassine Trabelsi',
+      Gender.male,
+      31,
+      Goal.weightLoss,
+      120,
+      85,
+      SubscriptionType.quarterly,
+    );
+    final mariem = member(
+      'mariem',
+      'Mariem Ben Salah',
+      Gender.female,
+      26,
+      Goal.fitness,
+      20,
+      20,
+      SubscriptionType.monthly,
+    );
+    // Même empreinte que les autres abonnés de démo (un sel par mot de
+    // passe public, voir AuthService.setDemoPasswords).
+    final ref = _b.users.where((u) => u.email == 'nour@gymflow.tn');
+    final shared = ref.isEmpty ? null : _b.credentials.byId(ref.first.id);
+    for (final u in [yassine, mariem]) {
+      await _b.users.save(u);
+      if (shared == null) {
+        await _b.auth.setPassword(u.id, 'Membre2026!');
+      } else {
+        await _b.credentials.save(
+          Credential(
+            userId: u.id,
+            hash: shared.hash,
+            salt: shared.salt,
+            iterations: shared.iterations,
+          ),
+        );
+      }
+    }
+
+    // Habitudes : créneaux préférés et probabilité de venir.
+    const habits = <String, (Set<int>, double)>{
+      'u_leila': ({0, 6, 7}, 0.8),
+      'u_ines': ({1, 2, 5}, 0.75),
+      'u_ahmed': ({3, 5}, 0.75),
+      'u_rami': ({1, 3}, 0.6),
+      'u_salma': ({1, 4, 6}, 0.6),
+      'u_omar': ({4, 7}, 0.6),
+      'u_hedi': ({5}, 0.5),
+    };
+    final courses = <Course>[];
+    final reservations = <Reservation>[];
+    var n = 0;
+    Reservation book(
+      Course c,
+      String userId, {
+      bool? attended = true,
+      int? rating,
+      ReservationStatus status = ReservationStatus.confirmed,
+      DateTime? cancelledAt,
+    }) => Reservation(
+      id: 'r_hist_${n++}',
+      courseId: c.id,
+      userId: userId,
+      status: status,
+      createdAt: c.startAt!.subtract(Duration(days: 2, minutes: n)),
+      attended: status == ReservationStatus.confirmed ? attended : null,
+      rating: rating,
+      cancelledAt: cancelledAt,
+    );
+    final mariemSeen = <int>{};
+    for (var d = 77; d >= 1; d--) {
+      final date = _day(-d);
+      for (var i = 0; i < _timetable.length; i++) {
+        final (wd, h, m, cat, title, coach, room, cap, dur) = _timetable[i];
+        if (date.weekday != wd) continue;
+        final c = Course(
+          id: 'c_h_${d}_$i',
+          title: title,
+          description: 'Cours du planning hebdomadaire.',
+          category: cat,
+          level: Level.intermediate,
+          coachId: coach,
+          room: room,
+          capacity: cap,
+          durationMin: dur,
+          createdAt: _day(-d - 30),
+          startAt: _day(-d, h, m),
+        );
+        courses.add(c);
+        for (final e in habits.entries) {
+          final (slots, p) = e.value;
+          final created = _b.users.byId(e.key)?.createdAt;
+          if (created == null || c.startAt!.isBefore(created)) continue;
+          // Hedi ne vient plus au planning depuis 40 jours.
+          if (e.key == 'u_hedi' && d < 40) continue;
+          if (!slots.contains(i) || rnd.nextDouble() >= p) continue;
+          final rated = rnd.nextDouble() < 0.35;
+          reservations.add(
+            book(c, e.key, rating: rated ? 4 + rnd.nextInt(2) : null),
+          );
+        }
+        // Yassine : 3 cours par semaine, puis décrochage les 3 dernières
+        // semaines (absences, annulations tardives, note en baisse).
+        if ({0, 2, 4}.contains(i)) {
+          if (d > 21) {
+            if (rnd.nextDouble() < 0.85) {
+              reservations.add(
+                book(
+                  c,
+                  yassine.id,
+                  rating: rnd.nextDouble() < 0.4 ? 4 + rnd.nextInt(2) : null,
+                ),
+              );
+            }
+          } else if (i == 0 && d > 14) {
+            reservations.add(book(c, yassine.id, rating: 2));
+          } else if (i == 0 || i == 2) {
+            reservations.add(book(c, yassine.id, attended: false));
+          } else {
+            reservations.add(
+              book(
+                c,
+                yassine.id,
+                status: ReservationStatus.cancelled,
+                cancelledAt: c.startAt!.subtract(const Duration(hours: 2)),
+              ),
+            );
+          }
+        }
+        // Mariem : un premier cours, puis une absence.
+        if ({0, 6}.contains(i) &&
+            c.startAt!.isAfter(mariem.createdAt) &&
+            mariemSeen.length < 2) {
+          mariemSeen.add(d);
+          reservations.add(
+            book(c, mariem.id, attended: mariemSeen.length == 1),
+          );
+        }
+      }
+    }
+    await _b.courses.saveAll(courses);
+    await _b.reservations.saveAll(reservations);
+
+    // Actions d'accompagnement passées (efficacité) : Hedi est revenu
+    // après le message ; Yassine n'est pas revenu après l'appel ; le
+    // message à Mariem est trop récent pour conclure.
+    RiskAction action(
+      String id,
+      String member,
+      String coach,
+      RiskActionKind kind,
+      int daysAgo,
+      int score,
+      String text,
+    ) => RiskAction(
+      id: id,
+      memberId: member,
+      actorId: coach,
+      kind: kind,
+      at: _day(-daysAgo, 11),
+      score: score,
+      level: ChurnRiskService.levelOf(score),
+      text: text,
+    );
+    await _b.riskActions.saveAll([
+      action(
+        'ra_demo_hedi',
+        'u_hedi',
+        'u_sarra',
+        RiskActionKind.message,
+        12,
+        48,
+        'Bonjour Hedi, vous nous manquez ! La boxe cardio vous attend '
+            'vendredi, au plaisir de vous revoir.',
+      ),
+      action(
+        'ra_demo_yassine',
+        'u_yassine',
+        'u_sarra',
+        RiskActionKind.call,
+        15,
+        52,
+        'Appel : manque de temps au travail, il pense revenir le matin.',
+      ),
+      action(
+        'ra_demo_mariem',
+        'u_mariem',
+        'u_amira',
+        RiskActionKind.message,
+        3,
+        36,
+        'Bonjour Mariem, bienvenue au club ! Le Pilates du samedi est idéal '
+            'pour démarrer en douceur.',
+      ),
+    ]);
+  }
+
+  static const _checkInsKey = 'gym_checkins';
+  static const _checkInsVersion = '1';
+
+  /// Abonnés du club sans compte de connexion, et 8 semaines d'entrées
+  /// scannées (Random(53)) : pics le matin, à midi et le soir, week-end
+  /// plus calme. Rend la carte de chaleur et les créneaux conseillés
+  /// visibles en démonstration. Les abonnés nommés de la démo n'ont pas
+  /// d'entrées, pour ne pas modifier leur score de risque.
+  Future<void> _upgradeCheckIns() async {
+    if (await _b.store.getMeta(_checkInsKey) == _checkInsVersion) return;
+    if (_b.users.byId('u_amira') != null && _b.checkIns.isEmpty) {
+      _now = _b.now();
+      _today = DateTime(_now.year, _now.month, _now.day);
+      await _seedCheckIns();
+    }
+    await _b.store.setMeta(_checkInsKey, _checkInsVersion);
+  }
+
+  static const _clubFirst = [
+    'Aymen',
+    'Sami',
+    'Nadia',
+    'Hela',
+    'Karim',
+    'Mouna',
+    'Bilel',
+    'Sonia',
+    'Anis',
+    'Rim',
+    'Fares',
+    'Emna',
+    'Zied',
+    'Asma',
+    'Wassim',
+    'Amal',
+    'Hamza',
+    'Olfa',
+    'Skander',
+    'Dorra',
+    'Mehdi',
+    'Ines',
+    'Slim',
+    'Yosra',
+    'Tarek',
+  ];
+  static const _clubLast = [
+    'Mansour',
+    'Jaziri',
+    'Bouaziz',
+    'Hammami',
+    'Chaabane',
+    'Gharbi',
+    'Sfaxi',
+    'Kefi',
+    'Toumi',
+    'Abidi',
+  ];
+
+  Future<void> _seedCheckIns() async {
+    final rnd = Random(53);
+    // Heures de prédilection : matin, midi, soir, fin de soirée.
+    const bands = [7, 12, 18, 19, 18, 20, 9];
+    final members = <AppUser>[];
+    final habits = <String, (int, double)>{};
+    for (var i = 0; i < 50; i++) {
+      final first = _clubFirst[i % _clubFirst.length];
+      final last =
+          _clubLast[(i * 7 + i ~/ _clubFirst.length) % _clubLast.length];
+      final n = (i + 1).toString().padLeft(2, '0');
+      final u = AppUser(
+        id: 'u_club_$n',
+        email: 'club$n@gymflow.tn',
+        fullName: '$first $last',
+        role: UserRole.member,
+        gender: i.isEven ? Gender.male : Gender.female,
+        goal: Goal.values[i % Goal.values.length],
+        createdAt: _day(-150 - i, 10),
+        subscription: Subscription(
+          type: SubscriptionType.yearly,
+          start: _day(-150 - i),
+          end: _day(215 - i),
+        ),
+      );
+      members.add(u);
+      habits[u.id] = (
+        bands[rnd.nextInt(bands.length)],
+        2 + rnd.nextDouble() * 2,
+      );
+    }
+    await _b.users.saveAll(members);
+
+    final checkIns = <CheckIn>[];
+    var k = 0;
+    for (var d = 56; d >= 0; d--) {
+      final day = _day(-d);
+      final weekend = day.weekday >= 6;
+      // Lundi et mardi : début de semaine plus fréquenté.
+      final boost = day.weekday <= 2 ? 1.3 : (weekend ? 0.6 : 1.0);
+      for (final u in members) {
+        final (band, perWeek) = habits[u.id]!;
+        if (rnd.nextDouble() >= perWeek / 7 * boost) continue;
+        final hour = weekend
+            ? 9 + rnd.nextInt(3)
+            : band + rnd.nextInt(2) - (band > 7 ? rnd.nextInt(2) : 0);
+        final at = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          hour,
+          rnd.nextInt(60),
+        );
+        if (!at.isBefore(_now)) continue;
+        final staysMin = 50 + rnd.nextInt(51);
+        final exit = at.add(Duration(minutes: staysMin));
+        checkIns.add(
+          CheckIn(
+            id: 'ci_demo_${k++}',
+            userId: u.id,
+            at: at,
+            byId: 'u_admin',
+            // Sortie scannée 2 fois sur 3 ; sinon sortie automatique.
+            exitAt: rnd.nextDouble() < 0.66 && exit.isBefore(_now)
+                ? exit
+                : null,
+          ),
+        );
+      }
+    }
+    await _b.checkIns.saveAll(checkIns);
+    // Petit plateau de démonstration : 20 personnes en même temps.
+    await _b.gymSettings.save(_b.packs.settings.copyWith(capacity: 20));
+  }
+
+  static const _ramadanKey = 'ramadan_2026';
+  static const _ramadanVersion = '1';
+
+  /// Ramadan 1447 (2026) confirmé : Aladhan proposait le 18/02, le Mufti
+  /// de la République a annoncé le jeudi 19/02 (croissant non observé le
+  /// 17/02) et l'Aïd le 20/03. Entrées de démonstration pendant cette
+  /// période (Random(61)) : peu de monde en journée, pic après la rupture
+  /// du jeûne. Elles forment le profil d'affluence du Ramadan.
+  Future<void> _upgradeRamadan() async {
+    if (await _b.store.getMeta(_ramadanKey) == _ramadanVersion) return;
+    final start = DateTime(2026, 2, 19);
+    final end = DateTime(2026, 3, 19);
+    final demo = _b.users.byId('u_club_01') != null;
+    if (demo &&
+        _b.now().isAfter(end) &&
+        _b.packs.settings.ramadanPeriods.isEmpty) {
+      await _b.gymSettings.save(
+        _b.packs.settings.copyWith(
+          ramadanPeriods: [
+            RamadanPeriod(
+              hijriYear: 1447,
+              start: start,
+              end: end,
+              confirmed: true,
+              source:
+                  'Aladhan proposait le 18/02 ; annonce officielle du Mufti : '
+                  'jeudi 19/02',
+            ),
+          ],
+        ),
+      );
+      final rnd = Random(61);
+      final members = _b.users.where((u) => u.id.startsWith('u_club_'));
+      final checkIns = <CheckIn>[];
+      var k = 0;
+      for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+        final maghrib = d.add(Duration(minutes: AladhanApi.estimateMinutes(d)));
+        for (final u in members) {
+          if (rnd.nextDouble() >= 0.42) continue;
+          final roll = rnd.nextDouble();
+          final DateTime at;
+          if (roll < 0.2) {
+            // Journée, avant le jeûne de l'après-midi.
+            at = DateTime(
+              d.year,
+              d.month,
+              d.day,
+              10 + rnd.nextInt(4),
+              rnd.nextInt(60),
+            );
+          } else if (roll < 0.85) {
+            // Après la rupture du jeûne.
+            at = maghrib.add(Duration(minutes: 50 + rnd.nextInt(150)));
+          } else {
+            at = DateTime(d.year, d.month, d.day, 22, rnd.nextInt(60));
+          }
+          checkIns.add(
+            CheckIn(
+              id: 'ci_ram_${k++}',
+              userId: u.id,
+              at: at,
+              byId: 'u_admin',
+              exitAt: at.add(Duration(minutes: 50 + rnd.nextInt(40))),
+            ),
+          );
+        }
+      }
+      await _b.checkIns.saveAll(checkIns);
+    }
+    await _b.store.setMeta(_ramadanKey, _ramadanVersion);
+  }
+
+  static const _historyKey = 'shop_history';
+  static const _historyVersion = '1';
+
+  /// Historique de commandes des 90 derniers jours, pour les
+  /// recommandations et la prévision des ruptures. Ajouté uniquement quand
+  /// le jeu de démonstration est présent (jamais sur une base réelle).
+  Future<void> _upgradeOrderHistory() async {
+    if (await _b.store.getMeta(_historyKey) == _historyVersion) return;
+    final demo =
+        _b.users.byId('u_ahmed') != null && _b.products.byId('pr_whey') != null;
+    if (demo && _b.orders.byId('o_hist_1') == null) {
+      _now = _b.now();
+      _today = DateTime(_now.year, _now.month, _now.day);
+      await _seedOrderHistory();
+    }
+    await _b.store.setMeta(_historyKey, _historyVersion);
+  }
+
+  /// Génération déterministe (graine fixe) : mêmes commandes à chaque
+  /// installation, donc des résultats et des tests stables.
+  Future<void> _seedOrderHistory() async {
+    final rnd = Random(90);
+    if (_b.products.byId('pr_belt') == null) {
+      await _b.products.save(
+        Product(
+          id: 'pr_belt',
+          name: 'Ceinture de musculation',
+          description:
+              'Ceinture de 10 cm pour le maintien lombaire sur les charges '
+              'lourdes (squat, soulevé de terre).',
+          category: ProductCategory.accessories,
+          price: 59,
+          stock: 8,
+          createdAt: _day(-120),
+        ),
+      );
+    }
+    // Premier article d'une commande : (produit, poids, quantité max).
+    // Rouleau de massage et serviette ne sont jamais vendus (classe C).
+    const anchors = <(String, int, int)>[
+      ('whey', 14, 1),
+      ('isolate', 8, 2),
+      ('iso', 12, 3),
+      ('bar', 9, 2),
+      ('creatine', 8, 1),
+      ('gloves', 6, 1),
+      ('tshirt', 5, 2),
+      ('rope', 4, 1),
+      ('mat', 4, 1),
+      ('bands', 3, 1),
+      ('leggings', 3, 1),
+      ('bcaa', 3, 1),
+      ('shaker', 3, 1),
+      ('bottle', 3, 1),
+      ('belt', 3, 1),
+    ];
+    // Achats associés au premier article : (produit, probabilité).
+    const companions = <String, List<(String, double)>>{
+      'whey': [('shaker', 0.45), ('creatine', 0.2)],
+      'creatine': [('whey', 0.5)],
+      'isolate': [('shaker', 0.3), ('bar', 0.2)],
+      'iso': [('bottle', 0.4)],
+      'gloves': [('belt', 0.45)],
+      'belt': [('gloves', 0.5)],
+      'mat': [('bands', 0.45)],
+      'rope': [('bottle', 0.3)],
+      'tshirt': [('leggings', 0.3)],
+    };
+    // Acheteurs selon le rayon, cohérents avec leur objectif.
+    const buyers = <ProductCategory, List<String>>{
+      ProductCategory.supplements: ['ahmed', 'rami', 'rami', 'omar'],
+      ProductCategory.accessories: ['salma', 'leila', 'omar', 'ahmed'],
+      ProductCategory.clothing: ['leila', 'salma', 'ines'],
+      ProductCategory.drinks: ['ines', 'ines', 'salma', 'rami'],
+    };
+    String pick(int daysAgo) {
+      // L'isolat se vend de plus en plus (proche de la rupture) ; les BCAA,
+      // en rupture, ne se vendent plus depuis 25 jours.
+      int weight((String, int, int) a) => switch (a.$1) {
+        'isolate' when daysAgo <= 21 => a.$2 * 5,
+        'bcaa' when daysAgo <= 25 => 0,
+        _ => a.$2,
+      };
+      var r = rnd.nextInt(anchors.fold(0, (s, a) => s + weight(a)));
+      for (final a in anchors) {
+        r -= weight(a);
+        if (r < 0) return a.$1;
+      }
+      return anchors.first.$1;
+    }
+
+    final numbers = <int, int>{};
+    final orders = <ShopOrder>[];
+    for (var i = 1; i <= 110; i++) {
+      final daysAgo = 1 + rnd.nextInt(90);
+      final first = pick(daysAgo);
+      final maxQty = anchors.firstWhere((a) => a.$1 == first).$3;
+      final quantities = <String, int>{first: 1 + rnd.nextInt(maxQty)};
+      for (final (k, prob) in companions[first] ?? const <(String, double)>[]) {
+        if (rnd.nextDouble() < prob) quantities.putIfAbsent(k, () => 1);
+      }
+      // Un article sans lien, de temps en temps.
+      if (rnd.nextDouble() < 0.1) {
+        quantities.putIfAbsent(pick(daysAgo), () => 1);
+      }
+      final at = _day(-daysAgo, 8 + rnd.nextInt(13), rnd.nextInt(60));
+      final products = [
+        for (final k in quantities.keys) _b.products.byId('pr_$k')!,
+      ];
+      final who = buyers[products.first.category]!;
+      final year = at.year;
+      numbers[year] =
+          (numbers[year] ??
+              _b.orders.where((o) => o.createdAt.year == year).length) +
+          1;
+      orders.add(
+        ShopOrder(
+          id: 'o_hist_$i',
+          number: 'GF-$year-${numbers[year].toString().padLeft(4, '0')}',
+          userId: 'u_${who[rnd.nextInt(who.length)]}',
+          lines: [
+            for (final p in products)
+              OrderLine(
+                productId: p.id,
+                name: p.name,
+                unitPrice: p.effectivePrice,
+                quantity: quantities[p.id.substring(3)]!,
+                image: p.images.isEmpty ? null : p.images.first,
+              ),
+          ],
+          status: daysAgo <= 1
+              ? OrderStatus.paid
+              : (daysAgo <= 4 ? OrderStatus.prepared : OrderStatus.delivered),
+          paymentMethod: 'simulated',
+          paymentRef: 'SIM-HIST-${1000 + i}',
+          createdAt: at,
+        ),
+      );
+    }
+    await _b.orders.saveAll(orders);
   }
 
   Future<void> _seedAnnouncements() async {

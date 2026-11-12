@@ -178,7 +178,7 @@ class DashboardService {
               .where(
                 (o) => !o.createdAt.isBefore(from) && o.createdAt.isBefore(to),
               )
-              .fold<double>(0, (s, o) => s + o.total);
+              .fold<double>(0, (s, o) => s + o.netSales);
           return (from, total);
         }(),
     ];

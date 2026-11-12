@@ -3,6 +3,28 @@ import 'package:flutter/foundation.dart';
 import '../core/errors.dart';
 import '../models/shop.dart';
 import 'backend.dart';
+import 'coupon_loyalty_service.dart';
+
+/// Code promo et points choisis pour un achat (panier ou achat direct).
+/// Les règles sont vérifiées par [CouponLoyaltyService.quote].
+class DiscountChoice extends ChangeNotifier {
+  String? code;
+  int points = 0;
+
+  void set({String? code, int? points, bool clearCode = false}) {
+    if (clearCode) this.code = null;
+    if (code != null) this.code = code.trim().toUpperCase();
+    if (points != null) this.points = points;
+    notifyListeners();
+  }
+
+  void reset() {
+    if (code == null && points == 0) return;
+    code = null;
+    points = 0;
+    notifyListeners();
+  }
+}
 
 /// Panier partagé (singleton `ChangeNotifier` écouté par la pastille du
 /// panier et l'écran Panier).
@@ -11,6 +33,9 @@ class CartService extends ChangeNotifier {
   final Backend _b;
 
   final List<CartLine> _lines = [];
+
+  /// Code promo et points du panier (remis à zéro avec le panier).
+  final DiscountChoice discount = DiscountChoice();
 
   List<CartLine> get lines => List.unmodifiable(_lines);
   bool get isEmpty => _lines.isEmpty;
@@ -68,6 +93,7 @@ class CartService extends ChangeNotifier {
   }
 
   void clear() {
+    discount.reset();
     if (_lines.isEmpty) return;
     _lines.clear();
     notifyListeners();

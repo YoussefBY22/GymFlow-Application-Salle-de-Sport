@@ -5,9 +5,11 @@ import '../core/formatters.dart';
 import '../core/ticket_qr.dart';
 import '../models/course.dart';
 import '../models/enums.dart';
+import '../models/session_pack.dart';
 import '../models/user.dart';
 import '../repositories/repository.dart';
 import 'backend.dart';
+import 'session_pack_service.dart';
 
 /// API interne des réservations : règles de réservation, liste d'attente,
 /// annulation, présence et notation.
@@ -41,10 +43,16 @@ class ReservationService {
     (r) => r.courseId == courseId && r.status == ReservationStatus.waitlisted,
   )..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-  /// Réserve une place. Refus si : cours non programmé, abonnement expiré,
-  /// déjà inscrit, chevauchement avec une autre réservation, ou cours
-  /// complet (sauf si [joinWaitlist] : inscription en liste d'attente).
-  Future<Reservation> book(String courseId, {bool joinWaitlist = false}) async {
+  /// Réserve une place. Refus si : cours non programmé, ni abonnement
+  /// actif ni carnet valide (ou cours hors abonnement sans carnet), déjà
+  /// inscrit, chevauchement avec une autre réservation, ou cours complet
+  /// (sauf si [joinWaitlist] : inscription en liste d'attente, sans crédit
+  /// bloqué). [packId] : carnet choisi par l'abonné (sinon FEFO).
+  Future<Reservation> book(
+    String courseId, {
+    bool joinWaitlist = false,
+    String? packId,
+  }) async {
     final me = _b.requireRole({UserRole.member});
     final c = _b.courses.byId(courseId) ?? (throw const NotFoundException());
     final now = _b.now();
@@ -56,12 +64,12 @@ class ReservationService {
         _ => 'Ce cours a été annulé.',
       });
     }
-    if (!me.subscription.isActiveAt(c.startAt!)) {
-      throw const BusinessRuleException(
-        'Votre abonnement a expiré (ou expire avant ce cours). '
-        'Renouvelez-le à l\'accueil pour réserver.',
-      );
-    }
+    await _b.packs.sync(me.id);
+    // Vérifié aussi pour la liste d'attente, mais le crédit n'est réservé
+    // qu'à la confirmation.
+    final pack = _b.packs.needsCredit(me, c)
+        ? _b.packs.pickPack(me, c, packId: packId)
+        : null;
     if (activeFor(courseId, me.id) != null) {
       throw const BusinessRuleException('Vous êtes déjà inscrit à ce cours.');
     }
@@ -91,8 +99,10 @@ class ReservationService {
       status: full ? ReservationStatus.waitlisted : ReservationStatus.confirmed,
       createdAt: now,
       bookingCode: newBookingCode(),
+      packId: full ? null : pack?.id,
     );
     await _b.reservations.save(r);
+    if (!full && pack != null) await _b.packs.reserve(r, c, pack);
     if (full) {
       await _b.notifications.notify(
         me.id,
@@ -125,7 +135,9 @@ class ReservationService {
     );
   }
 
-  /// Annulation par l'abonné : libre jusqu'à 2 h avant le début.
+  /// Annulation par l'abonné : possible jusqu'à 2 h avant le début. Le
+  /// crédit d'un carnet est rendu si l'annulation a lieu assez tôt (délai
+  /// réglable, 12 h par défaut), sinon il est décompté.
   Future<void> cancel(String reservationId) async {
     final me = _b.requireUser();
     final r =
@@ -149,25 +161,61 @@ class ReservationService {
       }
     }
     final wasConfirmed = r.status == ReservationStatus.confirmed;
-    await _b.reservations.save(r.copyWith(status: ReservationStatus.cancelled));
+    final outcome = _b.packs.cancelOutcome(r, c);
+    await _b.reservations.save(
+      r.copyWith(status: ReservationStatus.cancelled, cancelledAt: now),
+    );
+    if (outcome != null) {
+      await _b.packs.settle(
+        r.id,
+        outcome == CancelOutcome.released
+            ? PackMoveKind.released
+            : PackMoveKind.consumed,
+      );
+    }
     await _b.notifications.cancelCourseReminders(r.id);
     if (wasConfirmed) await promoteWaitlist(c.id);
     _b.analytics.cancelReservation(c);
     _b.bus.emit();
   }
 
-  /// Promotion automatique de la liste d'attente quand des places se libèrent.
+  /// Promotion automatique de la liste d'attente quand des places se
+  /// libèrent. Une personne sans crédit valide garde son rang, est
+  /// prévenue, et la place passe à la suivante.
   Future<void> promoteWaitlist(String courseId) async {
     final c = _b.courses.byId(courseId);
     if (c == null || c.statusAt(_b.now()) != CourseStatus.scheduled) return;
+    if (!c.startAt!.isAfter(_b.now())) return;
     var free = c.capacity - _b.courseService.confirmedCount(courseId);
     for (final next in _waitlist(courseId)) {
       if (free <= 0) break;
+      final u = _b.users.byId(next.userId);
+      if (u == null) continue;
+      SessionPack? pack;
+      if (_b.packs.needsCredit(u, c)) {
+        await _b.packs.sync(u.id);
+        pack = _b.packs.eligiblePacks(u.id, c).firstOrNull;
+        if (pack == null) {
+          await _b.notifications.notify(
+            u.id,
+            NotificationType.waitlist,
+            'Une place s\'est libérée : ${c.title}',
+            'Une place s\'est libérée, mais vous n\'avez plus de crédit : '
+                'achetez un carnet pour pouvoir en profiter. Vous gardez '
+                'votre rang sur la liste d\'attente.',
+            route: '/packs',
+            refId: c.id,
+          );
+          continue;
+        }
+      }
       final promoted = next.copyWith(
         status: ReservationStatus.confirmed,
+        packId: pack?.id,
         bookingCode: next.bookingCode ?? newBookingCode(),
       );
       await _b.reservations.save(promoted);
+      if (pack != null) await _b.packs.reserve(promoted, c, pack);
       _b.email.sendInBackground(promoted.id);
       await _b.notifications.scheduleCourseReminders(promoted, c);
       await _b.notifications.notify(
@@ -181,6 +229,25 @@ class ReservationService {
       );
       free--;
     }
+  }
+
+  /// Sortie de la liste d'attente au début du cours (mise à jour
+  /// paresseuse, appelée au démarrage et à l'ouverture des carnets).
+  Future<int> closeStartedWaitlists() async {
+    final now = _b.now();
+    var n = 0;
+    for (final r in _b.reservations.where(
+      (r) => r.status == ReservationStatus.waitlisted,
+    )) {
+      final c = _b.courses.byId(r.courseId);
+      if (c == null || c.startAt == null || c.startAt!.isAfter(now)) continue;
+      await _b.reservations.save(
+        r.copyWith(status: ReservationStatus.cancelled),
+      );
+      n++;
+    }
+    if (n > 0) _b.bus.emit();
+    return n;
   }
 
   /// Inscrits d'un cours (coach du cours ou admin).
@@ -244,6 +311,8 @@ class ReservationService {
         checkedInBy: checkedInBy,
       ),
     );
+    // Présent ou absent : la séance est décomptée du carnet.
+    await _b.packs.settle(r.id, PackMoveKind.consumed);
     _b.bus.emit();
     return saved;
   }

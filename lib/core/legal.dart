@@ -11,7 +11,7 @@ class Legal {
 
   /// Version des CGU et de la politique : tout changement de version
   /// redemande le consentement.
-  static const String version = '2026-10-b';
+  static const String version = '2026-11-a';
 
   /// Version du tour de présentation (le revoir après une évolution majeure).
   static const int introVersion = 1;
@@ -52,6 +52,19 @@ class Legal {
           'votre profil et vos séances aux autres membres uniquement si vous '
           'l\'avez activé (votre consentement, retirable à tout moment) ; '
           'sécuriser le service (intérêt légitime).',
+    ),
+    (
+      'Indicateur d\'assiduité',
+      'Un indicateur d\'assiduité est calculé à partir de vos venues à la '
+          'salle, réservations, annulations, notes de cours et séances '
+          'enregistrées (qui le font baisser), pour que les coachs '
+          'puissent vous proposer un accompagnement (message, séance '
+          'offerte, appel). Il n\'est visible que par les coachs de vos '
+          'cours et la salle, et aucune décision n\'est prise '
+          'automatiquement : c\'est toujours le coach qui agit. Vous le '
+          'retrouvez, avec son explication, dans « Télécharger mes données » '
+          'et pouvez vous opposer à ce suivi auprès de la salle (intérêt '
+          'légitime).',
     ),
     (
       'Données de santé',
