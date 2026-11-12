@@ -11,7 +11,6 @@ class CloudAIService {
   final http.Client client;
   final String apiKey;
 
-  static const String _model = 'gemini-3.8-flash';
   static const Duration _timeout = Duration(seconds: 30);
 
   bool get isConfigured => apiKey.trim().isNotEmpty;
@@ -25,7 +24,7 @@ class CloudAIService {
     }
 
     CloudAIException? unsupportedModelError;
-    final models = {_model, ...AppConfig.geminiModels};
+    final models = {...AppConfig.geminiModels};
     for (final model in models) {
       final http.Response response;
       try {

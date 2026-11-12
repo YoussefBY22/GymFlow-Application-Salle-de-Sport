@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:gymflow/core/config.dart';
 import 'package:gymflow/models/enums.dart';
 import 'package:gymflow/services/ai/cloud_ai_service.dart';
 import 'package:gymflow/services/exercise_db_service.dart';
@@ -120,7 +121,7 @@ void main() {
 
       expect(
         request!.url.path,
-        contains('/models/gemini-3.8-flash:generateContent'),
+        contains('/models/${AppConfig.geminiModels.first}:generateContent'),
       );
       expect(request!.headers['x-goog-api-key'], 'gemini-test-key');
       expect(body['contents'], isNotEmpty);
