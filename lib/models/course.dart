@@ -22,7 +22,11 @@ class Course {
     this.imageUrl,
     this.cancelled = false,
     this.cancelReason,
+    this.creditCost = 1,
   });
+
+  /// Coût en séances de carnet : de 1 à 5.
+  static const int maxCreditCost = 5;
 
   final String id;
   final String title;
@@ -38,7 +42,14 @@ class Course {
   /// `null` tant que le cours est « À planifier ».
   final DateTime? startAt;
   final bool priceIncluded;
+
+  /// Ancien prix « à régler sur place » : conservé pour lire les anciennes
+  /// données, il n'a plus d'effet (remplacé par [creditCost]).
   final double price;
+
+  /// Séances prises sur un carnet quand la réservation demande un crédit
+  /// (cours hors abonnement, ou abonné sans abonnement actif).
+  final int creditCost;
   final String? imageUrl;
   final bool cancelled;
   final String? cancelReason;
@@ -74,6 +85,7 @@ class Course {
     String? imageUrl,
     bool? cancelled,
     String? cancelReason,
+    int? creditCost,
   }) => Course(
     id: id,
     title: title ?? this.title,
@@ -91,6 +103,7 @@ class Course {
     imageUrl: imageUrl ?? this.imageUrl,
     cancelled: cancelled ?? this.cancelled,
     cancelReason: cancelReason ?? this.cancelReason,
+    creditCost: creditCost ?? this.creditCost,
   );
 
   Json toJson() => {
@@ -110,6 +123,7 @@ class Course {
     'imageUrl': imageUrl,
     'cancelled': cancelled,
     'cancelReason': cancelReason,
+    'creditCost': creditCost,
   };
 
   factory Course.fromJson(Json j) => Course(
@@ -133,6 +147,8 @@ class Course {
     imageUrl: j['imageUrl'] as String?,
     cancelled: j['cancelled'] as bool? ?? false,
     cancelReason: j['cancelReason'] as String?,
+    // Cours enregistrés avant le coût en séances : 1 séance.
+    creditCost: toInt(j['creditCost'], 1).clamp(1, maxCreditCost),
   );
 }
 
@@ -147,6 +163,8 @@ class Reservation {
     this.attended,
     this.rating,
     this.comment,
+    this.packId,
+    this.cancelledAt,
   });
 
   final String id;
@@ -162,6 +180,14 @@ class Reservation {
   final int? rating;
   final String? comment;
 
+  /// Carnet sur lequel le crédit de la séance a été pris (cours payant ou
+  /// abonné sans abonnement actif).
+  final String? packId;
+
+  /// Date d'annulation PAR L'ABONNÉ (absente si le cours a été annulé par
+  /// la salle) : sert à repérer les annulations tardives.
+  final DateTime? cancelledAt;
+
   bool get isActive => status != ReservationStatus.cancelled;
 
   Reservation copyWith({
@@ -169,6 +195,8 @@ class Reservation {
     bool? attended,
     int? rating,
     String? comment,
+    String? packId,
+    DateTime? cancelledAt,
   }) => Reservation(
     id: id,
     courseId: courseId,
@@ -178,6 +206,8 @@ class Reservation {
     attended: attended ?? this.attended,
     rating: rating ?? this.rating,
     comment: comment ?? this.comment,
+    packId: packId ?? this.packId,
+    cancelledAt: cancelledAt ?? this.cancelledAt,
   );
 
   Json toJson() => {
@@ -189,6 +219,8 @@ class Reservation {
     'attended': attended,
     'rating': rating,
     'comment': comment,
+    if (packId != null) 'packId': packId,
+    if (cancelledAt != null) 'cancelledAt': dateToJson(cancelledAt),
   };
 
   factory Reservation.fromJson(Json j) => Reservation(
@@ -204,5 +236,7 @@ class Reservation {
     attended: j['attended'] as bool?,
     rating: toIntOrNull(j['rating']),
     comment: j['comment'] as String?,
+    packId: j['packId'] as String?,
+    cancelledAt: dateFromJson(j['cancelledAt']),
   );
 }

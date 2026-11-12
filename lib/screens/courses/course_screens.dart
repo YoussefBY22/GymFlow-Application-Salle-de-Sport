@@ -7,14 +7,17 @@ import '../../core/theme.dart';
 import '../../core/validators.dart';
 import '../../models/course.dart';
 import '../../models/enums.dart';
+import '../../models/session_pack.dart';
 import '../../models/misc.dart';
 import '../../models/prefs.dart';
 import '../../services/backend.dart';
+import '../../services/session_pack_service.dart';
 import '../../services/course_service.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cards.dart';
 import '../../widgets/common.dart';
+import 'pack_screens.dart';
 import '../../widgets/filter_bar.dart';
 import '../../widgets/pickers.dart';
 import '../shell/main_shell.dart';
@@ -294,6 +297,9 @@ class CourseDetailScreen extends StatefulWidget {
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
   bool _busy = false;
 
+  /// Carnet choisi pour la réservation (sinon FEFO).
+  String? _packId;
+
   Future<void> _act(Future<void> Function() action, String success) async {
     setState(() => _busy = true);
     await runAction(context, action, success: success);
@@ -390,36 +396,114 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         final full = confirmed >= c.capacity;
         final rating = b.courseService.averageRating(c.id);
         final canManage = b.courseService.canManage(me, c);
-        final subOk =
-            c.startAt != null && me.subscription.isActiveAt(c.startAt!);
+        final needsCredit = me.isMember && b.packs.needsCredit(me, c);
+        final eligible = needsCredit
+            ? b.packs.eligiblePacks(me.id, c)
+            : const <SessionPack>[];
+        final chosen =
+            eligible.where((p) => p.id == _packId).firstOrNull ??
+            eligible.firstOrNull;
+        final heldPack = active?.packId == null
+            ? null
+            : b.sessionPacks.byId(active!.packId);
+        final outcome = active == null
+            ? null
+            : b.packs.cancelOutcome(active, c);
+        final lateNote = switch (outcome) {
+          CancelOutcome.released =>
+            ' La séance vous sera rendue sur votre carnet.',
+          CancelOutcome.consumed =>
+            ' Annulation tardive (moins de '
+                '${b.packs.settings.freeCancelHours} h avant) : la séance '
+                'sera décomptée de votre carnet.',
+          null => '',
+        };
 
         Widget? action;
         if (me.isMember) {
           if (status == CourseStatus.scheduled) {
             if (active == null) {
-              if (!subOk) {
-                action = const GfCard(
-                  color: AppColors.redSoft,
-                  child: InfoRow(
-                    Icons.card_membership,
-                    'Votre abonnement a expiré : renouvelez-le à l\'accueil pour réserver.',
-                  ),
+              if (needsCredit && eligible.isEmpty) {
+                action = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GfCard(
+                      key: const Key('no_credit'),
+                      color: AppColors.redSoft,
+                      child: InfoRow(
+                        Icons.confirmation_number_outlined,
+                        b.packs.missingCreditMessage(me, c),
+                      ),
+                    ),
+                    const SizedBox(height: Gap.s),
+                    ElevatedButton.icon(
+                      key: const Key('buy_pack'),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, Routes.myPacks),
+                      icon: const Icon(Icons.shopping_bag_outlined),
+                      label: const Text('Acheter un carnet'),
+                    ),
+                  ],
                 );
               } else {
-                action = LoadingButton(
-                  key: const Key('book_course'),
-                  label: full
-                      ? 'Rejoindre la liste d\'attente'
-                      : 'Réserver ma place',
-                  icon: full ? Icons.hourglass_top : Icons.event_available,
-                  color: full ? AppColors.navy : AppColors.red,
-                  loading: _busy,
-                  onPressed: () => _act(
-                    () => b.reservationService.book(c.id, joinWaitlist: full),
-                    full
-                        ? 'Inscrit en liste d\'attente.'
-                        : 'Place réservée ! Rappels programmés.',
-                  ),
+                action = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (needsCredit) ...[
+                      GfCard(
+                        color: AppColors.cream,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InfoRow(
+                              Icons.confirmation_number_outlined,
+                              full
+                                  ? 'Liste d\'attente : aucune séance n\'est '
+                                        'prise tant que vous attendez.'
+                                  : '${c.creditCost == 1 ? '1 séance sera prise' : '${c.creditCost} séances seront prises'} '
+                                        'sur « ${chosen!.name} » '
+                                        '(${packBalance(chosen, b.now())}).',
+                            ),
+                            if (!full && eligible.length > 1)
+                              Wrap(
+                                key: const Key('pack_choice'),
+                                spacing: Gap.s,
+                                children: [
+                                  for (final p in eligible)
+                                    ChoiceChip(
+                                      key: Key('choose_${p.id}'),
+                                      label: Text(p.name),
+                                      selected: p.id == chosen!.id,
+                                      onSelected: (_) =>
+                                          setState(() => _packId = p.id),
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: Gap.s),
+                    ],
+                    LoadingButton(
+                      key: const Key('book_course'),
+                      label: full
+                          ? 'Rejoindre la liste d\'attente'
+                          : 'Réserver ma place',
+                      icon: full ? Icons.hourglass_top : Icons.event_available,
+                      color: full ? AppColors.navy : AppColors.red,
+                      loading: _busy,
+                      onPressed: () => _act(
+                        () => b.reservationService.book(
+                          c.id,
+                          joinWaitlist: full,
+                          packId: full ? null : chosen?.id,
+                        ),
+                        full
+                            ? 'Inscrit en liste d\'attente.'
+                            : 'Place réservée ! Rappels programmés.',
+                      ),
+                    ),
+                  ],
                 );
               }
             } else {
@@ -439,6 +523,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                           : Icons.hourglass_top,
                       active.status == ReservationStatus.confirmed
                           ? 'Place confirmée. Rappels 24 h et 1 h avant.'
+                                '${heldPack == null ? '' : ' Séance prise sur « ${heldPack.name} ».'}'
                           : 'Liste d\'attente : vous êtes n°${b.reservationService.waitlistPosition(active)}.',
                     ),
                   ),
@@ -483,7 +568,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                               context,
                               title: 'Annuler ma réservation ?',
                               message:
-                                  'Votre place sera proposée à la liste d\'attente.',
+                                  'Votre place sera proposée à la liste d\'attente.$lateNote',
                               confirmLabel: 'Annuler la réservation',
                               destructive: true,
                             );
@@ -625,8 +710,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                           InfoRow(
                             Icons.payments_outlined,
                             c.priceIncluded
-                                ? 'Inclus dans l\'abonnement'
-                                : '${Fmt.money(c.price)} (à régler sur place)',
+                                ? 'Inclus dans l\'abonnement (sans abonnement : '
+                                      '${Fmt.plural(c.creditCost, 'séance')} de carnet)'
+                                : 'Hors abonnement : '
+                                      '${Fmt.plural(c.creditCost, 'séance')} de carnet',
                           ),
                           if (c.cancelled && c.cancelReason != null)
                             InfoRow(
@@ -636,6 +723,21 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                         ],
                       ),
                     ),
+                    // Ramadan : cours en journée, pendant le jeûne.
+                    if (b.ramadan.reducedIntensity(c)) ...[
+                      const SizedBox(height: Gap.s),
+                      GfCard(
+                        key: const Key('ramadan_intensity'),
+                        color: AppColors.cream,
+                        child: InfoRow(
+                          Icons.nightlight_round,
+                          'Ramadan : intensité conseillée réduite (cours en '
+                          'journée, pendant le jeûne ; rupture à '
+                          '${Fmt.time(b.ramadan.maghrib(c.startAt!).$1)}). '
+                          'Hydratez-vous bien après le Maghrib.',
+                        ),
+                      ),
+                    ],
                     if (status == CourseStatus.scheduled) ...[
                       const SizedBox(height: Gap.m),
                       Row(
@@ -730,7 +832,6 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
   final _room = TextEditingController(text: 'Studio Zen');
   final _capacity = TextEditingController(text: '12');
   final _duration = TextEditingController(text: '45');
-  final _price = TextEditingController();
   final _image = TextEditingController();
   CourseCategory _category = CourseCategory.yoga;
   Level _level = Level.beginner;
@@ -739,6 +840,7 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
   DateTime? _date;
   TimeOfDay _time = const TimeOfDay(hour: 18, minute: 0);
   bool _included = true;
+  int _creditCost = 1;
   bool _saving = false;
   Course? _existing;
 
@@ -758,7 +860,7 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
       _room.text = c.room;
       _capacity.text = '${c.capacity}';
       _duration.text = '${c.durationMin}';
-      _price.text = c.priceIncluded ? '' : c.price.toStringAsFixed(0);
+      _creditCost = c.creditCost;
       _image.text = c.imageUrl ?? '';
       _category = c.category;
       _level = c.level;
@@ -778,7 +880,6 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
       _room,
       _capacity,
       _duration,
-      _price,
       _image,
     ]) {
       c.dispose();
@@ -842,7 +943,7 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
         durationMin: int.parse(_duration.text.trim()),
         startAt: start,
         priceIncluded: _included,
-        price: _included ? 0 : (Validators.parseDecimal(_price.text) ?? 0),
+        creditCost: _creditCost,
         imageUrl: _image.text.trim().isEmpty ? null : _image.text.trim(),
       ),
       success: _existing == null
@@ -1021,19 +1122,20 @@ class _CourseFormScreenState extends State<CourseFormScreen> {
                 onChanged: (v) => setState(() => _included = v),
                 title: Text('Inclus dans l\'abonnement', style: AppText.body()),
               ),
-              if (!_included)
-                TextFormField(
-                  controller: _price,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Prix (TND)'),
-                  validator: Validators.decimalRange(
-                    field: 'Le prix',
-                    min: 0.5,
-                    max: 500,
-                  ),
-                ),
+              EnumDropdown<int>(
+                key: const Key('course_credit_cost'),
+                label: 'Coût en séances de carnet',
+                value: _creditCost,
+                values: [for (var n = 1; n <= Course.maxCreditCost; n++) n],
+                labelOf: (n) => Fmt.plural(n, 'séance'),
+                onChanged: (n) => setState(() => _creditCost = n),
+              ),
+              Text(
+                _included
+                    ? 'Pris sur le carnet des abonnés sans abonnement actif.'
+                    : 'Pris sur le carnet de chaque participant.',
+                style: AppText.label(size: 12),
+              ),
               const SizedBox(height: Gap.m),
               TextFormField(
                 controller: _image,

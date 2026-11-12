@@ -138,14 +138,20 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
                       color: AppColors.navy.withOpacity(0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bluetooth_searching, color: AppColors.navy),
+                    child: const Icon(
+                      Icons.bluetooth_searching,
+                      color: AppColors.navy,
+                    ),
                   ),
                   const SizedBox(width: Gap.s),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Smartwatch & Télémétrie BLE', style: AppText.title(size: 18)),
+                        Text(
+                          'Smartwatch & Télémétrie BLE',
+                          style: AppText.title(size: 18),
+                        ),
                         Text(
                           'Profil standard GATT Heart Rate (0x180D)',
                           style: AppText.label(size: 12),
@@ -187,7 +193,13 @@ class _SmartwatchSheetState extends State<SmartwatchSheet> {
     if (_loadingWeather) {
       return const SizedBox(
         height: 38,
-        child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       );
     }
     final w = _weather;
@@ -252,7 +264,11 @@ class _ConnectedDeviceView extends StatelessWidget {
                       color: AppColors.success.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bluetooth_connected, color: AppColors.success, size: 22),
+                    child: const Icon(
+                      Icons.bluetooth_connected,
+                      color: AppColors.success,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: Gap.s),
                   Expanded(
@@ -261,11 +277,17 @@ class _ConnectedDeviceView extends StatelessWidget {
                       children: [
                         Text(
                           device.name,
-                          style: AppText.subtitle(color: AppColors.white, size: 16),
+                          style: AppText.subtitle(
+                            color: AppColors.white,
+                            size: 16,
+                          ),
                         ),
                         Text(
                           '${device.brand} · ${device.macAddress}',
-                          style: AppText.label(color: AppColors.cream, size: 11),
+                          style: AppText.label(
+                            color: AppColors.cream,
+                            size: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -273,7 +295,11 @@ class _ConnectedDeviceView extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.battery_std, color: AppColors.gold, size: 18),
+                      const Icon(
+                        Icons.battery_std,
+                        color: AppColors.gold,
+                        size: 18,
+                      ),
                       Text(
                         '${device.batteryLevel}%',
                         style: AppText.label(color: AppColors.white, size: 12),
@@ -396,7 +422,10 @@ class _ScanDeviceView extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Appareils Bluetooth détectés', style: AppText.subtitle(size: 15)),
+            Text(
+              'Appareils Bluetooth détectés',
+              style: AppText.subtitle(size: 15),
+            ),
             ListenableBuilder(
               listenable: sw.isScanning,
               builder: (context, _) {
@@ -440,9 +469,16 @@ class _ScanDeviceView extends StatelessWidget {
               return GfCard(
                 child: Column(
                   children: [
-                    const Icon(Icons.bluetooth_searching, size: 44, color: AppColors.outline),
+                    const Icon(
+                      Icons.bluetooth_searching,
+                      size: 44,
+                      color: AppColors.outline,
+                    ),
                     const SizedBox(height: Gap.s),
-                    Text('Aucune montre connectée pour le moment', style: AppText.subtitle(size: 14)),
+                    Text(
+                      'Aucune montre connectée pour le moment',
+                      style: AppText.subtitle(size: 14),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'Appuyez sur « Lancer la recherche » pour scanner les montres Bluetooth BLE.',
@@ -483,7 +519,10 @@ class _ScanDeviceView extends StatelessWidget {
                         ),
                         trailing: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             minimumSize: Size.zero,
                           ),
                           onPressed: () {

@@ -10,6 +10,7 @@ import '../../models/enums.dart';
 import '../../models/nutrition.dart';
 import '../../models/shop.dart';
 import '../../services/backend.dart';
+import '../../services/inventory_forecast_service.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/common.dart';
@@ -58,6 +59,10 @@ class ShopDashboardScreen extends StatelessWidget {
               .where((o) => o.status != OrderStatus.delivered)
               .length;
           final lowStock = products.where((p) => p.stock <= 5).length;
+          final toOrder = b.inventory
+              .forecast()
+              .where((f) => f.status.index <= StockStatus.reorder.index)
+              .length;
           return ListView(
             padding: const EdgeInsets.fromLTRB(Gap.m, Gap.m, Gap.m, 96),
             children: [
@@ -95,8 +100,27 @@ class ShopDashboardScreen extends StatelessWidget {
                     value: lowStock.toDouble(),
                     label: 'Stocks faibles (≤ 5)',
                     color: AppColors.red,
+                    onTap: () => Navigator.pushNamed(context, Routes.restock),
                   ),
                 ],
+              ),
+              const SizedBox(height: Gap.s),
+              OutlinedButton.icon(
+                key: const Key('open_restock'),
+                onPressed: () => Navigator.pushNamed(context, Routes.restock),
+                icon: const Icon(Icons.local_shipping_outlined),
+                label: Text(
+                  toOrder == 0
+                      ? 'Réapprovisionnement'
+                      : 'Réapprovisionnement · $toOrder à commander',
+                ),
+              ),
+              const SizedBox(height: Gap.s),
+              OutlinedButton.icon(
+                key: const Key('open_coupons'),
+                onPressed: () => Navigator.pushNamed(context, Routes.coupons),
+                icon: const Icon(Icons.local_offer_outlined),
+                label: const Text('Codes promo'),
               ),
               const SizedBox(height: Gap.s),
               OutlinedButton.icon(
@@ -958,7 +982,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   Widget build(BuildContext context) {
     final b = Backend.I;
     return Scaffold(
-      appBar: AppBar(title: const Text('Commandes')),
+      appBar: AppBar(
+        title: const Text('Commandes'),
+        actions: [
+          IconButton(
+            key: const Key('open_scan'),
+            tooltip: 'Scanner un retrait',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => Navigator.pushNamed(context, Routes.pickupScan),
+          ),
+        ],
+      ),
       body: ListenableBuilder(
         listenable: b.bus,
         builder: (context, _) {

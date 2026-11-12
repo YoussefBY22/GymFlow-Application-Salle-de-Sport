@@ -253,3 +253,122 @@ class GfBarChart extends StatelessWidget {
     );
   }
 }
+
+/// Ventes journalières (escalier gris) et tendance lissée (rouge) d'un
+/// produit, du plus ancien jour à [end].
+class GfDemandChart extends StatelessWidget {
+  const GfDemandChart({
+    super.key,
+    required this.sales,
+    required this.smoothed,
+    required this.end,
+    this.height = 200,
+  });
+
+  final List<int> sales;
+  final List<double> smoothed;
+  final DateTime end;
+  final double height;
+
+  DateTime _dayOf(int i) =>
+      DateTime(end.year, end.month, end.day - (sales.length - 1 - i));
+
+  @override
+  Widget build(BuildContext context) {
+    if (sales.length < 2) return SizedBox(height: height);
+    final maxV = math.max(
+      1.0,
+      sales.fold<double>(0, (m, v) => math.max(m, v.toDouble())),
+    );
+    final interval = niceInterval(maxV * 1.2);
+    final maxY = ((maxV + interval * 0.2) / interval).ceil() * interval;
+    return SizedBox(
+      height: height,
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: maxY,
+          gridData: _grid(interval),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(),
+            rightTitles: const AxisTitles(),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 32,
+                interval: interval,
+                getTitlesWidget: (v, meta) =>
+                    _axisLabel(v, meta, v.toStringAsFixed(0)),
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 28,
+                interval: math.max(1, (sales.length / 4).ceilToDouble()),
+                getTitlesWidget: (v, meta) {
+                  final i = v.round();
+                  if (i < 0 || i >= sales.length) {
+                    return const SizedBox.shrink();
+                  }
+                  final d = _dayOf(i);
+                  return SideTitleWidget(
+                    meta: meta,
+                    child: Text(
+                      '${d.day}/${d.month}',
+                      style: AppText.label(size: 11),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => AppColors.navy,
+              getTooltipItems: (spots) => [
+                for (final s in spots)
+                  LineTooltipItem(
+                    s.barIndex == 0
+                        ? '${s.y.round()} vendu(s) le '
+                              '${Fmt.date(_dayOf(s.x.round()))}'
+                        : 'Tendance : ${Fmt.dec1(s.y)} / jour',
+                    AppText.label(color: AppColors.white, size: 12),
+                  ),
+              ],
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: [
+                for (var i = 0; i < sales.length; i++)
+                  FlSpot(i.toDouble(), sales[i].toDouble()),
+              ],
+              isStepLineChart: true,
+              color: AppColors.outline,
+              barWidth: 1.5,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                color: AppColors.outline.withValues(alpha: 0.15),
+              ),
+            ),
+            LineChartBarData(
+              spots: [
+                for (var i = 0; i < smoothed.length; i++)
+                  FlSpot(i.toDouble(), smoothed[i]),
+              ],
+              isCurved: true,
+              preventCurveOverShooting: true,
+              color: AppColors.red,
+              barWidth: 3,
+              dotData: const FlDotData(show: false),
+            ),
+          ],
+        ),
+        duration: const Duration(milliseconds: 600),
+      ),
+    );
+  }
+}

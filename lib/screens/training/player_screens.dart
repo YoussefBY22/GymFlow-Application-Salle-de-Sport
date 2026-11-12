@@ -887,7 +887,9 @@ class SessionSummaryScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (s.caloriesBurned != null || s.averageHeartRate != null || (s.stepCount != null && s.stepCount! > 0)) ...[
+                if (s.caloriesBurned != null ||
+                    s.averageHeartRate != null ||
+                    (s.stepCount != null && s.stepCount! > 0)) ...[
                   const SizedBox(height: Gap.m),
                   GfCard(
                     color: AppColors.cream,
@@ -896,16 +898,24 @@ class SessionSummaryScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.watch, color: AppColors.navy, size: 20),
+                            const Icon(
+                              Icons.watch,
+                              color: AppColors.navy,
+                              size: 20,
+                            ),
                             const SizedBox(width: Gap.s),
                             Expanded(
                               child: Text(
-                                s.smartwatchDevice ?? 'Données biométriques Smartwatch',
+                                s.smartwatchDevice ??
+                                    'Données biométriques Smartwatch',
                                 style: AppText.subtitle(size: 14),
                               ),
                             ),
                             if (s.smartwatchDevice != null)
-                              const Pill('BLE Synchronisé', color: AppColors.success),
+                              const Pill(
+                                'BLE Synchronisé',
+                                color: AppColors.success,
+                              ),
                           ],
                         ),
                         const SizedBox(height: Gap.m),
@@ -1092,7 +1102,9 @@ class SessionDetailScreen extends StatelessWidget {
             padding: pagePadding(context, maxWidth: 860),
             children: [
               ActivityCard(session: s),
-              if (s.caloriesBurned != null || s.averageHeartRate != null || (s.stepCount != null && s.stepCount! > 0)) ...[
+              if (s.caloriesBurned != null ||
+                  s.averageHeartRate != null ||
+                  (s.stepCount != null && s.stepCount! > 0)) ...[
                 const SizedBox(height: Gap.s),
                 GfCard(
                   color: AppColors.cream,
@@ -1102,28 +1114,55 @@ class SessionDetailScreen extends StatelessWidget {
                       if (s.caloriesBurned != null)
                         Column(
                           children: [
-                            const Icon(Icons.local_fire_department, color: AppColors.red, size: 22),
+                            const Icon(
+                              Icons.local_fire_department,
+                              color: AppColors.red,
+                              size: 22,
+                            ),
                             const SizedBox(height: 2),
-                            Text('${s.caloriesBurned} kcal', style: AppText.stat(size: 16)),
-                            Text('Dépense estimée', style: AppText.label(size: 11)),
+                            Text(
+                              '${s.caloriesBurned} kcal',
+                              style: AppText.stat(size: 16),
+                            ),
+                            Text(
+                              'Dépense estimée',
+                              style: AppText.label(size: 11),
+                            ),
                           ],
                         ),
                       if (s.averageHeartRate != null)
                         Column(
                           children: [
-                            const Icon(Icons.favorite, color: AppColors.red, size: 22),
+                            const Icon(
+                              Icons.favorite,
+                              color: AppColors.red,
+                              size: 22,
+                            ),
                             const SizedBox(height: 2),
-                            Text('${s.averageHeartRate} BPM', style: AppText.stat(size: 16)),
+                            Text(
+                              '${s.averageHeartRate} BPM',
+                              style: AppText.stat(size: 16),
+                            ),
                             Text('FC moyenne', style: AppText.label(size: 11)),
                           ],
                         ),
                       if (s.stepCount != null && s.stepCount! > 0)
                         Column(
                           children: [
-                            const Icon(Icons.directions_walk, color: AppColors.success, size: 22),
+                            const Icon(
+                              Icons.directions_walk,
+                              color: AppColors.success,
+                              size: 22,
+                            ),
                             const SizedBox(height: 2),
-                            Text(Fmt.number(s.stepCount!), style: AppText.stat(size: 16)),
-                            Text('Pas podomètre', style: AppText.label(size: 11)),
+                            Text(
+                              Fmt.number(s.stepCount!),
+                              style: AppText.stat(size: 16),
+                            ),
+                            Text(
+                              'Pas podomètre',
+                              style: AppText.label(size: 11),
+                            ),
                           ],
                         ),
                     ],
@@ -1326,7 +1365,10 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Connecter une montre Bluetooth pour la FC en direct',
-                        style: AppText.label(color: AppColors.inkSoft, size: 12),
+                        style: AppText.label(
+                          color: AppColors.inkSoft,
+                          size: 12,
+                        ),
                       ),
                     ),
                     const Icon(
@@ -1387,12 +1429,18 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                         children: [
                           Text(
                             '$hr',
-                            style: AppText.stat(color: AppColors.white, size: 18),
+                            style: AppText.stat(
+                              color: AppColors.white,
+                              size: 18,
+                            ),
                           ),
                           const SizedBox(width: 3),
                           Text(
                             'BPM',
-                            style: AppText.label(color: AppColors.cream, size: 10),
+                            style: AppText.label(
+                              color: AppColors.cream,
+                              size: 10,
+                            ),
                           ),
                         ],
                       ),
@@ -1408,7 +1456,11 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
-                  Container(height: 28, width: 1, color: const Color(0xFF1E3A5F)),
+                  Container(
+                    height: 28,
+                    width: 1,
+                    color: const Color(0xFF1E3A5F),
+                  ),
                   const Spacer(),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1424,18 +1476,28 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                         children: [
                           Text(
                             '$cal',
-                            style: AppText.stat(color: AppColors.white, size: 16),
+                            style: AppText.stat(
+                              color: AppColors.white,
+                              size: 16,
+                            ),
                           ),
                           Text(
                             'kcal',
-                            style: AppText.label(color: AppColors.cream, size: 9),
+                            style: AppText.label(
+                              color: AppColors.cream,
+                              size: 9,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                   const Spacer(),
-                  Container(height: 28, width: 1, color: const Color(0xFF1E3A5F)),
+                  Container(
+                    height: 28,
+                    width: 1,
+                    color: const Color(0xFF1E3A5F),
+                  ),
                   const Spacer(),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1451,11 +1513,17 @@ class _SmartwatchLiveBanner extends StatelessWidget {
                         children: [
                           Text(
                             '$steps',
-                            style: AppText.stat(color: AppColors.white, size: 16),
+                            style: AppText.stat(
+                              color: AppColors.white,
+                              size: 16,
+                            ),
                           ),
                           Text(
                             'pas',
-                            style: AppText.label(color: AppColors.cream, size: 9),
+                            style: AppText.label(
+                              color: AppColors.cream,
+                              size: 9,
+                            ),
                           ),
                         ],
                       ),

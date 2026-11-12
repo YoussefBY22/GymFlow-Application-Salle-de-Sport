@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../models/shop.dart';
+import 'konnect_gateway.dart';
+
+export 'konnect_gateway.dart';
 
 /// Résultat d'un paiement. Aucune donnée de carte n'est conservée :
 /// seulement la méthode et une référence de transaction.
@@ -15,24 +18,82 @@ class PaymentResult {
     required this.method,
     required this.reference,
     this.message = '',
+    this.amount,
   });
 
   final bool success;
   final String method;
   final String reference;
   final String message;
+
+  /// Montant encaissé en DT, quand la passerelle le confirme : comparé au
+  /// total de la commande avant de l'enregistrer.
+  final double? amount;
 }
 
-/// Passerelle de paiement (API externe). Deux implémentations :
-/// Stripe Checkout en mode test, ou passerelle simulée hors-ligne.
+/// Passerelle de paiement (API externe). Trois implémentations : Konnect
+/// (bac à sable, en dinars), Stripe Checkout en mode test, ou passerelle
+/// simulée hors-ligne.
 abstract class PaymentGateway {
   String get label;
 
-  /// Stripe si une clé de test est fournie au lancement, sinon simulée.
-  factory PaymentGateway.fromConfig(http.Client client) =>
-      AppConfig.stripeEnabled
-      ? StripeCheckoutGateway(client, AppConfig.stripeTestSecretKey)
-      : SimulatedPaymentGateway();
+  /// Konnect si sa clé de test et son portefeuille sont fournis, sinon
+  /// Stripe test, sinon passerelle simulée.
+  factory PaymentGateway.fromConfig(http.Client client) => select(
+    client,
+    konnectApiKey: AppConfig.konnectApiKey,
+    konnectWalletId: AppConfig.konnectWalletId,
+    stripeKey: AppConfig.stripeTestSecretKey,
+  );
+
+  static PaymentGateway select(
+    http.Client client, {
+    String konnectApiKey = '',
+    String konnectWalletId = '',
+    String stripeKey = '',
+  }) {
+    if (konnectApiKey.isNotEmpty && konnectWalletId.isNotEmpty) {
+      return KonnectGateway(client, konnectApiKey, konnectWalletId);
+    }
+    if (stripeKey.startsWith('sk_test_')) {
+      return StripeCheckoutGateway(client, stripeKey);
+    }
+    return SimulatedPaymentGateway();
+  }
+}
+
+/// Page de paiement hébergée par la passerelle.
+class HostedSession {
+  const HostedSession(this.id, this.url);
+
+  /// Référence de la passerelle (session Stripe, paymentRef Konnect).
+  final String id;
+  final String url;
+}
+
+/// Passerelle à page hébergée : l'application crée la session, ouvre la
+/// page dans un WebView, puis revérifie le statut auprès de l'API.
+abstract class HostedPaymentGateway implements PaymentGateway {
+  String get pageTitle;
+
+  /// [total] : montant à payer en DT (réductions et timbre compris).
+  Future<HostedSession> createSession({
+    required List<CartLine> lines,
+    required String customerEmail,
+    String customerName = '',
+    double? total,
+    double discount = 0,
+    double stamp = 0,
+  });
+
+  Future<PaymentResult> verify(String sessionId);
+
+  /// Adresse indiquant la fin du paiement (succès ou échec) : la page se
+  /// ferme et le statut est vérifié.
+  bool isFinished(String url);
+
+  /// Adresse d'abandon explicite par le client.
+  bool isCancelled(String url);
 }
 
 /// Passerelle simulée : écran carte, validation Luhn, cartes de test Stripe.
@@ -107,6 +168,7 @@ class SimulatedPaymentGateway implements PaymentGateway {
           method: 'simulated',
           reference: ref,
           message: 'Paiement accepté (carte •••• ${number.substring(12)})',
+          amount: amount,
         );
       case declinedCard:
         throw const BusinessRuleException('Paiement refusé par la banque.');
@@ -121,15 +183,11 @@ class SimulatedPaymentGateway implements PaymentGateway {
 }
 
 /// Session Stripe Checkout créée pour le paiement.
-class StripeSession {
-  const StripeSession(this.id, this.url);
-  final String id;
-  final String url;
-}
+typedef StripeSession = HostedSession;
 
 /// Stripe Checkout (mode test) : création de session via l'API REST,
 /// page de paiement ouverte dans un WebView, puis vérification du statut.
-class StripeCheckoutGateway implements PaymentGateway {
+class StripeCheckoutGateway implements HostedPaymentGateway {
   StripeCheckoutGateway(this._client, this._secretKey)
     : assert(_secretKey.startsWith('sk_test_'), 'Clé de TEST uniquement');
 
@@ -143,6 +201,15 @@ class StripeCheckoutGateway implements PaymentGateway {
   @override
   String get label => 'Stripe Checkout (mode test)';
 
+  @override
+  String get pageTitle => 'Paiement sécurisé Stripe';
+
+  @override
+  bool isFinished(String url) => url.startsWith(successUrl);
+
+  @override
+  bool isCancelled(String url) => url.startsWith(cancelUrl);
+
   /// Montant en centimes d'euro (Stripe ne gère pas le TND).
   static int eurCents(double tnd) => (tnd / AppConfig.tndPerEur * 100).round();
 
@@ -151,9 +218,16 @@ class StripeCheckoutGateway implements PaymentGateway {
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
+  /// Avec une réduction, la commande est envoyée en une seule ligne au
+  /// montant net ; le timbre fiscal est toujours une ligne à part.
+  @override
   Future<StripeSession> createSession({
     required List<CartLine> lines,
     required String customerEmail,
+    String customerName = '',
+    double? total,
+    double discount = 0,
+    double stamp = 0,
   }) async {
     final body = <String, String>{
       'mode': 'payment',
@@ -162,13 +236,24 @@ class StripeCheckoutGateway implements PaymentGateway {
       'customer_email': customerEmail,
       'locale': 'fr',
     };
-    for (var i = 0; i < lines.length; i++) {
-      final l = lines[i];
-      body['line_items[$i][quantity]'] = '${l.quantity}';
+    final items = <(String, int, double)>[
+      if (discount > 0)
+        (
+          'Commande GymFlow (réduction incluse)',
+          1,
+          lines.fold<double>(0, (s, l) => s + l.total) - discount,
+        )
+      else
+        for (final l in lines)
+          (l.product.name, l.quantity, l.product.effectivePrice),
+      if (stamp > 0) ('Timbre fiscal', 1, stamp),
+    ];
+    for (var i = 0; i < items.length; i++) {
+      final (name, quantity, unit) = items[i];
+      body['line_items[$i][quantity]'] = '$quantity';
       body['line_items[$i][price_data][currency]'] = 'eur';
-      body['line_items[$i][price_data][unit_amount]'] =
-          '${eurCents(l.product.effectivePrice)}';
-      body['line_items[$i][price_data][product_data][name]'] = l.product.name;
+      body['line_items[$i][price_data][unit_amount]'] = '${eurCents(unit)}';
+      body['line_items[$i][price_data][product_data][name]'] = name;
     }
     try {
       final res = await _client
@@ -193,6 +278,7 @@ class StripeCheckoutGateway implements PaymentGateway {
   }
 
   /// Revérifie côté Stripe que la session est bien payée.
+  @override
   Future<PaymentResult> verify(String sessionId) async {
     try {
       final res = await _client

@@ -3,13 +3,21 @@ import 'package:flutter/material.dart';
 import '../models/enums.dart';
 import '../models/user.dart';
 import '../screens/admin/admin_screens.dart';
+import '../screens/admin/coupon_admin_screens.dart';
+import '../screens/admin/pack_admin_screens.dart';
+import '../screens/admin/pickup_scan_screen.dart';
+import '../screens/admin/ramadan_screens.dart';
+import '../screens/admin/restock_screen.dart';
 import '../screens/admin/shop_admin_screens.dart';
 import '../screens/auth/auth_screens.dart';
 import '../screens/auth/intro_tour.dart';
+import '../screens/coach/risk_screens.dart';
 import '../screens/community/community_screens.dart';
 import '../screens/privacy/privacy_screens.dart';
 import '../screens/auth/splash_onboarding.dart';
+import '../screens/courses/affluence_screens.dart';
 import '../screens/courses/course_screens.dart';
+import '../screens/courses/pack_screens.dart';
 import '../screens/misc/misc_screens.dart';
 import '../screens/profile/profile_screens.dart';
 import '../screens/shell/main_shell.dart';
@@ -49,6 +57,13 @@ class Routes {
   static const courseDetail = '/courses/detail';
   static const courseForm = '/courses/form';
   static const attendance = '/courses/attendance';
+  static const myPacks = '/packs';
+  static const packCheckout = '/packs/buy';
+  static const risk = '/risk';
+  static const affluence = '/affluence';
+  static const entryQr = '/checkin/qr';
+  static const checkinScan = '/checkin/scan';
+  static const riskMember = '/risk/member';
   static const notifications = '/notifications';
 
   static const product = '/shop/product';
@@ -69,6 +84,14 @@ class Routes {
   static const shopAdmin = '/admin/shop';
   static const productForm = '/admin/product/form';
   static const adminOrders = '/admin/orders';
+  static const restock = '/admin/restock';
+  static const coupons = '/admin/coupons';
+  static const couponForm = '/admin/coupon/form';
+  static const pickupScan = '/admin/scan';
+  static const packOffers = '/admin/packs';
+  static const packOfferForm = '/admin/pack/form';
+  static const ramadanAdmin = '/admin/ramadan';
+  static const ramadanPreview = '/admin/ramadan/preview';
 
   static const announcements = '/announcements';
   static const announcementForm = '/announcement/form';
@@ -132,6 +155,31 @@ class Routes {
       (a) => AttendanceScreen(courseId: a! as String),
       roles: _staff,
     ),
+    myPacks: _RouteDef((_) => const MyPacksScreen(), roles: _member),
+    packCheckout: _RouteDef(
+      (a) => PackCheckoutScreen(offerId: a! as String),
+      roles: _member,
+    ),
+    packOffers: _RouteDef((_) => const PackOffersAdminScreen(), roles: _admin),
+    packOfferForm: _RouteDef(
+      (a) => PackOfferFormScreen(offerId: a as String?),
+      roles: _admin,
+    ),
+    // Jamais accessible aux abonnés (contrôle aussi fait dans le service).
+    risk: _RouteDef((_) => const RiskListScreen(), roles: _staff),
+    riskMember: _RouteDef(
+      (a) => RiskDetailScreen(memberId: a! as String),
+      roles: _staff,
+    ),
+    affluence: _RouteDef((_) => const AffluenceScreen()),
+    entryQr: _RouteDef((_) => const EntryQrScreen(), roles: _member),
+    // Accueil : scan réservé à l'admin et aux coachs.
+    checkinScan: _RouteDef((_) => const CheckInScanScreen(), roles: _staff),
+    ramadanAdmin: _RouteDef((_) => const RamadanAdminScreen(), roles: _admin),
+    ramadanPreview: _RouteDef(
+      (_) => const RamadanPreviewScreen(),
+      roles: _admin,
+    ),
     notifications: _RouteDef((_) => const NotificationsScreen()),
     product: _RouteDef((a) => ProductDetailScreen(productId: a! as String)),
     cart: _RouteDef((_) => const CartScreen()),
@@ -160,6 +208,13 @@ class Routes {
       roles: _admin,
     ),
     adminOrders: _RouteDef((_) => const AdminOrdersScreen(), roles: _admin),
+    restock: _RouteDef((_) => const RestockScreen(), roles: _admin),
+    coupons: _RouteDef((_) => const CouponsAdminScreen(), roles: _admin),
+    pickupScan: _RouteDef((_) => const PickupScanScreen(), roles: _admin),
+    couponForm: _RouteDef(
+      (a) => CouponFormScreen(couponId: a as String?),
+      roles: _admin,
+    ),
     announcements: _RouteDef((_) => const AnnouncementsScreen()),
     announcementForm: _RouteDef(
       (_) => const AnnouncementFormScreen(),

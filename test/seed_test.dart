@@ -10,7 +10,12 @@ void main() {
     final users = b.users.all;
     expect(users.where((u) => u.isAdmin).length, 1);
     expect(users.where((u) => u.isCoach).length, 3);
-    expect(users.where((u) => u.isMember && u.active).length, 8);
+    // 8 abonnés de départ + Yassine et Mariem (risque d'abandon), et 50
+    // abonnés du club sans compte de connexion (affluence).
+    final members = users.where((u) => u.isMember && u.active).toList();
+    expect(members.where((u) => !u.id.startsWith('u_club_')).length, 10);
+    expect(members.where((u) => u.id.startsWith('u_club_')).length, 50);
+    expect(b.checkIns.count, greaterThan(500));
     expect(users.where((u) => !u.active).length, 1);
     expect(b.exercises.count, greaterThanOrEqualTo(40));
     expect(b.workouts.count, greaterThanOrEqualTo(8));

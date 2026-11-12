@@ -4,6 +4,7 @@ import '../core/formatters.dart';
 import '../models/course.dart';
 import '../models/enums.dart';
 import '../models/prefs.dart';
+import '../models/session_pack.dart';
 import '../models/user.dart';
 import '../repositories/repository.dart';
 import 'backend.dart';
@@ -211,7 +212,7 @@ class CourseService {
     required int durationMin,
     DateTime? startAt,
     bool priceIncluded = true,
-    double price = 0,
+    int creditCost = 1,
     String? imageUrl,
   }) async {
     final me = _b.requireRole(Backend.staff);
@@ -230,8 +231,10 @@ class CourseService {
     if (durationMin < 15 || durationMin > 180) {
       throw const ValidationException('Durée : entre 15 et 180 minutes.');
     }
-    if (!priceIncluded && (price <= 0 || price > 500)) {
-      throw const ValidationException('Prix : entre 0,5 et 500 TND.');
+    if (creditCost < 1 || creditCost > Course.maxCreditCost) {
+      throw const ValidationException(
+        'Coût en séances : de 1 à ${Course.maxCreditCost}.',
+      );
     }
     final now = _b.now();
     if (startAt != null && !startAt.isAfter(now)) {
@@ -252,7 +255,7 @@ class CourseService {
         createdAt: now,
         startAt: startAt,
         priceIncluded: priceIncluded,
-        price: priceIncluded ? 0 : price,
+        creditCost: creditCost,
         imageUrl: imageUrl,
       );
       await _b.courses.save(c);
@@ -298,7 +301,7 @@ class CourseService {
       startAt: startAt,
       clearStart: startAt == null,
       priceIncluded: priceIncluded,
-      price: priceIncluded ? 0 : price,
+      creditCost: creditCost,
       imageUrl: imageUrl,
     );
     await _b.courses.save(updated);
@@ -347,13 +350,18 @@ class CourseService {
         r.copyWith(status: ReservationStatus.cancelled),
       );
       await _b.notifications.cancelCourseReminders(r.id);
+      // Cours annulé par la salle ou le coach : le crédit est remboursé.
+      final refunded = await _b.packs.settle(r.id, PackMoveKind.refunded);
       await _b.notifications.notify(
         r.userId,
         NotificationType.course,
         'Cours annulé : ${c.title}',
-        reason.trim().isEmpty
-            ? 'Nous sommes désolés pour ce changement.'
-            : 'Motif : ${reason.trim()}',
+        (reason.trim().isEmpty
+                ? 'Nous sommes désolés pour ce changement.'
+                : 'Motif : ${reason.trim()}') +
+            (refunded
+                ? ' Votre séance a été recréditée sur votre carnet.'
+                : ''),
         route: '/courses/detail',
         refId: id,
       );

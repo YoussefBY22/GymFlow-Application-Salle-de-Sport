@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/responsive.dart';
@@ -11,7 +15,11 @@ import '../../models/enums.dart';
 import '../../models/prefs.dart';
 import '../../models/shop.dart';
 import '../../services/backend.dart';
+import '../../services/cart_service.dart';
+import '../../services/coupon_loyalty_service.dart';
 import '../../services/payment/payment_gateway.dart';
+import '../../services/pickup_qr_service.dart';
+import '../../services/shop_recommendation_service.dart';
 import '../../widgets/animations.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cards.dart';
@@ -109,6 +117,16 @@ class _ShopScreenState extends State<ShopScreen> {
         listenable: b.bus,
         builder: (context, _) {
           final products = _results(_filters);
+          final me = b.auth.currentUser!;
+          // Sélection affichée sur l'accueil de la boutique uniquement
+          // (sans recherche ni filtre).
+          final picks =
+              me.isMember &&
+                  _query.text.trim().isEmpty &&
+                  _filters.activeCount == 0
+              ? b.recommendations.forGoal()
+              : const <ShopRecommendation>[];
+          final padding = pagePadding(context, maxWidth: 1200, top: Gap.s);
           return Column(
             children: [
               FilterSearchBar(
@@ -132,24 +150,40 @@ class _ShopScreenState extends State<ShopScreen> {
                             : null,
                         onAction: () => _setFilters({}),
                       )
-                    : GridView.builder(
-                        padding: pagePadding(
-                          context,
-                          maxWidth: 1200,
-                          top: Gap.s,
-                        ),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              mainAxisSpacing: Gap.m,
-                              crossAxisSpacing: Gap.m,
-                              childAspectRatio: 0.68,
+                    : CustomScrollView(
+                        slivers: [
+                          if (picks.isNotEmpty)
+                            SliverPadding(
+                              padding: padding.copyWith(top: 0, bottom: 0),
+                              sliver: SliverToBoxAdapter(
+                                child: RecommendationStrip(
+                                  key: const Key('goal_picks'),
+                                  title:
+                                      'Pour votre objectif : '
+                                      '${me.goal.label.toLowerCase()}',
+                                  items: picks,
+                                  goal: me.goal,
+                                ),
+                              ),
                             ),
-                        itemCount: products.length,
-                        itemBuilder: (_, i) => FadeSlideIn(
-                          index: i,
-                          child: ProductCard(product: products[i]),
-                        ),
+                          SliverPadding(
+                            padding: padding,
+                            sliver: SliverGrid.builder(
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 220,
+                                    mainAxisSpacing: Gap.m,
+                                    crossAxisSpacing: Gap.m,
+                                    childAspectRatio: 0.68,
+                                  ),
+                              itemCount: products.length,
+                              itemBuilder: (_, i) => FadeSlideIn(
+                                index: i,
+                                child: ProductCard(product: products[i]),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
               ),
             ],
@@ -191,6 +225,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           );
         }
         final images = p.images.isEmpty ? <String?>[null] : p.images;
+        final together = b.recommendations.boughtTogether(p.id);
         final maxQty = p.stock.clamp(1, 10);
         if (_qty > maxQty) _qty = maxQty;
         return Scaffold(
@@ -362,6 +397,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ],
                       ),
                     ],
+                    if (together.isNotEmpty)
+                      RecommendationStrip(
+                        key: const Key('bought_together'),
+                        title: 'Souvent achetés ensemble',
+                        items: together,
+                      ),
                     const SizedBox(height: Gap.xl),
                   ],
                 ),
@@ -370,6 +411,122 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Bandeau horizontal de produits recommandés, chacun avec sa raison.
+class RecommendationStrip extends StatelessWidget {
+  const RecommendationStrip({
+    super.key,
+    required this.title,
+    required this.items,
+    this.goal,
+  });
+
+  final String title;
+  final List<ShopRecommendation> items;
+  final Goal? goal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title, padded: false),
+        SizedBox(
+          height: 262,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: Gap.s),
+            itemBuilder: (_, i) => _RecommendationCard(
+              key: ValueKey(items[i].product.id),
+              item: items[i],
+              goal: goal,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecommendationCard extends StatefulWidget {
+  const _RecommendationCard({super.key, required this.item, this.goal});
+  final ShopRecommendation item;
+  final Goal? goal;
+
+  @override
+  State<_RecommendationCard> createState() => _RecommendationCardState();
+}
+
+class _RecommendationCardState extends State<_RecommendationCard> {
+  // Raison calculée affichée tout de suite, remplacée par la phrase de
+  // l'IA si elle arrive (sinon elle reste).
+  late final Future<String> _reason = Backend.I.recommendations.explain(
+    widget.item,
+    goal: widget.goal,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.item.product;
+    return SizedBox(
+      width: 200,
+      child: GfCard(
+        padding: EdgeInsets.zero,
+        margin: const EdgeInsets.only(bottom: 4),
+        onTap: () =>
+            Navigator.pushNamed(context, Routes.product, arguments: p.id),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 96,
+              width: double.infinity,
+              child: NetImage(
+                p.images.isEmpty ? null : p.images.first,
+                fallbackIcon: p.category.icon,
+                cacheWidth: 400,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(Gap.s),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.subtitle(size: 14),
+                    ),
+                    Text(
+                      Fmt.money(p.effectivePrice),
+                      style: AppText.stat(color: AppColors.red, size: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: FutureBuilder<String>(
+                        future: _reason,
+                        initialData: widget.item.reason,
+                        builder: (_, snap) => Text(
+                          snap.data ?? widget.item.reason,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.label(size: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -426,9 +583,10 @@ class CartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = Backend.I.cart;
     return ListenableBuilder(
-      listenable: cart,
+      listenable: Listenable.merge([cart, cart.discount, Backend.I.bus]),
       builder: (context, _) {
         final lines = cart.lines;
+        final quote = lines.isEmpty ? null : quoteFor(lines, cart.discount).$1;
         return Scaffold(
           appBar: AppBar(title: const Text('Mon panier')),
           body: lines.isEmpty
@@ -442,9 +600,19 @@ class CartScreen extends StatelessWidget {
                 )
               : ListView.separated(
                   padding: pagePadding(context, maxWidth: 900, bottom: Gap.m),
-                  itemCount: lines.length,
+                  itemCount: lines.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: Gap.s),
                   itemBuilder: (_, i) {
+                    if (i == lines.length) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          DiscountPanel(lines: lines, choice: cart.discount),
+                          const SizedBox(height: Gap.s),
+                          GfCard(child: QuoteSummary(quote: quote!)),
+                        ],
+                      );
+                    }
                     final l = lines[i];
                     return Dismissible(
                       key: ValueKey(l.product.id),
@@ -516,7 +684,7 @@ class CartScreen extends StatelessWidget {
           bottomNavigationBar: lines.isEmpty
               ? null
               : _TotalBar(
-                  total: cart.total,
+                  total: quote!.total,
                   label: 'Passer au paiement',
                   onPressed: () =>
                       Navigator.pushNamed(context, Routes.checkout),
@@ -601,6 +769,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _holder = TextEditingController();
   bool _paying = false;
 
+  /// Achat direct : choix propre ; sinon celui du panier.
+  late final DiscountChoice _choice = widget.direct == null
+      ? Backend.I.cart.discount
+      : DiscountChoice();
+
   @override
   void initState() {
     super.initState();
@@ -612,6 +785,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     for (final c in [_number, _expiry, _cvc, _holder]) {
       c.dispose();
     }
+    if (widget.direct != null) _choice.dispose();
     super.dispose();
   }
 
@@ -636,22 +810,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _paying = true);
     try {
       b.orderService.checkStock(lines); // 1re vérification du stock
-      final total = b.orderService.totalOf(lines);
+      // Règles du code promo et des points vérifiées avant le paiement.
+      final quote = b.couponLoyalty.quote(
+        lines,
+        code: _choice.code,
+        points: _choice.points,
+      );
+      final total = quote.total;
       PaymentResult? result;
-      if (gateway is StripeCheckoutGateway) {
+      if (gateway is HostedPaymentGateway) {
+        final me = b.auth.currentUser!;
         final session = await gateway.createSession(
           lines: lines,
-          customerEmail: b.auth.currentUser!.email,
+          customerEmail: me.email,
+          customerName: me.fullName,
+          total: total,
+          discount: quote.discount,
+          stamp: quote.stamp,
         );
         if (!mounted) return;
-        final sessionId = await Navigator.push<String?>(
+        final finished = await Navigator.push<bool?>(
           context,
-          gfRoute(StripeCheckoutPage(session: session)),
+          gfRoute(HostedCheckoutPage(session: session, gateway: gateway)),
         );
-        if (sessionId == null) {
+        if (finished == false) {
           throw const BusinessRuleException('Paiement annulé.');
         }
-        result = await gateway.verify(sessionId);
+        // Page fermée (fin du paiement ou retour) : le statut fait foi.
+        result = await gateway.verify(session.id);
       } else if (gateway is SimulatedPaymentGateway) {
         result = await gateway.charge(
           cardNumber: _number.text,
@@ -665,7 +851,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw const BusinessRuleException('Paiement non finalisé.');
       }
       // Le stock est revérifié au moment d'enregistrer la commande.
-      final order = await b.orderService.placeOrder(lines, result);
+      final order = await b.orderService.placeOrder(
+        lines,
+        result,
+        couponCode: _choice.code,
+        points: _choice.points,
+      );
+      // Facture par e-mail si EmailJS est configuré (sans bloquer l'écran).
+      unawaited(b.invoices.email(order.id));
       if (widget.direct == null) b.cart.clear();
       if (mounted) {
         Navigator.pushReplacementNamed(
@@ -685,8 +878,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final b = Backend.I;
     final lines = _lines;
-    final total = b.orderService.totalOf(lines);
     final simulated = b.payment is SimulatedPaymentGateway;
+    return ListenableBuilder(
+      listenable: _choice,
+      builder: (context, _) => _build(context, lines, simulated),
+    );
+  }
+
+  Widget _build(BuildContext context, List<CartLine> lines, bool simulated) {
+    final b = Backend.I;
+    final quote = lines.isEmpty ? null : quoteFor(lines, _choice).$1;
+    final total = quote?.total ?? 0;
     return Scaffold(
       appBar: AppBar(title: const Text('Paiement')),
       body: Form(
@@ -720,9 +922,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     const Divider(),
+                    if (quote != null) QuoteSummary(quote: quote),
                     Row(
                       children: [
-                        Text('Total', style: AppText.subtitle()),
+                        Text('Total à payer', style: AppText.subtitle()),
                         const Spacer(),
                         Text(
                           Fmt.money(total),
@@ -733,6 +936,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 ),
               ),
+              if (lines.isNotEmpty) ...[
+                const SizedBox(height: Gap.s),
+                DiscountPanel(lines: lines, choice: _choice),
+              ],
               const SizedBox(height: Gap.l),
               Row(
                 children: [
@@ -816,11 +1023,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 ),
               ] else
-                const GfCard(
+                GfCard(
                   color: AppColors.cream,
                   child: InfoRow(
                     Icons.open_in_browser,
-                    'Vous allez être redirigé vers la page sécurisée Stripe (mode test). Montant converti en euros pour Stripe.',
+                    b.payment is KonnectGateway
+                        ? 'Vous allez être redirigé vers la page sécurisée Konnect (bac à sable) : carte bancaire, portefeuille ou e-DINAR, en dinars. Aucune donnée de carte n\'est enregistrée par GymFlow.'
+                        : 'Vous allez être redirigé vers la page sécurisée Stripe (mode test). Montant converti en euros pour Stripe.',
                   ),
                 ),
               const SizedBox(height: 120),
@@ -838,35 +1047,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 }
 
-/// Page de paiement Stripe Checkout ouverte dans un WebView.
-/// Renvoie l'identifiant de session si l'URL de succès est atteinte.
-class StripeCheckoutPage extends StatefulWidget {
-  const StripeCheckoutPage({super.key, required this.session});
-  final StripeSession session;
+/// Page de paiement hébergée (Stripe ou Konnect) ouverte dans un WebView.
+/// Renvoie `true` à la fin du paiement, `false` en cas d'abandon explicite ;
+/// le statut est ensuite toujours revérifié auprès de l'API.
+class HostedCheckoutPage extends StatefulWidget {
+  const HostedCheckoutPage({
+    super.key,
+    required this.session,
+    required this.gateway,
+  });
+  final HostedSession session;
+  final HostedPaymentGateway gateway;
 
   @override
-  State<StripeCheckoutPage> createState() => _StripeCheckoutPageState();
+  State<HostedCheckoutPage> createState() => _HostedCheckoutPageState();
 }
 
-class _StripeCheckoutPageState extends State<StripeCheckoutPage> {
+class _HostedCheckoutPageState extends State<HostedCheckoutPage> {
   late final WebViewController _controller;
   int _progress = 0;
 
   @override
   void initState() {
     super.initState();
+    final g = widget.gateway;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) => setState(() => _progress = p),
           onNavigationRequest: (req) {
-            if (req.url.startsWith(StripeCheckoutGateway.successUrl)) {
-              Navigator.pop(context, widget.session.id);
+            if (g.isFinished(req.url)) {
+              Navigator.pop(context, true);
               return NavigationDecision.prevent;
             }
-            if (req.url.startsWith(StripeCheckoutGateway.cancelUrl)) {
-              Navigator.pop(context);
+            if (g.isCancelled(req.url)) {
+              Navigator.pop(context, false);
               return NavigationDecision.prevent;
             }
             return NavigationDecision.navigate;
@@ -880,7 +1096,13 @@ class _StripeCheckoutPageState extends State<StripeCheckoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Paiement sécurisé Stripe'),
+        title: Text(widget.gateway.pageTitle),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Terminé'),
+          ),
+        ],
         bottom: _progress < 100
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(3),
@@ -1116,7 +1338,7 @@ class OrderDetailScreen extends StatelessWidget {
                     InfoRow(Icons.person_outline, client?.fullName ?? ''),
                     InfoRow(
                       Icons.credit_card,
-                      '${o.paymentMethod == 'stripe_test' ? 'Stripe (test)' : 'Paiement test simulé'} · réf. ${o.paymentRef}',
+                      '${paymentMethodLabel(o.paymentMethod)} · réf. ${o.paymentRef}',
                     ),
                     const Divider(height: Gap.l),
                     for (final l in o.lines)
@@ -1138,21 +1360,44 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
                       ),
                     const Divider(height: Gap.l),
+                    if (o.discount > 0 || o.stamp > 0) ...[
+                      _AmountRow('Sous-total', o.subtotal),
+                      if (o.discount > 0)
+                        _AmountRow(
+                          'Réduction${o.discountLabel == null ? '' : ' · ${o.discountLabel}'}',
+                          -o.discount,
+                        ),
+                      if (o.stamp > 0) _AmountRow('Timbre fiscal', o.stamp),
+                      const SizedBox(height: Gap.xs),
+                    ],
                     Row(
                       children: [
-                        Text('Total TTC', style: AppText.subtitle()),
+                        Text('Total payé TTC', style: AppText.subtitle()),
                         const Spacer(),
                         Text(
                           Fmt.money(o.total),
+                          key: const Key('order_total'),
                           style: AppText.stat(color: AppColors.red),
                         ),
                       ],
                     ),
+                    if (o.pointsEarned > 0)
+                      InfoRow(
+                        Icons.stars,
+                        '+${o.pointsEarned} points de fidélité',
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: Gap.m),
               _OrderTimeline(status: o.status),
+              if (o.status != OrderStatus.delivered &&
+                  o.userId == b.auth.currentUser!.id) ...[
+                const SizedBox(height: Gap.m),
+                PickupQrCard(key: ValueKey(o.status), orderId: o.id),
+              ],
+              const SizedBox(height: Gap.m),
+              _InvoiceActions(orderId: o.id),
               if (b.auth.currentUser!.isAdmin &&
                   o.status != OrderStatus.delivered) ...[
                 const SizedBox(height: Gap.l),
@@ -1176,6 +1421,35 @@ class OrderDetailScreen extends StatelessWidget {
       },
     );
   }
+}
+
+String paymentMethodLabel(String method) => switch (method) {
+  'stripe_test' => 'Stripe (test)',
+  'konnect_sandbox' => 'Konnect (bac à sable)',
+  _ => 'Paiement test simulé',
+};
+
+class _AmountRow extends StatelessWidget {
+  const _AmountRow(this.label, this.amount);
+  final String label;
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(child: Text(label, style: AppText.body(size: 14))),
+        Text(
+          amount < 0 ? '-${Fmt.money(-amount)}' : Fmt.money(amount),
+          style: AppText.subtitle(
+            size: 14,
+            color: amount < 0 ? AppColors.success : AppColors.navy,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _OrderTimeline extends StatelessWidget {
@@ -1217,6 +1491,325 @@ class _OrderTimeline extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Devis du panier avec le code et les points choisis ; si une règle n'est
+/// plus respectée (panier modifié, code expiré…), devis sans réduction et
+/// message d'erreur à afficher.
+(CheckoutQuote, String?) quoteFor(List<CartLine> lines, DiscountChoice c) {
+  final s = Backend.I.couponLoyalty;
+  try {
+    return (s.quote(lines, code: c.code, points: c.points), null);
+  } catch (e) {
+    return (s.quote(lines), friendlyError(e));
+  }
+}
+
+/// Code promo et points de fidélité (panier et paiement).
+class DiscountPanel extends StatefulWidget {
+  const DiscountPanel({super.key, required this.lines, required this.choice});
+  final List<CartLine> lines;
+  final DiscountChoice choice;
+
+  @override
+  State<DiscountPanel> createState() => _DiscountPanelState();
+}
+
+class _DiscountPanelState extends State<DiscountPanel> {
+  final _code = TextEditingController();
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _apply() async {
+    final b = Backend.I;
+    final c = widget.choice;
+    final ok = await runAction(context, () async {
+      // Les règles du code sont vérifiées par le service.
+      b.couponLoyalty.quote(widget.lines, code: _code.text, points: c.points);
+      c.set(code: _code.text);
+    }, success: 'Code promo appliqué.');
+    if (ok) _code.clear();
+  }
+
+  void _setPoints(int points) {
+    final c = widget.choice;
+    runAction(context, () async {
+      Backend.I.couponLoyalty.quote(widget.lines, code: c.code, points: points);
+      c.set(points: points);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = Backend.I;
+    final c = widget.choice;
+    final me = b.auth.currentUser!;
+    final (quote, error) = quoteFor(widget.lines, c);
+    final balance = b.couponLoyalty.balanceOf(me.id);
+    final max = b.couponLoyalty.maxRedeemable(
+      me.id,
+      quote.subtotal - quote.couponDiscount,
+    );
+    const block = CouponLoyaltyService.pointsBlock;
+    return GfCard(
+      key: const Key('discount_panel'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Code promo', style: AppText.subtitle(size: 15)),
+          const SizedBox(height: Gap.s),
+          if (quote.coupon != null)
+            Row(
+              children: [
+                Flexible(
+                  child: Pill(
+                    '${quote.coupon!.code} · ${quote.coupon!.shortValue}',
+                    color: AppColors.success,
+                    icon: Icons.local_offer,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => c.set(clearCode: true),
+                  child: const Text('Retirer'),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('coupon_field'),
+                    controller: _code,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      hintText: 'Ex. BIENVENUE10',
+                      prefixIcon: Icon(Icons.local_offer_outlined),
+                    ),
+                    onSubmitted: (_) => _apply(),
+                  ),
+                ),
+                const SizedBox(width: Gap.s),
+                OutlinedButton(
+                  key: const Key('coupon_apply'),
+                  onPressed: _apply,
+                  child: const Text('Appliquer'),
+                ),
+              ],
+            ),
+          if (error != null) ...[
+            const SizedBox(height: Gap.xs),
+            Text(error, style: AppText.label(color: AppColors.red, size: 12)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: c.reset,
+                child: const Text('Retirer la réduction'),
+              ),
+            ),
+          ],
+          const Divider(height: Gap.l),
+          Row(
+            children: [
+              const Icon(Icons.stars, color: AppColors.navy),
+              const SizedBox(width: Gap.s),
+              Expanded(
+                child: Text(
+                  'Points de fidélité : $balance '
+                  '($block points = '
+                  '${Fmt.money(CouponLoyaltyService.blockValue)})',
+                  key: const Key('loyalty_balance'),
+                  style: AppText.body(size: 14),
+                ),
+              ),
+            ],
+          ),
+          if (max > 0 || c.points > 0)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    c.points == 0
+                        ? 'Utiliser des points'
+                        : '${c.points} points = -'
+                              '${Fmt.money(CouponLoyaltyService.pointsValue(c.points))}',
+                    style: AppText.subtitle(size: 14),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '$block points de moins',
+                  onPressed: c.points > 0
+                      ? () => _setPoints(c.points - block)
+                      : null,
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+                IconButton(
+                  key: const Key('points_more'),
+                  tooltip: '$block points de plus',
+                  onPressed: c.points < max
+                      ? () => _setPoints(c.points + block)
+                      : null,
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: Gap.xs),
+              child: Text(
+                '1 point par dinar dépensé et 10 points par séance terminée.',
+                style: AppText.label(size: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sous-total, réductions et timbre fiscal (le total est affiché à part).
+class QuoteSummary extends StatelessWidget {
+  const QuoteSummary({super.key, required this.quote});
+  final CheckoutQuote quote;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = quote;
+    Widget row(String label, double amount, {bool minus = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppText.body(size: 14))),
+          Text(
+            '${minus ? '-' : ''}${Fmt.money(amount)}',
+            style: AppText.subtitle(
+              size: 14,
+              color: minus ? AppColors.success : AppColors.navy,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row('Sous-total', q.subtotal),
+        if (q.couponDiscount > 0)
+          row('Code ${q.coupon!.code}', q.couponDiscount, minus: true),
+        if (q.pointsDiscount > 0)
+          row('${q.pointsUsed} points', q.pointsDiscount, minus: true),
+        if (q.stamp > 0) row('Timbre fiscal', q.stamp),
+      ],
+    );
+  }
+}
+
+/// QR code de retrait signé (régénéré à chaque ouverture du reçu).
+class PickupQrCard extends StatefulWidget {
+  const PickupQrCard({super.key, required this.orderId});
+  final String orderId;
+
+  @override
+  State<PickupQrCard> createState() => _PickupQrCardState();
+}
+
+class _PickupQrCardState extends State<PickupQrCard> {
+  late final String _data = Backend.I.pickup.generate(widget.orderId);
+
+  @override
+  Widget build(BuildContext context) {
+    final exp = PickupQrService.expiryOf(_data);
+    return GfCard(
+      key: const Key('pickup_qr'),
+      child: Column(
+        children: [
+          Text('QR code de retrait', style: AppText.title(size: 17)),
+          const SizedBox(height: Gap.s),
+          Container(
+            color: AppColors.white,
+            padding: const EdgeInsets.all(Gap.s),
+            child: QrImageView(
+              data: _data,
+              size: 200,
+              semanticsLabel: 'QR code de retrait de la commande',
+            ),
+          ),
+          const SizedBox(height: Gap.s),
+          Text(
+            'Présentez ce code à l\'accueil pour retirer votre commande'
+            '${exp == null ? '' : ' (valable jusqu\'au ${Fmt.dateTime(exp)})'}.',
+            textAlign: TextAlign.center,
+            style: AppText.label(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Téléchargement de la facture PDF et envoi par e-mail.
+class _InvoiceActions extends StatefulWidget {
+  const _InvoiceActions({required this.orderId});
+  final String orderId;
+
+  @override
+  State<_InvoiceActions> createState() => _InvoiceActionsState();
+}
+
+class _InvoiceActionsState extends State<_InvoiceActions> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action, {String? success}) async {
+    setState(() => _busy = true);
+    await runAction(context, action, success: success);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = Backend.I;
+    return Wrap(
+      spacing: Gap.s,
+      runSpacing: Gap.s,
+      children: [
+        OutlinedButton.icon(
+          key: const Key('invoice_pdf'),
+          onPressed: _busy
+              ? null
+              : () => _run(() async {
+                  final bytes = await b.invoices.pdf(widget.orderId);
+                  await Printing.sharePdf(
+                    bytes: bytes,
+                    filename: b.invoices.fileName(widget.orderId),
+                  );
+                }),
+          icon: const Icon(Icons.picture_as_pdf_outlined),
+          label: const Text('Facture PDF'),
+        ),
+        if (b.mailer.invoiceEnabled)
+          OutlinedButton.icon(
+            onPressed: _busy
+                ? null
+                : () => _run(() async {
+                    final ok = await b.invoices.email(widget.orderId);
+                    if (!ok) {
+                      throw const BusinessRuleException(
+                        'Envoi impossible pour le moment. La facture reste '
+                        'téléchargeable.',
+                      );
+                    }
+                  }, success: 'Facture envoyée par e-mail.'),
+            icon: const Icon(Icons.mail_outline),
+            label: const Text('Recevoir par e-mail'),
+          ),
+      ],
     );
   }
 }

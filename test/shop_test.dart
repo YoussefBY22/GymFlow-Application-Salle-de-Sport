@@ -75,15 +75,18 @@ void main() {
       b.cart.add(b.products.byId('pr_shaker')!, 2);
       final lines = b.cart.lines;
       b.orderService.checkStock(lines);
+      // Montant payé = 36 DT + timbre fiscal.
       final payment = await _pay(
         b,
         '4242424242424242',
-        b.orderService.totalOf(lines),
+        b.couponLoyalty.quote(lines).total,
       );
       final order = await b.orderService.placeOrder(lines, payment);
       expect(order.status, OrderStatus.paid);
       expect(order.number, matches(RegExp(r'^GF-2026-\d{4}$')));
+      expect(order.total, 37);
       expect(b.products.byId('pr_shaker')!.stock, 38);
+      // Chiffre d'affaires hors timbre fiscal.
       expect(b.orderService.revenue(), before + 36);
       expect(b.orderService.mine().first.id, order.id);
       expect(b.notifications.mine().first.title, contains(order.number));
@@ -160,8 +163,9 @@ void main() {
     await loginAs(b, 'admin@gymflow.tn');
     await b.productService.delete('pr_whey');
     expect(b.products.byId('pr_whey')!.active, isFalse);
-    await b.productService.delete('pr_gloves');
-    expect(b.products.byId('pr_gloves'), isNull);
+    // Le rouleau de massage n'est jamais vendu dans le jeu de démo.
+    await b.productService.delete('pr_roller');
+    expect(b.products.byId('pr_roller'), isNull);
   });
 
   test('Stripe : conversion TND → centimes d\'euro', () {

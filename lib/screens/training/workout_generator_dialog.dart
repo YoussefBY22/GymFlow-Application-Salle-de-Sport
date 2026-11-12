@@ -138,14 +138,21 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                       color: AppColors.gold.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.auto_awesome, color: AppColors.gold, size: 24),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: AppColors.gold,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: Gap.s),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Générateur Intelligent ACSM', style: AppText.title(size: 18)),
+                        Text(
+                          'Générateur Intelligent ACSM',
+                          style: AppText.title(size: 18),
+                        ),
                         Text(
                           'Recommandation algorithmique de workout selon votre profil',
                           style: AppText.label(size: 12),
@@ -187,7 +194,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                   Expanded(
                     child: DropdownButtonFormField<Level>(
                       value: _level,
-                      decoration: const InputDecoration(labelText: 'Niveau', isDense: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Niveau',
+                        isDense: true,
+                      ),
                       items: [
                         for (final l in Level.values)
                           DropdownMenuItem(value: l, child: Text(l.label)),
@@ -204,7 +214,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                   Expanded(
                     child: DropdownButtonFormField<Goal>(
                       value: _goal,
-                      decoration: const InputDecoration(labelText: 'Objectif', isDense: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Objectif',
+                        isDense: true,
+                      ),
                       items: [
                         for (final g in Goal.values)
                           DropdownMenuItem(value: g, child: Text(g.label)),
@@ -237,7 +250,10 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.cream,
                               borderRadius: BorderRadius.circular(8),
@@ -245,13 +261,27 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.timer_outlined, size: 14, color: AppColors.navy),
+                                const Icon(
+                                  Icons.timer_outlined,
+                                  size: 14,
+                                  color: AppColors.navy,
+                                ),
                                 const SizedBox(width: 4),
-                                Text('~${preview.estimatedMinutes} min', style: AppText.label(size: 11)),
+                                Text(
+                                  '~${preview.estimatedMinutes} min',
+                                  style: AppText.label(size: 11),
+                                ),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.local_fire_department, size: 14, color: AppColors.red),
+                                const Icon(
+                                  Icons.local_fire_department,
+                                  size: 14,
+                                  color: AppColors.red,
+                                ),
                                 const SizedBox(width: 2),
-                                Text('~${preview.estimatedCalories} kcal', style: AppText.label(size: 11)),
+                                Text(
+                                  '~${preview.estimatedCalories} kcal',
+                                  style: AppText.label(size: 11),
+                                ),
                               ],
                             ),
                           ),
@@ -267,7 +297,8 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                       const SizedBox(height: 4),
                       for (var i = 0; i < preview.items.length; i++) ...[
                         _buildItemPreview(i + 1, preview.items[i]),
-                        if (i < preview.items.length - 1) const SizedBox(height: 4),
+                        if (i < preview.items.length - 1)
+                          const SizedBox(height: 4),
                       ],
                     ],
                   ),
@@ -277,7 +308,9 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _saving ? null : () => _saveAndLaunch(launchImmediately: false),
+                        onPressed: _saving
+                            ? null
+                            : () => _saveAndLaunch(launchImmediately: false),
                         icon: const Icon(Icons.save_outlined),
                         label: const Text('Enregistrer'),
                       ),
@@ -285,7 +318,9 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
                     const SizedBox(width: Gap.s),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _saving ? null : () => _saveAndLaunch(launchImmediately: true),
+                        onPressed: _saving
+                            ? null
+                            : () => _saveAndLaunch(launchImmediately: true),
                         icon: const Icon(Icons.play_arrow),
                         label: const Text('Lancer séance'),
                       ),
@@ -303,19 +338,26 @@ class _WorkoutGeneratorSheetState extends State<WorkoutGeneratorSheet> {
   Widget _buildItemPreview(int index, WorkoutItem item) {
     final ex = Backend.I.exercises.byId(item.exerciseId);
     final name = ex?.nameIn(Backend.I.library.contentLang) ?? 'Exercice';
-    final repsText = item.isTimed ? '${item.durationSec} s' : '${item.reps} reps';
+    final repsText = item.isTimed
+        ? '${item.durationSec} s'
+        : '${item.reps} reps';
 
     return Row(
       children: [
         CircleAvatar(
           radius: 10,
           backgroundColor: AppColors.navy.withOpacity(0.08),
-          child: Text('$index', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.navy)),
+          child: Text(
+            '$index',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: AppColors.navy,
+            ),
+          ),
         ),
         const SizedBox(width: Gap.s),
-        Expanded(
-          child: Text(name, style: AppText.body(size: 13)),
-        ),
+        Expanded(child: Text(name, style: AppText.body(size: 13))),
         Text(
           '${item.sets} × $repsText (Repos ${item.restSec} s)',
           style: AppText.label(size: 11),

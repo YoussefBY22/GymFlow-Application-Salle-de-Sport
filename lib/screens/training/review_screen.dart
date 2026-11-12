@@ -34,7 +34,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   // --- VARIABLES IA ---
   final CloudAIService _cloudAI = CloudAIService();
   final LocalAIService _localAI = LocalAIService();
-  
+
   // État pour le dialogue de refus avec IA
   String? _aiGeneratedReason;
   bool _isGeneratingReason = false;
@@ -56,7 +56,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
 
     // Prompt envoyé à Gemini
-    final prompt = """
+    final prompt =
+        """
     Tu es un coach sportif bienveillant. Tu dois refuser la publication de l'élément suivant : "$itemName".
     Rédige un motif de refus en français (2 phrases maximum). 
     Sois poli, explique que la sécurité ou la qualité n'est pas suffisante, et donne un conseil pour s'améliorer.
@@ -115,17 +116,24 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.cloud, color: Colors.blue, size: 20),
+                                const Icon(
+                                  Icons.cloud,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
-                                const Text("Coach IA (API Cloud)", style: TextStyle(fontWeight: FontWeight.bold)),
+                                const Text(
+                                  "Coach IA (API Cloud)",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                                 const Spacer(),
                                 TextButton(
-                                  onPressed: _isGeneratingReason 
-                                    ? null 
-                                    : () async {
-                                        await _generateReasonWithAI(x.name);
-                                        setStateDialog(() {});
-                                      },
+                                  onPressed: _isGeneratingReason
+                                      ? null
+                                      : () async {
+                                          await _generateReasonWithAI(x.name);
+                                          setStateDialog(() {});
+                                        },
                                   child: const Text("Générer"),
                                 ),
                               ],
@@ -135,7 +143,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
                                   _aiGeneratedReason!,
-                                  style: const TextStyle(fontStyle: FontStyle.italic),
+                                  style: const TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                  ),
                                 ),
                               ),
                           ],
@@ -154,13 +164,22 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.phone_android, color: Colors.green, size: 20),
+                                const Icon(
+                                  Icons.phone_android,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
-                                const Text("Modèle Local (Analyse)", style: TextStyle(fontWeight: FontWeight.bold)),
+                                const Text(
+                                  "Modèle Local (Analyse)",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                                 const Spacer(),
                                 TextButton(
                                   onPressed: () async {
-                                    await _analyzeTextWithLocalAI(_aiGeneratedReason ?? "");
+                                    await _analyzeTextWithLocalAI(
+                                      _aiGeneratedReason ?? "",
+                                    );
                                     setStateDialog(() {});
                                   },
                                   child: const Text("Analyser"),
@@ -172,7 +191,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
                                   _localScanResult!,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                           ],
@@ -180,12 +202,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // --- CHAMP DE SAISIE DU MOTIF ---
                     const Text("Motif communiqué à l'auteur :"),
                     const SizedBox(height: 8),
                     TextFormField(
-                      initialValue: _aiGeneratedReason, // Pré-rempli si l'IA a généré
+                      initialValue:
+                          _aiGeneratedReason, // Pré-rempli si l'IA a généré
                       maxLines: 3,
                       decoration: const InputDecoration(
                         hintText: 'Ex. ajoutez une étape, précisez le repos…',
@@ -193,7 +216,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       ),
                       onChanged: (value) {
                         // On garde une trace de ce que l'utilisateur tape
-                        _aiGeneratedReason = value; 
+                        _aiGeneratedReason = value;
                       },
                     ),
                   ],
@@ -218,7 +241,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
 
     if (reason == null || reason.isEmpty || !context.mounted) return;
-    
+
     // Appel à votre logique métier existante (INCHANGÉE)
     await runAction(
       context,

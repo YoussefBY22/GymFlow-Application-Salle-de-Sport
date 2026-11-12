@@ -36,6 +36,15 @@ class Collections {
   static const audit = 'audit';
   static const announcements = 'announcements';
   static const wgerCache = 'wger_cache';
+  static const settings = 'settings';
+  static const coupons = 'coupons';
+  static const loyalty = 'loyalty';
+  static const packOffers = 'pack_offers';
+  static const sessionPacks = 'session_packs';
+  static const gymSettings = 'gym_settings';
+  static const riskActions = 'risk_actions';
+  static const checkIns = 'checkins';
+  static const prayerTimes = 'prayer_times';
 
   static const all = [
     users,
@@ -53,6 +62,15 @@ class Collections {
     audit,
     announcements,
     wgerCache,
+    settings,
+    coupons,
+    loyalty,
+    packOffers,
+    sessionPacks,
+    gymSettings,
+    riskActions,
+    checkIns,
+    prayerTimes,
   ];
 }
 

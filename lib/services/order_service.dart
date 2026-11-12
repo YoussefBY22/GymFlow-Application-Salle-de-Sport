@@ -44,15 +44,30 @@ class OrderService {
   });
 
   /// Crée la commande après un paiement accepté et décrémente le stock.
+  /// Le devis (code promo, points, timbre) est recalculé ici ; l'usage du
+  /// code et des points n'est enregistré qu'après ce paiement.
   Future<ShopOrder> placeOrder(
     List<CartLine> lines,
-    PaymentResult payment,
-  ) async {
+    PaymentResult payment, {
+    String? couponCode,
+    int points = 0,
+  }) async {
     final me = _b.requireUser();
     if (!payment.success) {
       throw const BusinessRuleException('Paiement non validé.');
     }
     checkStock(lines);
+    final quote = _b.couponLoyalty.quote(
+      lines,
+      code: couponCode,
+      points: points,
+    );
+    final paid = payment.amount;
+    if (paid != null && (paid - quote.total).abs() > 0.005) {
+      throw const BusinessRuleException(
+        'Le montant payé ne correspond pas au total de la commande.',
+      );
+    }
     final orderLines = <OrderLine>[];
     for (final l in lines) {
       final p = _b.products.byId(l.product.id)!;
@@ -77,16 +92,27 @@ class OrderService {
       paymentMethod: payment.method,
       paymentRef: payment.reference,
       createdAt: now,
+      discount: quote.discount,
+      discountLabel: quote.label,
+      couponCode: quote.coupon?.code,
+      pointsUsed: quote.pointsUsed,
+      pointsEarned: quote.pointsToEarn,
+      stamp: quote.stamp,
     );
     await _b.orders.save(order);
+    await _b.couponLoyalty.applyAfterPayment(order, quote);
     await _b.notifications.notify(
       me.id,
       NotificationType.order,
       'Commande ${order.number} payée',
-      '${Fmt.money(order.total)} · à retirer à l\'accueil dès qu\'elle est préparée.',
+      '${Fmt.money(order.total)} · à retirer à l\'accueil dès qu\'elle est '
+          'préparée.${order.pointsEarned > 0 ? ' +${order.pointsEarned} points '
+                    'de fidélité.' : ''}',
       route: '/orders',
       refId: order.id,
     );
+    // Prévision des ruptures : alerte les admins si un seuil est franchi.
+    await _b.inventory.alertIfNeeded(orderLines.map((l) => l.productId));
     _b.cart.refreshProducts();
     _b.bus.emit();
     return order;
@@ -154,7 +180,8 @@ class OrderService {
     return updated;
   }
 
+  /// Chiffre d'affaires TTC, réductions déduites, hors timbre fiscal.
   double revenue({DateTime? since}) => _b.orders
       .where((o) => since == null || !o.createdAt.isBefore(since))
-      .fold(0, (s, o) => s + o.total);
+      .fold(0, (s, o) => s + o.netSales);
 }

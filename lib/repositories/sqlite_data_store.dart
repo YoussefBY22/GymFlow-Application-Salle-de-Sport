@@ -16,7 +16,13 @@ class SqliteDataStore implements DataStore {
 
   /// Fabrique injectable (sqflite_common_ffi dans les tests sur PC).
   final DatabaseFactory? factory;
-  static const int schemaVersion = 1;
+
+  /// 2 : collections de la boutique (réglages, codes promo, fidélité).
+  /// 3 : carnets de séances, formules et réglages de la salle.
+  /// 4 : suivi des actions d'accompagnement (risque d'abandon).
+  /// 5 : entrées à la salle (check-in par QR).
+  /// 6 : cache des horaires de prière (Maghrib, mode Ramadan).
+  static const int schemaVersion = 6;
 
   Database? _db;
 
@@ -38,21 +44,27 @@ class SqliteDataStore implements DataStore {
       path,
       options: OpenDatabaseOptions(
         version: schemaVersion,
-        onCreate: (db, version) async {
-          final batch = db.batch();
-          for (final c in Collections.all) {
-            batch.execute(
-              'CREATE TABLE $c (id TEXT PRIMARY KEY, data TEXT NOT NULL, '
-              'updated_at INTEGER NOT NULL)',
-            );
-          }
-          batch.execute(
-            'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
-          );
-          await batch.commit(noResult: true);
-        },
+        onCreate: (db, _) => _createTables(db),
+        // Mise à jour : seules les tables manquantes sont créées, les
+        // données existantes ne sont pas touchées.
+        onUpgrade: (db, _, _) => _createTables(db),
       ),
     );
+  }
+
+  static Future<void> _createTables(Database db) async {
+    final batch = db.batch();
+    for (final c in Collections.all) {
+      batch.execute(
+        'CREATE TABLE IF NOT EXISTS $c (id TEXT PRIMARY KEY, '
+        'data TEXT NOT NULL, updated_at INTEGER NOT NULL)',
+      );
+    }
+    batch.execute(
+      'CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, '
+      'value TEXT NOT NULL)',
+    );
+    await batch.commit(noResult: true);
   }
 
   @override

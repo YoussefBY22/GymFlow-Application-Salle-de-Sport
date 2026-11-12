@@ -248,16 +248,25 @@ class _KpiCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Icon(icon, color: color),
-          AnimatedCounter(
-            value: value,
-            format: format,
-            style: AppText.display(color: color, size: 26),
+          // Réduit si besoin : la carte a une hauteur fixe (grille).
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: AnimatedCounter(
+                value: value,
+                format: format,
+                style: AppText.display(color: color, size: 26),
+              ),
+            ),
           ),
-          Text(
-            label,
-            style: AppText.label(size: 12),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          Flexible(
+            child: Text(
+              label,
+              style: AppText.label(size: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
