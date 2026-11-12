@@ -276,6 +276,44 @@ void main() {
       expect(b.gymEntry.openFor('u_leila'), isNotNull);
     });
 
+    test('abonnement expiré : entrée refusée, sortie toujours permise', () async {
+      final (b, code) = await qrOf('leila@gymflow.tn');
+      // Entrée tant que l'abonnement court.
+      expect((await b.gymEntry.scan(code)).entered, isTrue);
+
+      // L'abonnement s'arrête alors que Leila est dans la salle : la
+      // sortie reste possible.
+      final leila = b.users.byId('u_leila')!;
+      await b.users.save(leila.copyWith(subscription: Subscription.none));
+      setNow(DateTime(2026, 9, 30, 10, 0, 30));
+      final out = await b.gymEntry.scan(code);
+      expect(out.entered, isFalse);
+
+      // Nouvelle tentative d'entrée : refusée, rien n'est enregistré.
+      setNow(DateTime(2026, 9, 30, 10, 5));
+      await b.auth.logout();
+      await loginAs(b, 'leila@gymflow.tn');
+      final (code2, _) = b.gymEntry.myEntryQr();
+      await b.auth.logout();
+      await loginAs(b, 'admin@gymflow.tn');
+      await expectLater(
+        b.gymEntry.scan(code2),
+        throwsA(
+          isA<BusinessRuleException>().having(
+            (e) => e.message,
+            'message',
+            contains('expiré'),
+          ),
+        ),
+      );
+      await expectLater(
+        b.gymEntry.manual('u_leila'),
+        throwsA(isA<BusinessRuleException>()),
+      );
+      expect(b.gymEntry.openFor('u_leila'), isNull);
+      expect(b.checkIns.where((c) => c.userId == 'u_leila'), hasLength(1));
+    });
+
     test('compte désactivé et réglages invalides : refusés', () async {
       final b = await makeBackend();
       await loginAs(b, 'admin@gymflow.tn');

@@ -211,7 +211,7 @@ class ShopOrder {
   final List<OrderLine> lines;
   final OrderStatus status;
 
-  /// « stripe_test », « konnect_sandbox » ou « simulated ».
+  /// « stripe_test » ou « simulated ».
   final String paymentMethod;
   final String paymentRef;
   final DateTime createdAt;

@@ -17,7 +17,7 @@ class AppConfig {
   /// Elle est visible sur l'écran de connexion et dans « À propos », pour
   /// qu'on sache d'un coup d'œil quelle version est installée.
   static const String appVersion = '3.3';
-  static const String appVersionFull = '3.3.1';
+  static const String appVersionFull = '3.3.2';
   static const String gymName = 'GymFlow Club Lac 2';
   static const String gymAddress =
       'Rue du Lac Windermere, Les Berges du Lac 2, Tunis';
@@ -30,16 +30,16 @@ class AppConfig {
   /// fixe pour le mode test uniquement (1 EUR ≈ 3,40 TND).
   static const double tndPerEur = 3.40;
 
-  /// Konnect (passerelle tunisienne, en dinars), environnement de test
-  /// (sandbox) uniquement : clé API et identifiant du portefeuille
-  /// receveur, créés sur dashboard.sandbox.konnect.network.
-  static const String konnectApiKey = String.fromEnvironment('KONNECT_API_KEY');
-  static const String konnectWalletId = String.fromEnvironment(
-    'KONNECT_WALLET_ID',
-  );
+  /// Seule une clé de TEST est acceptée (refus des clés live). Une vraie clé
+  /// Stripe fait plus de 30 caractères : un texte d'exemple comme
+  /// « sk_test_A_REMPLACER » n'active pas Stripe.
+  static bool isStripeTestKey(String key) {
+    final k = key.trim();
+    return (k.startsWith('sk_test_') || k.startsWith('rk_test_')) &&
+        k.length >= 30;
+  }
 
-  /// Seule une clé de TEST est acceptée (refus des clés live).
-  static bool get stripeEnabled => stripeTestSecretKey.startsWith('sk_test_');
+  static bool get stripeEnabled => isStripeTestKey(stripeTestSecretKey);
 
   /// Assistant IA (API externe Google Gemini) : clé passée au lancement
   /// via secrets.json, jamais écrite dans le code.
@@ -119,9 +119,7 @@ class AppConfig {
   static const String firebaseApiKey = String.fromEnvironment(
     'FIREBASE_API_KEY',
   );
-  static const String firebaseAppId = String.fromEnvironment(
-    'FIREBASE_APP_ID',
-  );
+  static const String firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
   static const String firebaseSenderId = String.fromEnvironment(
     'FIREBASE_SENDER_ID',
   );
@@ -134,6 +132,7 @@ class AppConfig {
       firebaseAppId.trim().isNotEmpty &&
       firebaseSenderId.trim().isNotEmpty &&
       firebaseProjectId.trim().isNotEmpty;
+
   /// Modèle EmailJS de la facture (facultatif : sans lui, pas d'envoi).
   static const String emailJsInvoiceTemplateId = String.fromEnvironment(
     'EMAILJS_INVOICE_TEMPLATE_ID',

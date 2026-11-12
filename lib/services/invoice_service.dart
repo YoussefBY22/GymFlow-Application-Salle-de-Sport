@@ -221,7 +221,6 @@ class InvoiceService {
 
   static String _method(String m) => switch (m) {
     'stripe_test' => 'Stripe (test)',
-    'konnect_sandbox' => 'Konnect (bac à sable)',
     _ => 'paiement test simulé',
   };
 

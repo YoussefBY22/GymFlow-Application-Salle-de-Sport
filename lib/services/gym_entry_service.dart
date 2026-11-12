@@ -93,6 +93,20 @@ class GymEntryService {
     return u;
   }
 
+  /// Droit d'entrer : abonnement en cours, ou carnet non expiré qui a encore
+  /// des séances (formule hebdomadaire : valable jusqu'à sa date de fin).
+  bool mayEnter(AppUser u) {
+    final now = _b.now();
+    if (u.subscription.isActiveAt(now)) return true;
+    return _b.packs
+        .packsOf(u.id)
+        .any(
+          (p) =>
+              !p.isExpiredAt(now) &&
+              (p.kind != PackKind.credits || p.remaining > 0),
+        );
+  }
+
   /// Check-in en cours de l'abonné (un seul à la fois).
   CheckIn? openFor(String userId) {
     final now = _b.now();
@@ -126,6 +140,14 @@ class GymEntryService {
       final out = await _b.checkIns.save(open.copyWith(exitAt: now));
       _b.bus.emit();
       return ScanResult(out, u, entered: false);
+    }
+    // Une sortie reste toujours possible ; une entrée exige un abonnement
+    // en cours ou un carnet encore valable.
+    if (!mayEnter(u)) {
+      throw BusinessRuleException(
+        "Accès refusé : l'abonnement de ${u.fullName} est expiré ou arrêté, "
+        "et aucun carnet n'est valable.",
+      );
     }
     final c = await _b.checkIns.save(
       CheckIn(

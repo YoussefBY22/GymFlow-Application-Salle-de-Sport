@@ -4,6 +4,7 @@ import 'package:gymflow/app.dart';
 import 'package:gymflow/core/routes.dart';
 import 'package:gymflow/services/backend.dart';
 import 'package:gymflow/services/friends/friends_remote.dart';
+import 'package:gymflow/services/live_presence_service.dart';
 import 'package:gymflow/services/theme_controller.dart';
 import 'package:gymflow/widgets/common.dart';
 import 'package:http/http.dart' as http;
@@ -19,6 +20,7 @@ Future<Backend> pumpApp(
   http.Client? httpClient,
   String? geminiApiKey,
   FriendsRemote? friendsRemote,
+  PresenceTransport? presenceTransport,
 }) async {
   NetImage.networkEnabled = false;
   // Clair par défaut, sans fondu circulaire (capture d'écran impossible ici).
@@ -31,6 +33,7 @@ Future<Backend> pumpApp(
     httpClient: httpClient,
     geminiApiKey: geminiApiKey,
     friendsRemote: friendsRemote,
+    presenceTransport: presenceTransport,
   );
   if (loginEmail != null) await loginAs(b, loginEmail);
   await tester.pumpWidget(GymFlowApp(initialRoute: route));

@@ -35,6 +35,20 @@ class _StatsScreenState extends State<StatsScreen> {
   int _days = 14;
 
   @override
+  void initState() {
+    super.initState();
+    // Le compteur « connectés maintenant » n'écoute le serveur temps réel
+    // que pendant que cet écran est ouvert.
+    Backend.I.live.watch(true);
+  }
+
+  @override
+  void dispose() {
+    if (Backend.isReady) Backend.I.live.watch(false);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
@@ -58,6 +72,7 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
         body: Column(
           children: [
+            const _LiveNowCard(),
             Padding(
               padding: const EdgeInsets.fromLTRB(Gap.m, Gap.s, Gap.m, 0),
               child: Row(
@@ -91,6 +106,59 @@ class _StatsScreenState extends State<StatsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Abonnés connectés à l'instant, en temps réel : apparaît à l'ouverture de
+/// l'application, disparaît à la déconnexion ou à la fermeture.
+class _LiveNowCard extends StatelessWidget {
+  const _LiveNowCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final live = Backend.I.live;
+    return ListenableBuilder(
+      listenable: live,
+      builder: (context, _) {
+        final String text;
+        if (!live.available) {
+          text = 'Temps réel indisponible : serveur non configuré.';
+        } else if (!live.synced) {
+          text = 'Connexion au temps réel…';
+        } else {
+          text = live.members == 1
+              ? 'abonné connecté maintenant'
+              : 'abonnés connectés maintenant';
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.m, Gap.s, Gap.m, 0),
+          child: GfCard(
+            key: const Key('live_now'),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: live.synced
+                      ? AppColors.successText
+                      : AppColors.navyMuted,
+                ),
+                const SizedBox(width: Gap.s),
+                if (live.synced) ...[
+                  Text(
+                    '${live.members}',
+                    key: const Key('live_count'),
+                    style: AppText.stat(size: 28),
+                  ),
+                  const SizedBox(width: Gap.s),
+                ],
+                Expanded(child: Text(text, style: AppText.label())),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

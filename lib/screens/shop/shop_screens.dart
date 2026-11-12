@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/responsive.dart';
@@ -172,27 +174,27 @@ class _ShopScreenState extends State<ShopScreen> {
                                       '${me.goal.label.toLowerCase()}',
                                   items: picks,
                                   goal: me.goal,
-                        ),
+                                ),
                               ),
                             ),
                           SliverPadding(
                             padding: padding,
                             sliver: SliverGrid.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              mainAxisSpacing: Gap.m,
-                              crossAxisSpacing: Gap.m,
-                              childAspectRatio: 0.68,
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 220,
+                                    mainAxisSpacing: Gap.m,
+                                    crossAxisSpacing: Gap.m,
+                                    childAspectRatio: 0.68,
+                                  ),
+                              itemCount: products.length,
+                              itemBuilder: (_, i) => FadeSlideIn(
+                                index: i,
+                                child: ProductCard(product: products[i]),
+                              ),
                             ),
-                        itemCount: products.length,
-                        itemBuilder: (_, i) => FadeSlideIn(
-                          index: i,
-                          child: ProductCard(product: products[i]),
-                        ),
-                      ),
-              ),
-            ],
+                          ),
+                        ],
                       ),
               ),
             ],
@@ -1043,9 +1045,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   color: AppColors.cream,
                   child: InfoRow(
                     Icons.open_in_browser,
-                    b.payment is KonnectGateway
-                        ? 'Vous allez être redirigé vers la page sécurisée Konnect (bac à sable) : carte bancaire, portefeuille ou e-DINAR, en dinars. Aucune donnée de carte n\'est enregistrée par GymFlow.'
-                        : 'Vous allez être redirigé vers la page sécurisée Stripe (mode test). Montant converti en euros pour Stripe.',
+                    'Vous allez être redirigé vers la page sécurisée Stripe '
+                    '(mode test) : carte de test 4242 4242 4242 4242, date '
+                    'future, CVC au choix. Montant converti en euros. '
+                    "Aucune donnée de carte n'est enregistrée par GymFlow.",
                   ),
                 ),
               const SizedBox(height: 120),
@@ -1063,7 +1066,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 }
 
-/// Page de paiement hébergée (Stripe ou Konnect) ouverte dans un WebView.
+/// Page de paiement hébergée par Stripe, ouverte dans un WebView.
 /// Renvoie `true` à la fin du paiement, `false` en cas d'abandon explicite ;
 /// le statut est ensuite toujours revérifié auprès de l'API.
 class HostedCheckoutPage extends StatefulWidget {
@@ -1080,12 +1083,15 @@ class HostedCheckoutPage extends StatefulWidget {
 }
 
 class _HostedCheckoutPageState extends State<HostedCheckoutPage> {
-  late final WebViewController _controller;
+  // Dans un navigateur, le WebView n'existe pas : la page Stripe s'ouvre
+  // dans un nouvel onglet (voir _webBody).
+  WebViewController? _controller;
   int _progress = 0;
 
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) return;
     final g = widget.gateway;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -1129,7 +1135,101 @@ class _HostedCheckoutPageState extends State<HostedCheckoutPage> {
               )
             : null,
       ),
-      body: WebViewWidget(controller: _controller),
+      body: kIsWeb
+          ? _webBody()
+          : Column(
+              children: [
+                const _TestCardBanner(),
+                Expanded(child: WebViewWidget(controller: _controller!)),
+              ],
+            ),
+    );
+  }
+
+  /// Version navigateur : la page de paiement Stripe s'ouvre dans un nouvel
+  /// onglet ; on revient ici pour confirmer, puis le statut est revérifié
+  /// auprès de Stripe (rien n'est accepté sur la seule parole de l'écran).
+  Widget _webBody() {
+    return ListView(
+      padding: pagePadding(context, maxWidth: 600),
+      children: [
+        const _TestCardBanner(),
+        const SizedBox(height: Gap.s),
+        GfCard(
+          color: AppColors.cream,
+          child: InfoRow(
+            Icons.open_in_new,
+            "La page de paiement Stripe (mode test) s'ouvre dans un nouvel "
+            'onglet. Payez avec la carte de test 4242 4242 4242 4242, une date '
+            'future et un CVC au choix, puis revenez ici.',
+          ),
+        ),
+        const SizedBox(height: Gap.m),
+        FilledButton.icon(
+          key: const Key('stripe_open'),
+          onPressed: () => launchUrl(
+            Uri.parse(widget.session.url),
+            webOnlyWindowName: '_blank',
+          ),
+          icon: const Icon(Icons.lock_outline),
+          label: const Text('Ouvrir la page Stripe'),
+        ),
+        const SizedBox(height: Gap.s),
+        OutlinedButton.icon(
+          key: const Key('stripe_done'),
+          onPressed: () => Navigator.pop(context, true),
+          icon: const Icon(Icons.check),
+          label: const Text("J'ai payé : vérifier"),
+        ),
+        const SizedBox(height: Gap.s),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Annuler'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Rappel de la carte de test Stripe, au-dessus de la page de paiement.
+/// Les champs de la page Stripe sont dans un cadre sécurisé que
+/// l'application ne peut pas remplir : le numéro se copie en un geste.
+class _TestCardBanner extends StatelessWidget {
+  const _TestCardBanner();
+
+  static const number = '4242424242424242';
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.cream,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.m, vertical: Gap.s),
+        child: Row(
+          children: [
+            const Icon(Icons.credit_card, size: 20),
+            const SizedBox(width: Gap.s),
+            Expanded(
+              child: Text(
+                'Carte de test : 4242 4242 4242 4242 · date 12/34 · CVC 123 · '
+                'nom au choix',
+                key: const Key('test_card_hint'),
+                style: AppText.label(),
+              ),
+            ),
+            TextButton(
+              key: const Key('test_card_copy'),
+              onPressed: () async {
+                await Clipboard.setData(const ClipboardData(text: number));
+                if (context.mounted) {
+                  showSnack(context, 'Numéro de carte de test copié.');
+                }
+              },
+              child: const Text('Copier'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1441,7 +1541,6 @@ class OrderDetailScreen extends StatelessWidget {
 
 String paymentMethodLabel(String method) => switch (method) {
   'stripe_test' => 'Stripe (test)',
-  'konnect_sandbox' => 'Konnect (bac à sable)',
   _ => 'Paiement test simulé',
 };
 
@@ -1622,7 +1721,10 @@ class _DiscountPanelState extends State<DiscountPanel> {
             ),
           if (error != null) ...[
             const SizedBox(height: Gap.xs),
-            Text(error, style: AppText.label(color: AppColors.redText, size: 12)),
+            Text(
+              error,
+              style: AppText.label(color: AppColors.redText, size: 12),
+            ),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(

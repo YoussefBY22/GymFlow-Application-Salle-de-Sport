@@ -28,6 +28,7 @@ import 'ai_assistant_service.dart';
 import 'analytics_service.dart';
 import 'friends/friends_remote.dart';
 import 'friends/supabase_friends_remote.dart';
+import 'live_presence_service.dart';
 import 'chat_service.dart';
 import 'friends_service.dart';
 import 'moderation_service.dart';
@@ -109,6 +110,7 @@ class Backend {
     String? emailJsDemoRecipient,
     FriendsRemote? friendsRemote,
     PushGateway? pushGateway,
+    PresenceTransport? presenceTransport,
   }) {
     users = _repo(
       Collections.users,
@@ -280,6 +282,18 @@ class Backend {
     wger = WgerApi(this);
     privacy = PrivacyService(this);
     analytics = AnalyticsService(this);
+    // Compteur « connectés maintenant » : salon temps réel anonyme, sans
+    // rapport avec la fonction Amis (client et session à part).
+    live = LivePresenceService(
+      this,
+      presenceTransport ??
+          (AppConfig.supabaseEnabled
+              ? SupabasePresenceTransport(
+                  url: AppConfig.supabaseUrl.trim(),
+                  anonKey: AppConfig.supabaseAnonKey.trim(),
+                )
+              : null),
+    );
     // Un seul accès au serveur partagé par les amis, la messagerie et la
     // modération (une seule session, un seul canal en direct).
     final remote =
@@ -364,6 +378,7 @@ class Backend {
     String? emailJsDemoRecipient,
     FriendsRemote? friendsRemote,
     PushGateway? pushGateway,
+    PresenceTransport? presenceTransport,
     bool seed = true,
     int passwordIterations = PasswordHasher.defaultIterations,
   }) async {
@@ -384,6 +399,7 @@ class Backend {
       emailJsDemoRecipient: emailJsDemoRecipient,
       friendsRemote: friendsRemote,
       pushGateway: pushGateway,
+      presenceTransport: presenceTransport,
     );
     _instance = b;
     await store.open();
@@ -465,6 +481,7 @@ class Backend {
   late final WgerApi wger;
   late final PrivacyService privacy;
   late final AnalyticsService analytics;
+  late final LivePresenceService live;
   late final FriendsService friends;
   late final ChatService chat;
   late final ShareService share;

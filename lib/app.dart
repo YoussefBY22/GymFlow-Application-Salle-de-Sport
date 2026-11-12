@@ -40,6 +40,14 @@ class _GymFlowAppState extends State<GymFlowApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// Au premier plan l'abonné compte dans « connectés maintenant » ; dès qu'il
+  /// quitte l'application (accueil, écran éteint, fermeture), il disparaît.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!Backend.isReady) return;
+    Backend.I.live.setForeground(state == AppLifecycleState.resumed);
+  }
+
   /// Le téléphone passe en clair / sombre : on suit en mode « Automatique ».
   @override
   void didChangePlatformBrightness() => _theme.platformBrightnessChanged();

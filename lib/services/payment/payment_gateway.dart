@@ -6,9 +6,6 @@ import 'package:http/http.dart' as http;
 import '../../core/config.dart';
 import '../../core/errors.dart';
 import '../../models/shop.dart';
-import 'konnect_gateway.dart';
-
-export 'konnect_gateway.dart';
 
 /// Résultat d'un paiement. Aucune donnée de carte n'est conservée :
 /// seulement la méthode et une référence de transaction.
@@ -31,32 +28,20 @@ class PaymentResult {
   final double? amount;
 }
 
-/// Passerelle de paiement (API externe). Trois implémentations : Konnect
-/// (bac à sable, en dinars), Stripe Checkout en mode test, ou passerelle
-/// simulée hors-ligne.
+/// Passerelle de paiement (API externe). Deux implémentations : Stripe
+/// Checkout en mode test (vraie page de paiement Stripe, carte de test), ou
+/// passerelle simulée hors-ligne quand aucune clé Stripe n'est fournie.
 abstract class PaymentGateway {
   String get label;
 
-  /// Konnect si sa clé de test et son portefeuille sont fournis, sinon
-  /// Stripe test, sinon passerelle simulée.
-  factory PaymentGateway.fromConfig(http.Client client) => select(
-    client,
-    konnectApiKey: AppConfig.konnectApiKey,
-    konnectWalletId: AppConfig.konnectWalletId,
-    stripeKey: AppConfig.stripeTestSecretKey,
-  );
+  /// Stripe test si une clé de test valable est fournie, sinon passerelle
+  /// simulée.
+  factory PaymentGateway.fromConfig(http.Client client) =>
+      select(client, stripeKey: AppConfig.stripeTestSecretKey);
 
-  static PaymentGateway select(
-    http.Client client, {
-    String konnectApiKey = '',
-    String konnectWalletId = '',
-    String stripeKey = '',
-  }) {
-    if (konnectApiKey.isNotEmpty && konnectWalletId.isNotEmpty) {
-      return KonnectGateway(client, konnectApiKey, konnectWalletId);
-    }
-    if (stripeKey.startsWith('sk_test_')) {
-      return StripeCheckoutGateway(client, stripeKey);
+  static PaymentGateway select(http.Client client, {String stripeKey = ''}) {
+    if (AppConfig.isStripeTestKey(stripeKey)) {
+      return StripeCheckoutGateway(client, stripeKey.trim());
     }
     return SimulatedPaymentGateway();
   }
@@ -66,7 +51,7 @@ abstract class PaymentGateway {
 class HostedSession {
   const HostedSession(this.id, this.url);
 
-  /// Référence de la passerelle (session Stripe, paymentRef Konnect).
+  /// Référence de la passerelle (identifiant de la session Stripe).
   final String id;
   final String url;
 }
@@ -189,7 +174,10 @@ typedef StripeSession = HostedSession;
 /// page de paiement ouverte dans un WebView, puis vérification du statut.
 class StripeCheckoutGateway implements HostedPaymentGateway {
   StripeCheckoutGateway(this._client, this._secretKey)
-    : assert(_secretKey.startsWith('sk_test_'), 'Clé de TEST uniquement');
+    : assert(
+        _secretKey.startsWith('sk_test_') || _secretKey.startsWith('rk_test_'),
+        'Clé de TEST uniquement',
+      );
 
   final http.Client _client;
   final String _secretKey;
