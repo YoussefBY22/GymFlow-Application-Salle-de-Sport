@@ -31,7 +31,7 @@ Trois profils, trois expériences : **l'abonné** s'entraîne, réserve et achè
 | 🛒 **Boutique** | Panier, promotions, stock vérifié, paiement Stripe en mode test, reçus. Recommandations selon l'objectif de l'abonné. |
 | 📈 **Progression** | Série de jours, anneau d'objectif hebdomadaire, courbe de poids, volume soulevé, records personnels, badges et succès. |
 | 👥 **Communauté** | Amis, présence en direct, messagerie, partage de séances, annuaire des membres qui l'ont choisi. |
-| 🤖 **IA utile** | Coach sport et bien-être, analyse de sentiment des avis, fiche produit intelligente. |
+| 🤖 **IA utile** | **Assistant GymFlow** (Gemini) qui répond avec les vrais cours, exercices et programmes du club, coach sport et bien-être, recommandations de produits selon l'objectif, analyse de sentiment des avis, fiche produit intelligente. |
 | 📊 **Pilotage** | Tableau de bord administrateur : abonnés, réservations actives, chiffre d'affaires, remplissage des cours, statistiques d'usage. |
 
 ## 📱 Captures
@@ -54,6 +54,29 @@ Trois profils, trois expériences : **l'abonné** s'entraîne, réserve et achè
   </tr>
 </table>
 
+## 🤖 L'IA et le temps réel, sur un vrai téléphone
+
+Captures prises sur un Android (version 3.3.2), avec Gemini et Supabase actifs.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/captures/10-assistant-gymflow-accueil.png" width="230"><br><sub><b>Assistant GymFlow</b><br>questions suggérées (Gemini)</sub></td>
+    <td align="center"><img src="docs/captures/11-assistant-gymflow-reponse.png" width="230"><br><sub><b>Réponse ancrée dans l'app</b><br>exercices et programmes réels du club</sub></td>
+    <td align="center"><img src="docs/captures/12-recommandations-produits.png" width="230"><br><sub><b>Recommandations produits</b><br>selon l'objectif, phrase rédigée par l'IA</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/captures/13-fiche-produit-nutrition.png" width="230"><br><sub><b>Fiche produit intelligente</b><br>nutrition et prix du gramme de protéine</sub></td>
+    <td align="center"><img src="docs/captures/14-amis-presence.png" width="230"><br><sub><b>Amis (Supabase)</b><br>invitations, présence en direct</sub></td>
+    <td align="center"><img src="docs/captures/16-messagerie-temps-reel.png" width="230"><br><sub><b>Messagerie en temps réel</b><br>accusé « Vu », réactions, partage de séance</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/captures/15-amis-confidentialite.png" width="230"><br><sub><b>Confidentialité des discussions</b><br>mode invisible, « Vu » et « écrit… » masquables</sub></td>
+    <td align="center"><img src="docs/captures/17-affluence.png" width="230"><br><sub><b>Affluence</b><br>créneaux calmes conseillés, QR d'entrée</sub></td>
+    <td align="center"><img src="docs/captures/18-entrainement-coach-ia.png" width="230"><br><sub><b>Entraînement</b><br>coach sport et bien-être, outils avancés</sub></td>
+  </tr>
+</table>
+
+*Comptes de démonstration fictifs (Ahmed, Leila, Nour). Aucune clé d'API n'apparaît dans l'application ni dans le dépôt.*
 ## 🧠 Les parties les plus difficiles
 
 **1. Une IA qui ne tombe jamais en panne.**
