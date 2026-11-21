@@ -14,7 +14,7 @@
 
 <img src="docs/captures/01-accueil-clair.png" width="190" alt="Accueil"> <img src="docs/captures/02-entrainement.png" width="190" alt="Entraînement"> <img src="docs/captures/03-cours.png" width="190" alt="Cours"> <img src="docs/captures/05-boutique.png" width="190" alt="Boutique">
 
-*Projet de groupe, ESPRIT (5SAE6) · Flutter 3.44 · 60 000 lignes de Dart · plus de 230 tests · 3 rôles · mode clair et sombre*
+*Flutter 3.44 · 60 000 lignes de Dart · plus de 230 tests · 3 rôles · mode clair et sombre*
 
 </div>
 
