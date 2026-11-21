@@ -1,243 +1,123 @@
-# GymFlow
+<div align="center">
 
-Application mobile Flutter de la salle de sport **GymFlow** (super admin, coachs, abonnés), en français, devise TND.
-Données stockées localement (SQLite) : aucune configuration serveur n'est nécessaire, un jeu de démonstration réaliste est chargé au premier lancement.
+# 🏋️ GymFlow
 
-- `PROGRESS.md` : avancement par module · `DECISIONS.md` : choix et sources · `ASSETS.md` : origine et licence des médias · `SECURITE_CONFIDENTIALITE.md` : partage des données, consentements, conformité (Tunisie, UE) et points à auditer.
+**Application mobile de gestion de salle de sport : entraînement guidé, réservation de cours, boutique, communauté et IA.**
 
-Le code est sur la branche **`GymFlow-V1`** (la branche `main` est volontairement vide).
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Stripe](https://img.shields.io/badge/Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_API-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
 
-### Bibliothèque collaborative, recherche bilingue et filtres
-- **Chacun crée ses contenus** : exercices (photos, vidéos du téléphone, liens YouTube), workouts et programmes, depuis le bouton *Mon exercice / Mon workout / Mon programme* de l'onglet Entraînement. Ils sont **privés** (visibles par leur auteur seul).
-- **Publication modérée** : *Proposer à la publication* → un coach ou l'admin **accepte** (visible de tous, dans la liste correspondante) ou **refuse avec un motif** (l'auteur corrige et repropose). Les éléments personnels utilisés (exercices d'un workout…) sont proposés avec lui. File *Propositions à valider* (menu et icône de l'onglet Entraînement) pour le staff.
-- *Copier pour personnaliser* : n'importe quel contenu visible devient une copie personnelle modifiable.
-- **Recherche bilingue** : « bench press » trouve *Développé couché*, « pull-up » trouve *Tractions*, « chest » trouve les exercices de pectoraux ; un workout est trouvé par les exercices qu'il contient. Glossaire FR ↔ EN du sport + noms anglais de tout le contenu du club + traduction facultative à la création (langue de saisie choisie au début). Bouton **FR / EN** pour afficher les noms dans la langue voulue.
-- **Filtres en feuille** (bouton *Filtres* avec le nombre de filtres actifs, aperçu « Voir N résultats », étiquettes supprimables) sur Programmes, Workouts, Exercices, Cours, Boutique et Utilisateurs. Ils sont **mémorisés avec le compte** : retrouvés après une déconnexion.
-- **Cours** : *Quand ?* (aujourd'hui, demain, cette semaine…), *Jour de la semaine* en tuiles datées, *Moment de la journée*, discipline, coach, niveau, places disponibles.
-- **Favoris en tête** : un favori remonte en haut de la liste avec une animation (la carte se soulève et glisse à sa nouvelle place), le plus récent en premier.
+<img src="docs/captures/01-accueil-clair.png" width="190" alt="Accueil"> <img src="docs/captures/02-entrainement.png" width="190" alt="Entraînement"> <img src="docs/captures/03-cours.png" width="190" alt="Cours"> <img src="docs/captures/05-boutique.png" width="190" alt="Boutique">
 
-### Outils avancés d'entraînement
-Depuis l'icône **Outils avancés** de l'onglet Entraînement :
-- **Parcours piétons** : recherchez par coordonnées les parcs et espaces sportifs OpenStreetMap (Overpass), puis calculez distance, durée, instructions et dénivelé avec OpenRouteService. Ajoutez `OPENROUTESERVICE_API_KEY` à `secrets.json` pour activer le calcul d'itinéraire. Les coordonnées du club GymFlow Lac 2 sont préremplies ; la distance cible règle le rayon de recherche et ne garantit pas la distance finale.
-- **Périodisation** : construisez un cycle de 4, 6 ou 8 semaines (adaptation, progression, allègement), adapté à un objectif de force, d'endurance ou de forme générale.
-- **Charge et récupération** : renseignez votre effort ressenti (RPE) et votre fatigue après les séances. La charge session-RPE (durée × effort) compare les sept derniers jours aux trois semaines précédentes. Les plans et ressentis sont enregistrés localement par compte dans les préférences de l'appareil, sans modification de SQLite.
+*Projet de groupe, ESPRIT (5SAE6) · Flutter 3.44 · 60 000 lignes de Dart · plus de 230 tests · 3 rôles · mode clair et sombre*
 
-La programmation progressive et le suivi session-RPE sont des outils pédagogiques de planification et de gestion de charge, pas un avis médical. Vérifiez les itinéraires sur place ; OpenStreetMap et OpenRouteService nécessitent une connexion réseau.
-La clé OpenRouteService passée avec `--dart-define-from-file` est intégrée à l'application compilée : limitez ses quotas et permissions, et n'utilisez pas une clé de production sensible dans un binaire distribué publiquement.
+</div>
 
-### Nouveautés de la V1 « communauté et confidentialité »
-- **Tout est privé par défaut** : profil, réseaux sociaux et séances restent invisibles tant que le membre ne les partage pas.
-- **Partage avec accord** : à la fin d'une séance, *Partager* ou *Garder privée* (comme une publication). Le partage se retire à tout moment depuis le détail de la séance.
-- **Membres de la salle** : annuaire des membres qui ont choisi d'être visibles (photo, objectif, séances partagées et, s'ils l'acceptent, Instagram, Facebook, LinkedIn, Snapchat, e-mail). Signalement d'un profil, modération par l'admin.
-- **Accueil** : bouton *Masquer les autres* pour ne garder que ses propres séances dans le fil.
-- **Présentation** au premier lancement : pages verticales (glisser vers le haut) sur le partage, les workouts personnels, la communauté et les droits, puis les choix (tous désactivés par défaut).
-- **Workouts personnels** : un abonné compose ses propres séances (*Entraînement → Workouts → Mon workout*), visibles par lui seul.
-- **Mes données** : export JSON, historique des consentements, suppression du compte (*Menu → Confidentialité & mes données*).
-- **Version ordinateur** : au-delà de 900 px, navigation latérale (libellés à partir de 1280 px), contenu centré, listes en 2 ou 3 colonnes, accueil en 2 colonnes, filtres sur plusieurs lignes, glisser à la souris, présentation à la molette ou aux flèches.
+---
 
-## 1. Prérequis
-- Flutter **stable** (développé avec Flutter 3.44.3 / Dart 3.12.2), JDK 17.
-- Android SDK (plateforme 36, installée automatiquement par Gradle si besoin).
-- Vérifier : `flutter doctor` (le seul avertissement acceptable est « cmdline-tools component is missing », non bloquant).
-- Licences Android : `flutter doctor --android-licenses` (répondre `y`). Cette commande exige les *cmdline-tools* : Android Studio → *SDK Manager* → *SDK Tools* → cocher **Android SDK Command-line Tools**.
+## ✨ Ce que fait l'application
 
-## 2. Préparer le téléphone Android
-1. **Options développeur** : *Paramètres → À propos du téléphone* → toucher **7 fois** « Numéro de build ».
-2. *Paramètres → Système → Options pour les développeurs* → activer **Débogage USB**.
-3. Brancher le câble USB (un câble **données**, pas « charge seulement »).
-4. Sur le téléphone, accepter la fenêtre **« Autoriser le débogage USB ? »** (empreinte RSA ; cocher « Toujours autoriser »).
-5. Si le téléphone le demande, choisir le mode USB **« Transfert de fichiers »**.
+Trois profils, trois expériences : **l'abonné** s'entraîne, réserve et achète ; **le coach** anime ses cours et suit ses élèves ; **l'administrateur** pilote la salle.
 
-## 3. Vérifier la connexion
-`adb` se trouve dans `%LOCALAPPDATA%\Android\Sdk\platform-tools` (à ajouter au PATH si besoin).
+| | |
+|---|---|
+| 🎯 **Entraînement guidé** | Programmes, workouts et plus de 55 exercices avec photos et vidéos. Lecteur de séance avec séries à cocher, charge, minuteur de repos et vibration, puis récapitulatif avec records et confettis. |
+| 📅 **Réservation de cours** | Réservation en un geste, liste d'attente avec promotion automatique, ticket QR, rappels 24 h et 1 h, notation par étoiles. |
+| 🛒 **Boutique** | Panier, promotions, stock vérifié, paiement Stripe en mode test, reçus. Recommandations selon l'objectif de l'abonné. |
+| 📈 **Progression** | Série de jours, anneau d'objectif hebdomadaire, courbe de poids, volume soulevé, records personnels, badges et succès. |
+| 👥 **Communauté** | Amis, présence en direct, messagerie, partage de séances, annuaire des membres qui l'ont choisi. |
+| 🤖 **IA utile** | Coach sport et bien-être, analyse de sentiment des avis, fiche produit intelligente. |
+| 📊 **Pilotage** | Tableau de bord administrateur : abonnés, réservations actives, chiffre d'affaires, remplissage des cours, statistiques d'usage. |
 
-```bash
-adb devices
-```
-Le téléphone doit apparaître avec le statut `device`.
+## 📱 Captures
 
-```bash
-flutter devices
-```
+<table>
+  <tr>
+    <td align="center"><img src="docs/captures/01-accueil-clair.png" width="230"><br><sub><b>Accueil</b><br>série, objectif, prochain cours</sub></td>
+    <td align="center"><img src="docs/captures/07-accueil-sombre.png" width="230"><br><sub><b>Mode sombre</b><br>bouton soleil / lune</sub></td>
+    <td align="center"><img src="docs/captures/02-entrainement.png" width="230"><br><sub><b>Entraînement</b><br>programmes et coach IA</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/captures/03-cours.png" width="230"><br><sub><b>Cours</b><br>à venir, réservations, filtres</sub></td>
+    <td align="center"><img src="docs/captures/04-detail-cours.png" width="230"><br><sub><b>Détail d'un cours</b><br>places, coach, réservation</sub></td>
+    <td align="center"><img src="docs/captures/05-boutique.png" width="230"><br><sub><b>Boutique</b><br>sélection selon l'objectif</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/captures/06-profil-badges.png" width="230"><br><sub><b>Profil et badges</b><br>abonnement, IMC, succès</sub></td>
+    <td align="center"><img src="docs/captures/09-programme.png" width="230"><br><sub><b>Programme</b><br>semaine type, copie personnalisable</sub></td>
+    <td align="center"><img src="docs/captures/08-tableau-de-bord-admin.png" width="230"><br><sub><b>Tableau de bord admin</b><br>vue d'ensemble du club</sub></td>
+  </tr>
+</table>
 
-## 4. Lancer l'application
-Depuis le dossier `gymflow` :
+## 🧠 Les parties les plus difficiles
+
+**1. Une IA qui ne tombe jamais en panne.**
+L'analyse de sentiment des avis interroge d'abord Gemini (réponse JSON à schéma, température 0, avis traité comme une donnée pour éviter l'injection de consigne), puis un second modèle Gemini, puis Hugging Face, puis un **secours local** par mots-clés français et anglais (négations, expressions, émojis). Chaque étape a un délai de 10 s et un nouvel essai sur 429/503. La raison du repli est enregistrée et visible dans l'application. Aucune clé n'est jamais écrite dans le dépôt.
+
+**2. Du temps réel fiable, avec respect de la vie privée.**
+Amis, présence en direct, mode invisible, messagerie entre amis chiffrée, blocage, signalements, réglages « Vu » et « en train d'écrire » par discussion, et notifications push quand l'application est fermée. Les données partagées vivent sur Supabase, tout le reste reste en local.
+
+**3. Une réservation qui gère tous les cas limites.**
+Cours complet, abonnement expiré, chevauchement horaire, liste d'attente avec promotion, annulation tardive refusée, code `GF-XXXX-XXXX` généré avec `Random.secure()`, ticket QR et validation de présence par le coach dans une fenêtre de ±30 minutes.
+
+**4. La confidentialité au cœur du produit.**
+Tout est privé par défaut : profil, séances et réseaux sociaux restent invisibles tant que le membre ne les partage pas. Consentements historisés, export JSON des données, suppression de compte avec anonymisation des commandes, mots de passe hachés en PBKDF2, droits contrôlés dans chaque service et par route.
+
+**5. Une bibliothèque collaborative modérée.**
+Les abonnés créent leurs exercices, workouts et programmes (privés par défaut), proposent la publication, et un coach ou l'administrateur accepte ou refuse avec motif. **Recherche bilingue** : « bench press » trouve *Développé couché*, « chest » trouve les exercices de pectoraux.
+
+**6. Une boutique qui fait confiance aux données.**
+Fiche produit remplie depuis Open Food Facts, valeurs nutritionnelles, prix du gramme de protéine calculé par l'application (jamais par l'IA), résumé pour le sportif rédigé par l'IA et validé avant enregistrement.
+
+**7. Une seule base de code pour le téléphone et l'ordinateur.**
+Au-delà de 900 px : navigation latérale, listes en colonnes, glisser à la souris. Mode clair et sombre vérifiés écran par écran, contrastes testés selon les règles WCAG.
+
+## 🛠️ Technologies et services
+
+- **Application** : Flutter 3.44, Dart 3.12, SQLite (stockage local), architecture en dépôts et services.
+- **Temps réel et notifications** : Supabase (amis, présence, messagerie), Firebase Cloud Messaging (push), Google Analytics 4 (mesure anonyme, désactivée par défaut).
+- **Paiement et e-mail** : Stripe Checkout (mode test), FormSubmit / EmailJS pour les confirmations de réservation.
+- **IA** : API Gemini, Hugging Face, secours local.
+- **Données externes** : wger (exercices), Open Food Facts, OpenStreetMap et OpenRouteService (parcours), horaires de prière (mode Ramadan).
+
+## 🚀 Lancer le projet
 
 ```bash
 flutter pub get
-```
-
-```bash
-flutter run -d <id_appareil>
-```
-(l'application est installée automatiquement sur le téléphone ; `<id_appareil>` est donné par `flutter devices`).
-
-Sur ordinateur (navigateur, données de démonstration en mémoire, remises à zéro à chaque rechargement) :
-
-```bash
 flutter run -d chrome --release --web-port 8080
 ```
 
-APK de débogage (fichier `build/app/outputs/flutter-apk/app-debug.apk`, installable à la main) :
+Sur Android : `flutter run -d <id_appareil>`. Sans aucune clé, tout fonctionne avec des données de démonstration réalistes (paiement simulé, IA de secours locale).
 
-```bash
-flutter build apk --debug
-```
+Les clés facultatives (Stripe, Gemini, Supabase, Google Analytics) se placent dans `secrets.json`, jamais versionné. Modèle : `secrets.example.json`.
 
-### Paiement Stripe (mode test, facultatif)
-Sans clé, la boutique utilise la passerelle **simulée** (carte `4242 4242 4242 4242`, date future, CVC quelconque ; `4000 0000 0000 0002` = refus).
-Pour utiliser Stripe Checkout en mode test : copier `secrets.example.json` en `secrets.json` (ignoré par git), y mettre votre clé **`sk_test_…`**, puis :
+### Comptes de démonstration
 
-```bash
-flutter run -d <id_appareil> --dart-define-from-file=secrets.json
-```
+Un panneau « Comptes de démo » sur l'écran de connexion remplit le formulaire d'un toucher.
 
-### Statistiques et Google Analytics (administrateur, facultatif)
-Le bouton **Statistiques** du tableau de bord admin ouvre deux onglets : **GymFlow** (compteurs anonymes de l'application, toujours disponibles) et **Google Analytics** (rapports lus chez Google, clairement étiquetés). La mesure d'audience est **désactivée par défaut** pour chaque abonné (*Confidentialité → Mesure d'audience anonyme*) ; rien n'est envoyé à Google sans ce consentement ni sans les clés ci-dessous.
+| Rôle | E-mail | Mot de passe |
+|---|---|---|
+| Administrateur | admin@gymflow.tn | Admin2026! |
+| Coach | amira@gymflow.tn | Coach2026! |
+| Abonné (historique riche) | ahmed@gymflow.tn | Membre2026! |
+| Abonnée (sans séance) | nour@gymflow.tn | Membre2026! |
 
-| Clé (`secrets.json`) | Rôle |
-|---|---|
-| `GA_MEASUREMENT_ID` | ID de mesure du flux Web GA4 (`G-…`) : envoi des événements |
-| `GA_API_SECRET` | Secret *Measurement Protocol* du flux (envoi uniquement) |
-| `GA_PROPERTY_ID` | ID numérique de la propriété : lecture des rapports (l'admin se connecte avec son compte Google, portée `analytics.readonly`) |
+Ce sont des comptes fictifs, propres à la démonstration.
 
-Mise en place pas à pas et choix de confidentialité : `DECISIONS.md` (« Statistiques d'usage et Google Analytics ») et `SECURITE_CONFIDENTIALITE.md` § 4 ter. Comme pour les autres clés, ne pas compiler la version web publique avec `secrets.json`.
+### Qualité
 
-### Fonction Amis (Supabase, facultatif)
-Les abonnés majeurs peuvent ajouter des amis par e-mail, voir en direct s'ils sont connectés et leur envoyer un message d'encouragement (menu **Mes amis**). Les données partagées vivent sur **Supabase** ; tout le reste reste en local (SQLite).
-
-1. Créer un projet Supabase gratuit (région Europe), puis **Authentication → Sign In / Providers → Email → désactiver « Confirm email »** (démo seulement).
-2. **SQL Editor** : exécuter `supabase/schema.sql`, puis `supabase/004_presence_invisible_invitations.sql`, puis `supabase/005_messagerie_complete.sql` (un seul script pour la messagerie, les signalements et les notifications push), puis `supabase/006_supprimer_compte.sql` (désactiver la fonction Amis supprime le compte du serveur), puis `supabase/007_options_par_discussion.sql` (« Vu » et « en train d'écrire » réglables par discussion). Si la base existait déjà d'une version précédente, exécuter dans l'ordre les fichiers `002`, `003`, `004`…
-3. Ajouter dans `secrets.json` : `SUPABASE_URL` et `SUPABASE_ANON_KEY` (clé « publishable » ; **jamais** la clé `service_role` ni la clé « secret »).
-4. Installer l'APK sur deux téléphones, se connecter avec deux comptes différents (par ex. `ahmed@gymflow.tn` et `nour@gymflow.tn`), activer la fonction dans **Mes amis** sur chacun, puis ajouter l'autre par son e-mail.
-
-**Notifications quand l'application est fermée** : voir `supabase/functions/notify/README.md` (projet Firebase gratuit, quatre valeurs dans `secrets.json`, une fonction Supabase).
-
-Un projet Supabase gratuit est mis en pause après 7 jours sans activité : l'ouvrir (ou utiliser l'application) avant une présentation. Détails et limites : `DECISIONS.md` (« Fonction Amis sur Supabase »).
-
-### Analyse de sentiment des avis (IA, facultatif)
-Les avis commentés reçoivent un ton (😊 / 😐 / 😞). Fournisseurs, dans cet ordre, chacun facultatif dans `secrets.json` :
-
-| Clé | Rôle |
-|---|---|
-| `GEMINI_API_KEY` | **Google Gemini**, fournisseur principal (gratuit, clé créée sur Google AI Studio) |
-| `GEMINI_MODEL` | Modèle Gemini, facultatif ; par défaut `gemini-3.7-flash` |
-| `GEMINI_FALLBACK_MODEL` | Modèle Gemini de secours, facultatif ; par défaut `gemini-flash-latest` |
-| `HF_TOKEN` | **Hugging Face** `tabularisai/multilingual-sentiment-analysis`, secours (jeton *fine-grained* limité à « Inference Providers » ; nécessite des crédits, sinon HTTP 402) |
-
-Gemini : sur 429 (quota), 503 (surcharge) ou délai dépassé, un nouvel essai est fait après une courte pause, puis le modèle de secours est essayé. Si aucun fournisseur ne répond, l'analyse se fait **localement** par mots-clés (français et anglais) et le badge indique « local ». Un appui ou un survol sur le badge affiche la raison (ex. « Gemini (gemini-3.7-flash) : quota dépassé (429) »), aussi en `--release` et jamais avec les clés. Le bouton **« Réanalyser avec l'IA »** relance l'analyse (pour l'auteur de l'avis, le coach du cours et l'admin). Démo sur le PC :
-
-```bash
-flutter run -d chrome --release --web-port 8080 --dart-define-from-file=secrets.json
-```
-
-⚠️ Ne **jamais** compiler la version web publique (`docs/`) avec `secrets.json` : les clés seraient lisibles dans `main.dart.js`.
-
-### Email de confirmation et ticket QR (aucune clé nécessaire)
-À chaque place confirmée (réservation directe ou promotion depuis la liste d'attente), un **email de confirmation** est envoyé en arrière-plan via **FormSubmit**. Ce service est gratuit et ne demande **aucune clé** : sa configuration est commitée dans `lib/core/email_config.dart`. L'email fonctionne donc aussi **sans `secrets.json`**, par exemple sur le PC d'un collègue.
-
-- **Destinataire fixe** : tous les emails partent à `zouaoui.farah@esprit.tn`, puisque les comptes `@gymflow.tn` sont fictifs. Le message contient :
-  - le sujet « ✅ Réservation confirmée – <cours> » ;
-  - l'abonné, le cours, la date en français, le coach, la salle et le code de réservation ;
-  - le lien de l'image QR (`api.qrserver.com`, avec le texte lisible du ticket).
-- Aucun email n'est envoyé pour une simple inscription en liste d'attente, ni pour les réservations du jeu de démo.
-- **Le web doit tourner sur le port 8080** : FormSubmit est activé pour l'origine `http://localhost:8080`. Sur un autre port, ou sur GitHub Pages, le ticket affiche « FormSubmit : origine non activée (…) » au lieu d'envoyer. Pour activer une nouvelle origine, voir DECISIONS.md.
-
-```bash
-# Avec secrets.json (IA, Stripe…)
-flutter run -d chrome --release --web-port 8080 --dart-define-from-file=secrets.json
-# Sans secrets.json (collègue) : l'email fonctionne quand même
-flutter run -d chrome --release --web-port 8080
-```
-Dans VS Code, `.vscode/launch.json` propose ces deux lancements (« GymFlow web (port 8080…) »).
-
-- **Android** : l'application envoie l'en-tête `Referer: http://localhost:8080/`, l'origine activée, puisqu'un client Dart n'en envoie aucun. Rien à configurer.
-- **EmailJS, en option** : si `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID` et `EMAILJS_PUBLIC_KEY` sont présentes dans `secrets.json`, EmailJS est utilisé à la place de FormSubmit (avec `EMAILJS_DEMO_RECIPIENT` facultatif). Sur Android, EmailJS exige l'option *Account → Security → « Allow EmailJS API for non-browser applications »*.
-- Le **ticket** (« Mon ticket », depuis *Cours → Mes réservations* ou la fiche du cours) affiche le QR généré par `api.qrserver.com`, le statut de l'email et le bouton « Renvoyer l'email ». S'il ne charge pas (hors ligne), le code s'affiche en grand. Le coach valide la présence dans *Inscrits → « Valider par code (ticket QR) »*, en saisissant le code ou en collant le texte du QR.
-
-### Démo de la soutenance : cours du jour
-Le jeu de démo contient **« Pilates express (démo) »**, coaché par **Amira**, qui commence **20 min après le lancement de l'application** (arrondi au quart d'heure supérieur) et dure 60 min, avec **Ines** confirmée. La fenêtre de validation par code (de 30 min avant le début à 30 min après la fin) est donc ouverte dès le démarrage, quel que soit le jour.
-
-- **Web** : les données sont recréées à chaque chargement de la page, donc le cours est toujours à la bonne heure.
-- **Android** : la base est conservée. À chaque démarrage, si ce cours est passé (autre jour, ou terminé depuis plus de 30 min), il est **replacé aujourd'hui** et ses réservations sont remises à zéro (Ines confirmée, présence non validée). Tout se fait localement, sans réseau.
-- Un **cours à venir** est aussi prêt : « Yoga Vinyasa » (Amira), demain à 18h00, avec Ines confirmée.
-
-## 5. Dépannage USB
-| Problème | Solution |
-|---|---|
-| `unauthorized` | Débrancher/rebrancher et accepter la fenêtre RSA ; sinon *Options développeur → Révoquer les autorisations de débogage USB* puis recommencer. |
-| `offline` | Redémarrer adb (commandes ci-dessous), changer de port USB. |
-| Aucun appareil listé | Câble « charge seulement » → utiliser un câble données ; mode USB « Transfert de fichiers » ; installer le pilote USB du fabricant (Windows : *Google USB Driver* via SDK Manager, ou pilote Samsung/Xiaomi…). |
-| Installation refusée | Désinstaller une ancienne version de GymFlow, vérifier l'espace libre. |
-
-```bash
-adb kill-server
-```
-
-```bash
-adb start-server
-```
-
-## 6. Comptes de démonstration
-Un panneau « Comptes de démo » sur l'écran de connexion remplit le formulaire d'un toucher (widget `DemoAccountsPanel` dans `lib/screens/auth/auth_screens.dart`, à retirer pour la production).
-
-| Rôle | E-mail | Mot de passe | Particularité |
-|---|---|---|---|
-| Super Admin | admin@gymflow.tn | Admin2026! | Propriétaire |
-| Coach (yoga, pilates) | amira@gymflow.tn | Coach2026! | |
-| Coach (force) | mehdi@gymflow.tn | Coach2026! | |
-| Coach (cardio, boxe) | sarra@gymflow.tn | Coach2026! | |
-| Abonnée | nour@gymflow.tn | Membre2026! | **Aucune séance** : idéale pour la démo du lecteur |
-| Abonné | ahmed@gymflow.tn | Membre2026! | Historique riche, série de 3 jours, programme PPL |
-| Abonnés | leila@, omar@, ines@, rami@, salma@gymflow.tn | Membre2026! | Profils variés |
-| Abonné | hedi@gymflow.tn | Membre2026! | **Abonnement expiré** (réservation refusée) |
-| Désactivé | walid@gymflow.tn | Membre2026! | **Connexion refusée** |
-
-Créations de démo : *Circuit gainage express* d'Ines (publié), *Bras d'acier* de Rami (en attente : à valider avec un compte coach), *Cardio rapide* de Leila (refusé, avec motif), *Mon push maison* et l'exercice *Pompes diamant* d'Ahmed (privés).
-
-Confidentialité dans la démo : **Ahmed**, **Rami** et **Ines** sont visibles avec des réseaux (identifiants fictifs `gymflow.demo.*`, e-mails en `example.com`) ; **Leila** est visible sans réseaux ; tous les autres sont privés. Chaque abonné ne partage qu'une partie de ses séances. À la première connexion, chaque compte passe par la présentation (bouton *Passer* puis *C'est parti*).
-
-Parcours de démo conseillé : se connecter avec **Nour** → présentation → *Entraînement → Workouts → Full Body A* → **Lancer la séance** → valider des séries (minuteur de repos) → *Terminer* → récapitulatif → *Partager* (ou *Garder privée*) → la séance apparaît dans le fil, le profil et la progression. Puis *Membres de la salle* depuis l'accueil, et *Masquer les autres* sur le fil. Ensuite : réserver *Spinning Sunrise* (complet → liste d'attente), acheter en boutique.
-
-Réinitialiser les données : désinstaller l'application (ou *Paramètres Android → Applications → GymFlow → Stockage → Effacer les données*).
-
-## 7. Architecture
-```
-lib/
-  main.dart, app.dart          # main() → runApp(), MaterialApp, routes
-  core/      theme (palette, onColor), contrast (WCAG), routes (garde de rôle),
-             config, validators, security (PBKDF2), formatters, errors,
-             legal (CGU, politique, versions), responsive (téléphone / ordinateur)
-  models/    user, exercise, workout (workout + programme), session_log,
-             course (cours + réservation), shop, misc (notification, audit, annonce)
-  repositories/ data_store (interface + mémoire), sqlite_data_store, repository<T>
-  services/  backend (point d'accès), auth, user, exercise, workout, training_log,
-             progress, course, reservation, notification, product, cart, order,
-             payment/ (Stripe test + simulé), wger_api, media_storage, dashboard,
-             announcement, audit, privacy (consentements, export, suppression),
-             community (annuaire, signalement, modération), platform/ (notifications, agenda, stockage sécurisé),
-             seed/ (jeu de démonstration)
-  screens/   auth (dont intro_tour), shell (navigation par rôle : barre du bas ou
-             latérale + Drawer), home, coach, training, courses, shop, profile,
-             admin, community (annuaire, profil public), privacy (réglages, textes
-             légaux), misc
-  widgets/   cartes, animations, graphiques, médias (YouTube, vidéo), sélecteurs…
-test/        règles métier, droits, sécurité, contraste, SQLite, widgets, parcours
-integration_test/  parcours complet sur téléphone
-```
-Notions du cours utilisées : `main/runApp/MaterialApp`, `Scaffold/AppBar/Card…`, `ListView.builder`, `GridView.count/builder`, `TextField` (`onChanged/onSubmitted`), `Form` + `GlobalKey<FormState>` + `TextFormField` avec `validator`, `StatefulWidget/setState`, `GestureDetector`, `Navigator.push/pushReplacement/pop`, routes nommées avec `arguments`, `Drawer`, `BottomNavigationBar`, `TabBar`.
-
-## 8. Qualité
 ```bash
 flutter analyze
-```
-
-```bash
 flutter test
 ```
 
-Test d'intégration sur le téléphone branché :
+`flutter analyze` : 0 problème. Plus de 230 tests : règles métier, droits d'accès, sécurité, contraste, SQLite réel, widgets et parcours complets.
 
-```bash
-flutter test integration_test/app_test.dart -d <id_appareil>
-```
+## 📄 Licence
+
+© 2026 les auteurs du projet GymFlow. Tous droits réservés (voir [LICENSE](LICENSE)).
