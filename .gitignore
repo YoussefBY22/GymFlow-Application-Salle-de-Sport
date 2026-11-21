@@ -46,3 +46,7 @@ app.*.map.json
 
 # Clés locales (Stripe test) — ne jamais versionner
 secrets.json
+
+# Documents de travail : gardes en local, jamais versionnes
+*.md
+!/README.md
